@@ -45,7 +45,7 @@ has, and the UTF-16 boundary they cross is Windows' own.
 ## Tests
 
 <!-- test: an-argument-from-a-wide-parent-arrives-as-utf8 -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell starts the program with the argument `日本`, and `CommandLine.args()` hands it over as the
 six bytes of its UTF-8 spelling.
@@ -62,7 +62,6 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -109,7 +108,7 @@ end 'main'
 ```
 
 <!-- test: an-environment-variable-from-a-wide-parent-arrives-as-utf8 -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell sets `MAXON_WIDE_TEXT` to `日本` and starts the program, and `Process.environmentVariable`
 hands the value over as the six bytes of its UTF-8 spelling.
@@ -126,7 +125,6 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -173,12 +171,10 @@ end 'main'
 ```
 
 <!-- test: an-argument-handed-to-a-child-reaches-it-in-utf16 -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 The program hands PowerShell the argument `'日本'`, and PowerShell reads the two characters U+65E5 U+672C.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -188,7 +184,7 @@ function printLines(text String)
 end 'printLines'
 
 function main() returns ExitCode
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("-NoProfile")
 	argv.push("-NonInteractive")
 	argv.push("-Command")
@@ -207,7 +203,6 @@ end 'main'
 ```
 
 <!-- test: an-environment-variable-handed-to-a-child-reaches-it-in-utf16 -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
 
@@ -215,7 +210,6 @@ The program starts PowerShell with `MAXON_WIDE_TEXT` set to `日本` through `En
 and PowerShell reads the two characters U+65E5 U+672C.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -225,12 +219,12 @@ function printLines(text String)
 end 'printLines'
 
 function main() returns ExitCode
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("-NoProfile")
 	argv.push("-NonInteractive")
 	argv.push("-Command")
 	argv.push("([int[]][char[]]$env:MAXON_WIDE_TEXT) -join ','")
-	let config = Configuration.create(MxExecutable.name("powershell"))
+	var config = Configuration.create(MxExecutable.name("powershell"))
 	config.arguments = argv
 	config.environment = Environment.inheritUpdating(["MAXON_WIDE_TEXT": "日本"])
 	let result = try config.run() otherwise return 2
@@ -246,12 +240,11 @@ end 'main'
 ```
 
 <!-- test: a-file-maxon-names-is-so-named-on-disk -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 The program writes `日本.txt`, and PowerShell finds a file of exactly that name in the directory.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -302,14 +295,13 @@ end 'main'
 ```
 
 <!-- test: a-file-named-on-disk-is-listed-and-opened-in-utf8 -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell makes a directory `日本` and a file `日本.txt` holding `ok`. `Directory.list` names both in
 UTF-8, `File.exists`, `Directory.exists` and `File.readText` find them by their UTF-8 names, and
 `File.delete` and `Directory.delete` remove them.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -379,14 +371,13 @@ content ok
 ```
 
 <!-- test: a-directory-maxon-creates-renames-and-removes-is-named-so-on-disk -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 The program makes a directory `日本`, writes `日本.txt` inside it and renames that to `本日.txt`, and
 PowerShell finds exactly those names on disk. The program then removes both, and PowerShell finds
 nothing left.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -452,7 +443,7 @@ end 'main'
 ```
 
 <!-- test: the-current-directory-and-the-executable-path-come-back-in-utf8 -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell copies the program into a directory `日本` and runs the copy from inside it.
 `Directory.currentPath()` and `Process.executablePath()` both name that directory in UTF-8.
@@ -469,7 +460,6 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -530,7 +520,7 @@ current directory 26085,26412 6
 ```
 
 <!-- test: a-child-started-in-a-utf8-working-directory-sees-it-in-utf16 -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
 
@@ -538,7 +528,6 @@ PowerShell makes a directory `日本`, and the program starts PowerShell again w
 working directory. PowerShell finds itself in a directory named U+65E5 U+672C.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -587,7 +576,7 @@ end 'main'
 ```
 
 <!-- test: a-supplementary-plane-argument-arrives-as-utf8 -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell starts the program with the argument U+1F600, which UTF-16 spells as the surrogate pair
 D83D DE00. `CommandLine.args()` hands it over as one code point in four UTF-8 bytes.
@@ -604,7 +593,6 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -651,7 +639,7 @@ end 'main'
 ```
 
 <!-- test: a-file-name-with-a-lone-surrogate-is-listed-as-the-replacement-character -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 NTFS stores a name as UTF-16 units without checking that they pair, so PowerShell can make a file named
 `a`, a lone high surrogate D800, then `b.txt`. UTF-8 has no spelling for a lone surrogate, so
@@ -669,7 +657,6 @@ function codepointsOf(text String) returns String
 end 'codepointsOf'
 
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -721,7 +708,7 @@ end 'main'
 ```
 
 <!-- test: a-name-of-the-longest-component-is-listed-whole -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 NTFS allows a name component of 255 UTF-16 units. PowerShell makes a file named with 255 of U+65E5, and
 `Directory.list` names it whole: 255 code points in 765 UTF-8 bytes. The full path is longer than
@@ -729,7 +716,6 @@ NTFS allows a name component of 255 UTF-16 units. PowerShell makes a file named 
 short.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -785,14 +771,13 @@ end 'main'
 ```
 
 <!-- test: a-program-in-a-utf8-path-directory-is-found-by-name -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell copies the program into a directory `日本` as `maxon-wide-probe.exe`. The program starts
 itself with that directory at the head of `PATH`, and that child starts `maxon-wide-probe` by its bare
 name: the `PATH` search walks the `日本` directory and finds it.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -874,7 +859,7 @@ found
 ```
 
 <!-- test: a-redirect-file-with-a-utf8-name-is-written-and-read -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
 
@@ -884,7 +869,6 @@ read from `本日.txt` (`InputSource.file`) and its standard output written to `
 disk, and `ping` in `日本.txt`.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -948,7 +932,7 @@ ping
 ```
 
 <!-- test: a-redirect-to-a-utf8-name-that-cannot-open-reports-the-failure -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
 
@@ -958,7 +942,6 @@ stream can open: the spawn fails as `spawnFailed`, carrying the access-denied co
 for a directory opened as a file, and launches nothing.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -1023,14 +1006,12 @@ stdout spawn failed: os error 5
 ```
 
 <!-- test: a-shared-memory-segment-named-in-utf8-is-adopted-under-that-name -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 PowerShell publishes a named section `maxon-wide-日本` through .NET's `MemoryMappedFile`, writes 42 into
 its first word and starts the program. `SharedSegment.create` under the UTF-8 name adopts that section:
 it reads the 42 and writes 7 into the second word, which PowerShell reads back once the program exits.
 ```maxon
 function printLines(text String)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'each'
 		let trimmed = line.trim()
 		if trimmed.byteLength() > 0 'nonEmpty'
@@ -1049,7 +1030,7 @@ function powershell(script String) returns String
 	if let result = try MxSubprocess.run(MxExecutable.name("powershell"), arguments: argv) 'ran'
 		outcome = result.stdout
 		if not result.succeeded() 'failed'
-			outcome.append("powershell exit {result.exitCode()}: {result.stderr}\n")
+			outcome = "{outcome}powershell exit {result.exitCode()}: {result.stderr}\n"
 		end 'failed'
 	end 'ran' else (e) 'refused'
 		outcome = "{e.displayReason()}\n"

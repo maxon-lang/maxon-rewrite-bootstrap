@@ -140,17 +140,15 @@ end 'main'
 ```
 
 <!-- test: http-client.a-caller-set-connection-header-is-sent -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 ```maxon
 function connectionLines(request HttpRequest) returns String
 	var found = ""
 	let target = try httpConnectTargetOf(request.url()) otherwise return "no-target"
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in httpBuildRequest(request, target: target).split("\r\n") 'eachLine'
-		var lowered = line
+		var lowered = line.clone()
 		lowered = lowered.toLower()
 		if lowered.startsWith("connection:") 'aConnectionLine'
-			found.append("[{lowered}]")
+			found = "{found}[{lowered}]"
 		end 'aConnectionLine'
 	end 'eachLine'
 	return found
@@ -158,7 +156,7 @@ end 'connectionLines'
 
 function main() returns ExitCode
 	let plain = try HttpRequest.create(HttpMethod.get, url: "http://example.com/") otherwise return 1
-	let chosen = try HttpRequest.create(HttpMethod.get, url: "http://example.com/") otherwise return 2
+	var chosen = try HttpRequest.create(HttpMethod.get, url: "http://example.com/") otherwise return 2
 	chosen.setHeader("Connection", value: "keep-alive")
 	print("default={connectionLines(plain)} chosen={connectionLines(chosen)}\n")
 	return 0
@@ -172,7 +170,6 @@ default=[connection: close] chosen=[connection: keep-alive]
 ```
 
 <!-- test: http-client.the-default-port-follows-the-scheme -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 An `https` URL without a port dials 443 and an `http` one dials 80, and the `Host` header leaves out the port only
 when it is the default of the URL's own scheme: `:443` is kept on an `http` URL and `:80` on an `https` one.
 ```maxon
@@ -180,10 +177,9 @@ function hostLine(url String) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: url) otherwise return "no-request"
 	let target = try httpConnectTargetOf(request.url()) otherwise return "no-target"
 	var found = ""
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in httpBuildRequest(request, target: target).split("\r\n") 'eachLine'
 		if line.startsWith("Host:") 'aHostLine'
-			found.append("[{line}]")
+			found = "{found}[{line}]"
 		end 'aHostLine'
 	end 'eachLine'
 	return "{target.host}:{target.port} {found}"
@@ -212,7 +208,6 @@ example.com:443 [Host: example.com:443]
 ```
 
 <!-- test: http-client.an-ipv6-url-dials-the-bare-address-and-names-itself-in-brackets -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 An IPv6 literal in a URL is bracketed to keep its colons apart from the port, and the brackets are the URL's, not the
 address's: the connect target and the TLS server name are the bare address, and the `Host` header, which is an authority,
 keeps the brackets and drops the port only when it is the scheme's default.
@@ -221,10 +216,9 @@ function hostLine(url String) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: url) otherwise return "no-request"
 	let target = try httpConnectTargetOf(request.url()) otherwise return "no-target"
 	var found = ""
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in httpBuildRequest(request, target: target).split("\r\n") 'eachLine'
 		if line.startsWith("Host:") 'aHostLine'
-			found.append("[{line}]")
+			found = "{found}[{line}]"
 		end 'aHostLine'
 	end 'eachLine'
 	return "{target.host} {target.port} {found}"
@@ -251,7 +245,6 @@ v1.fe 81 [Host: [v1.fe]:81]
 ```
 
 <!-- test: http-client.an-ipv6-loopback-server-is-reached-by-its-bracketed-url -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- procs: 1 -->
 `http://[::1]:<port>/` reaches a server listening on the IPv6 loopback: the client connects to `::1` and sends the
 authority `[::1]:<port>` as `Host`. The peer is a raw listener so the case reads the `Host` line the client wrote.
@@ -259,31 +252,39 @@ authority `[::1]:<port>` as `Host`. The peer is a raw listener so the case reads
 let RequestBytes = 4096
 
 function answer(mutates listener TcpListener) returns String
-	let conn = try listener.accept() otherwise return "accept-failed"
-	let socketValue1 = try conn.readSome(RequestBytes) otherwise return "recv-failed"
+	var conn = try listener.accept() otherwise return "accept-failed"
+	let socketValue1 = try conn.readSome(RequestBytes) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "recv-failed"
+	end 'connEnded'
 	let request = String.from(socketValue1)
-	_ = try conn.send("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi") otherwise return "send-failed"
+	_ = try conn.send("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nhi") otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "send-failed"
+	end 'connEnded'
 	var hostLine = "no-host-line"
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in request.split("\r\n") 'eachLine'
 		if line.startsWith("Host:") 'aHostLine'
-			hostLine = line
+			hostLine = line.clone()
 		end 'aHostLine'
 	end 'eachLine'
+	try conn.close() otherwise ignore
 	return hostLine
 end 'answer'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("::1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("::1", port: 0) otherwise return 1
 	let port = listener.port()
 	let peer = async answer(listener)
 	let response = try HttpClient.get("http://[::1]:{port}/x") otherwise (e) 'failed'
 		print("failed {e.name}\n")
 		peer.cancel()
+		try listener.close() otherwise ignore
 		return 2
 	end 'failed'
 	let hostLine = await peer
 	print("status={response.statusCode().number()} body={response.body()} host-line-ok={hostLine == "Host: [::1]:{port}"}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```
@@ -858,11 +859,10 @@ client=invalidResponse peer=stoppedEarly=true
 ```
 
 <!-- test: http-client.repeated-response-headers-are-combined -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 ```maxon
 function finalResponseOf(head String) returns HttpResponse throws HttpError
 	match try httpResponseStatusOf(head) 'status'
-		final(response) then return response
+		final(response) then return response.clone()
 		interim then throw HttpError.invalidResponse
 	end 'status'
 end 'finalResponseOf'
@@ -874,7 +874,6 @@ function main() returns ExitCode
 	let length = try response.header("content-length") otherwise "absent"
 	print("vary={vary}\n")
 	print("cookies={cookies.split("\n").count()}\n")
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for cookie in cookies.split("\n") 'eachCookie'
 		print("cookie={cookie}\n")
 	end 'eachCookie'

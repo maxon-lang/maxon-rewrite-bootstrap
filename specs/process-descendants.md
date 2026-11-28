@@ -430,7 +430,6 @@ exit=0 found=2 direct=true orphan=true ended=true
 ```
 
 <!-- test: process-descendants.an-armed-case-that-leaves-a-sleeper-reports-it-in-a-framed-line -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a child with `MAXON_TRACK_DESCENDANTS=A<token>`. The child detaches a long sleeper
@@ -472,7 +471,6 @@ end 'detachSleeper'
 
 function framedPids(text String) returns PidArray
 	let found = PidArray.create(0)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'eachLine'
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.replace(FramePrefix, with: "").split(" ")
@@ -486,7 +484,6 @@ end 'framedPids'
 
 function framedTokens(text String) returns StringArray
 	let found = StringArray.create(0)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'eachLine'
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.split(TokenSeparator)
@@ -602,7 +599,6 @@ exit=0 childSaid=sawD=true ended=true framed=false
 ```
 
 <!-- test: process-descendants.the-children-of-an-armed-case-do-not-arm -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The armed child runs the program a second time, as a grandchild that inherits the token. The grandchild leaves a
@@ -646,7 +642,6 @@ end 'detachSleeper'
 
 function framedPids(text String) returns PidArray
 	let found = PidArray.create(0)
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'eachLine'
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.replace(FramePrefix, with: "").split(" ")
@@ -682,7 +677,6 @@ function main() returns ExitCode
 	config.environment = Environment.inheritUpdating(overrides)
 	let child = try config.run() otherwise return 3
 	var sleeper = 0 as Pid
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in child.stdout.split("\n") 'eachLine'
 		if line.startsWith(SleeperLabel) 'theSleeper'
 			let parsed = try int.fromString(line.trim().replace(SleeperLabel, with: "")) otherwise return 4

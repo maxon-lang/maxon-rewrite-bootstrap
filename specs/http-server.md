@@ -1432,7 +1432,6 @@ status=200 accept=served post /form [hi]
 ### A HEAD response carries no body
 
 <!-- test: http-server.a-head-response-carries-no-body -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- procs: 1 -->
 ```maxon
 typealias Served = int(0 to 9)
@@ -1478,7 +1477,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let head = try parts.get(0) otherwise "no-head"
 	let body = try parts.get(1) otherwise "no-body"
 	var length = "absent"
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in head.split("\r\n") 'eachLine'
 		if line.toLower().startsWith("content-length:") 'theLength'
 			length = line

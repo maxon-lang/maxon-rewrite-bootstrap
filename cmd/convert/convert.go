@@ -2288,7 +2288,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case "for":
 			if !hasRangeKeyword(toks) && !iteratesSupported(toks) {
-				warn(line, "for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view")
+				warn(line, "for loops over graphemes(), characters() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view")
 			}
 		case "let", "var":
 			if len(toks) > 1 && toks[1].kind == tokIdent && isKeywordName(toks[1].text) {
@@ -2776,11 +2776,11 @@ func hasToken(toks []token, text string) bool {
 
 // unsupportedIterations are the members whose result a for loop cannot walk in minimaxon, which iterates arrays, lists,
 // the entries of a map, a string's grapheme clusters, an enum's cases and names, cursors, and the views of a string's
-// bytes, code points and UTF-16 units: a string's characters, grapheme clusters and pieces as maxon's methods give them,
-// maxon's cursors and the cases of a union. A name is a member only after a dot, and a method only when called, so a
+// bytes, code points and UTF-16 units: a string's characters and grapheme clusters as maxon's methods give them (its
+// split gives an array here, which a loop walks), maxon's cursors and the cases of a union. A name is a member only after a dot, and a method only when called, so a
 // variable or a field of that name is left to the checker.
 var unsupportedIterations = map[string]bool{
-	"graphemes": true, "characters": true, "split": true, "lines": true,
+	"graphemes": true, "characters": true, "lines": true,
 	"cursor": true, "createIterator": true, unionCasesMember: true,
 }
 

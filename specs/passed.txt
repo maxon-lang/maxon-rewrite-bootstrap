@@ -3737,16 +3737,21 @@ hold-window-across-ternary-blocks.md: a-clear-inside-a-short-circuit-arm-of-a-te
 hold-window-across-ternary-blocks.md: a-range-check-inside-a-short-circuit-arm-stays-in-front-of-its-value
 hold-window-across-ternary-blocks.md: a-ternary-arm-that-releases-nothing-leaves-the-read-uncounted-and-correct
 http-client.md: http-client.a-body-over-the-callers-cap-is-refused
+http-client.md: http-client.a-caller-set-connection-header-is-sent
 http-client.md: http-client.a-chunked-response-is-decoded
 http-client.md: http-client.a-kept-alive-response-ends-at-its-declared-length
 http-client.md: http-client.a-response-header-name-is-a-token-and-host-is-a-request-rule
 http-client.md: http-client.an-ftp-url-is-refused-before-connecting
 http-client.md: http-client.an-interim-response-is-skipped
+http-client.md: http-client.an-ipv6-loopback-server-is-reached-by-its-bracketed-url
+http-client.md: http-client.an-ipv6-url-dials-the-bare-address-and-names-itself-in-brackets
 http-client.md: http-client.an-unlisted-status-is-carried-by-its-number
 http-client.md: http-client.build-request
 http-client.md: http-client.conflicting-repeated-singleton-headers-are-refused
 http-client.md: http-client.every-named-status-round-trips-through-its-number
 http-client.md: http-client.invalid-url
+http-client.md: http-client.repeated-response-headers-are-combined
+http-client.md: http-client.the-default-port-follows-the-scheme
 if-statements.md: else-if-chain-every-arm
 if-statements.md: error.mismatched-else-end-label
 if-statements.md: error.mismatched-if-end-label
@@ -8118,6 +8123,7 @@ string-methods-ascii.md: a-replacement-argument-that-is-the-receiver
 string-methods-ascii.md: adjacent-and-overlapping-matches-count-once
 string-methods-ascii.md: affix-predicate-argument-is-a-live-binding
 string-methods-ascii.md: affix-predicate-argument-is-an-owned-temporary
+string-methods-ascii.md: byte-methods-on-a-top-level-managed-binding
 string-methods-ascii.md: case-conversion-leaves-non-ascii-bytes-untouched
 string-methods-ascii.md: empty-receiver-for-every-byte-method
 string-methods-ascii.md: predicate-argument-longer-than-the-receiver
@@ -8247,6 +8253,7 @@ string-type.md: replace-with-empty
 string-type.md: replaceFirst-multiple-occurrences
 string-type.md: replaceFirst-no-match
 string-type.md: replaceFirst-single
+string-type.md: split-result-crosses-a-user-function-and-a-struct-field
 string-type.md: startsWith
 string-type.md: string-interpolation-concatenation
 string-type.md: utf16-ascii

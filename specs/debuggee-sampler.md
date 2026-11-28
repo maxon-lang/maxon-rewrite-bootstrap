@@ -734,7 +734,6 @@ accessDenied
 ```
 
 <!-- test: a-dropped-seized-set-detaches-the-threads-it-holds -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
 <!-- process: own -->
@@ -781,7 +780,6 @@ end 'seizeAndDrop'
 function isTraced(pid Pid) returns bool
 	let path = try FilePath.from("/proc/{pid}/status") otherwise panic("a process id spells a path")
 	let text = try File.readText(path) otherwise panic("the child's status file is readable while the child lives")
-	// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 	for line in text.split("\n") 'eachLine'
 		if line.startsWith("TracerPid:") 'thisOne'
 			let value = try line.split("\t").get(1) otherwise panic("a tracer line carries a value")

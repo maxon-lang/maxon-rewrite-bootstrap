@@ -1035,7 +1035,6 @@ end 'main'
 ```
 
 <!-- test: split-result-crosses-a-user-function-and-a-struct-field -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 ### An owned `Array with String` survives being returned out of the corpus body
 `split` is the only corpus `String` member that CONSTRUCTS a container. The corpus builds it through
 `StringArray.create(0)` (`stdlib/String.maxon:621-625`), so the corpus decides that array's element size
@@ -1054,7 +1053,7 @@ type Holder
 	export var parts as Pieces
 
 	static function create(parts Pieces) returns Self
-		return Self{parts: parts}
+		return Self{parts: parts.clone()}
 	end 'create'
 end 'Holder'
 
@@ -1068,10 +1067,9 @@ function main() returns ExitCode
 	let h = Holder.create(pieces("p,q"))
 	let first = try h.parts.get(0) otherwise panic("two elements were pushed")
 	print("[{first}]\n")
-	let derived = ["seed"]
+	var derived = ["seed"]
 	for round in 0 upto 200 'rounds'
 		let tmp = "{round},x,{round}"
-		// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 		for p in tmp.split(",") 'each'
 			derived.push(p.clone())
 		end 'each'

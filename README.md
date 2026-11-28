@@ -5865,7 +5865,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `String` that the body changes, where maxon's loop over a list ends when it finds no next node. A loop over a `String`
   gives each grapheme cluster as a `String`, a view of the walked String's bytes, where maxon's gives a `Character`. `E.allCases`
   and `E.allCaseNames` are a new array each time they are read, since an array has one owner, and `Shape.unionCases` is not
-  supported. Not supported, and skipped by the converter: a loop over `graphemes()`, `characters()`, `split()` or `lines()`. maxon's `for (iter, x) in xs.withIterator()`, whose iterator the
+  supported. Not supported, and skipped by the converter: a loop over `graphemes()`, `characters()` or `lines()`; a loop over `split(delimiter)` walks the array of its pieces. maxon's `for (iter, x) in xs.withIterator()`, whose iterator the
   body asks for `iter.index()`, is `for (i, x) in xs.enumerated()` here, as in Hylo and Swift: the loop binds the index
   itself and there is no iterator object, so an array is walked with its indexes at the cost of the plain loop, and any
   other collection with the count of its passes, which is what a range's `index()` gives in maxon. The

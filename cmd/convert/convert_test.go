@@ -724,7 +724,7 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		{
 			name:     "for loop over a string's lines",
 			in:       "function f(s String)\n\tfor b in s.lines() 'each'\n\t\tprint(\"{b}\")\n\tend 'each'\nend 'f'\n",
-			wantTodo: "for loops over graphemes(), characters(), split() or lines() of a string",
+			wantTodo: "for loops over graphemes(), characters() or lines() of a string",
 		},
 		{
 			name:     "byte string spanning lines",

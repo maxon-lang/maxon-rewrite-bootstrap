@@ -1778,7 +1778,6 @@ no draw keys the process fold: true
 ```
 
 <!-- test: concurrent-pinned-draws-never-repeat-an-index -->
-<!-- skip: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view -->
 <!-- procs: 4 -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
 Under a pin the n-th draw of a process is the n-th seed of the pin's sequence, and the n is one counter the whole
@@ -1807,7 +1806,7 @@ let SpelledSeedLength = 16
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -1819,42 +1818,41 @@ type Drawer
 		return Self{made: 0}
 	end 'create'
 
-	export function draw(count Tally) returns String
+	export function draw(mutates self, count Tally) returns String
 		var lines = ""
 		for _ in 0 upto count 'eachDraw'
-			lines.append("{toHex(HashSeed.random().toBytes())}\n")
-			self.made = self.made + 1
+			lines = "{lines}{toHex(HashSeed.random().toBytes())}\n"
+			self.made = try self.made + 1 otherwise panic("out of range")
 		end 'eachDraw'
 		return lines
 	end 'draw'
 end 'Drawer'
 
 function main() returns ExitCode
-	let handles = DrawerHandleArray.create(0)
+	var handles = DrawerHandleArray.create(0)
 	for _ in 0 upto drawers 'spawnEach'
 		handles.push(spawn Drawer.create())
 	end 'spawnEach'
-	let replies = DrawsPromiseArray.create(0)
+	var replies = DrawsPromiseArray.create(0)
 	for handle in handles 'sendEach'
 		replies.push(try handle.draw(drawsEach) otherwise panic("an open mailbox with room takes the send"))
 	end 'sendEach'
-	let seen = DrawnSet.create()
+	var seen = DrawnSet.create()
 	var lines = 0 as Tally
 	var spelled = true
 	for reply in replies 'collect'
 		let text = await reply
-		// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 		for line in text.split("\n") 'eachLine'
 			if line != "" 'aDraw'
 				spelled = spelled and line.count() == SpelledSeedLength
-				seen.insert(line)
-				lines = lines + 1
+				seen.insert(line.clone())
+				lines = try lines + 1 otherwise panic("out of range")
 			end 'aDraw'
 		end 'eachLine'
 	end 'collect'
 	print("every service drew its share: {lines == drawers * drawsEach}\n")
 	print("every line spells a seed: {spelled}\n")
-	print("no two draws repeat a seed: {(seen.count() as Tally) == lines}\n")
+	print("no two draws repeat a seed: {(try seen.count() as Tally otherwise panic("out of range")) == lines}\n")
 	return 0
 end 'main'
 ```

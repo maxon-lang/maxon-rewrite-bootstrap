@@ -423,7 +423,6 @@ extension FilePath
 		let rooted = isAbsolute()
 		let rest = try path.addressableBytes().slice(rootLength, path.byteLength()) otherwise panic("FilePath.folded: the root is a prefix of the path")
 		var kept = PathComponentArray.create(0)
-		// TODO: for loops over graphemes(), characters(), split() or lines() of a string are not supported in minimaxon; loop over the string itself, whose elements are its grapheme clusters, or a view
 		for component in String.init(rest).split(pathSeparator) 'eachComponent'
 			if component.isEmpty() or component == CurrentDirectoryComponent 'noStep'
 				continue
