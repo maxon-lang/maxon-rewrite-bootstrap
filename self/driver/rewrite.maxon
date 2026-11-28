@@ -5,6 +5,8 @@ let keywordFlagPrefix = "--keyword="
 
 let keywordSeparator = "="
 
+let servicesFlag = "--services"
+
 // markdownSkipText is what a report of skipped Markdown code says after the count.
 let markdownSkipText = "code spans or blocks that do not lex, first"
 
@@ -38,6 +40,17 @@ end 'splitRename'
 
 // rewriteCommand is the rewrite command: rest holds its name, --keyword=old=new and the paths.
 function rewriteCommand(rest CommandNames) returns ExitCode
+	if rest.count() >= 3 and rest.get(1) == servicesFlag 'services'
+		var roots = ast.StringList.create(0)
+		var at = 0 as Count
+		for argument in rest 'roots'
+			if at >= 2 'root'
+				roots.push(argument.clone())
+			end 'root'
+			at = increment(at)
+		end 'roots'
+		return rewriteServices(roots)
+	end 'services'
 	if rest.count() < 3 or not hasPrefix(rest[1], prefix: keywordFlagPrefix) 'usage'
 		printError(usage())
 		return usageExitCode
@@ -113,3 +126,347 @@ function renameKeyword(rename Rename, paths ast.StringList) returns ExitCode
 	print("renamed {renamed} uses of '{rename.old}' in {changedFiles} files; {skipped} files or Markdown code spans that may hold it could not be lexed\n")
 	return 0
 end 'renameKeyword'
+
+// typeKeyword and serviceKeyword are the words that open the header of a type and of a service, and spawnKeyword is what a
+// program that holds a spawn says.
+let typeKeyword = "type"
+
+let serviceKeyword = "service"
+
+let spawnKeyword = "spawn"
+
+// ServiceTarget is the header word `type` of a type that a spawn starts: where it stands in its file.
+type ServiceTarget
+	var file as String
+	var offset as Count
+	var name as String
+
+	static function make(consumes file String, offset Count, consumes name String) returns ServiceTarget
+		return ServiceTarget{file: file, offset: offset, name: name}
+	end 'make'
+
+	// key tells one header from another.
+	function key() returns String
+		return "{file}:{offset}"
+	end 'key'
+end 'ServiceTarget'
+
+typealias ServiceTargets = Array with ServiceTarget
+
+// ServiceRewrite is what the spawns of the programs have found: the types they start that are still declared with `type`, and
+// the places that were reported instead.
+type ServiceRewrite
+	var targets as ServiceTargets
+	var known as table.StringMap with Count
+	var reported as table.StringMap with Count
+	var unresolved as Count
+	var programs as Count
+
+	static function new() returns ServiceRewrite
+		return ServiceRewrite{targets: ServiceTargets.create(0), known: table.StringMap.new(), reported: table.StringMap.new(), unresolved: 0 as Count, programs: 0 as Count}
+	end 'new'
+
+	// report says once what is not edited at the place, however many spawns start the type.
+	function report(mutates self, place String, text String)
+		if reported.has(place) 'said'
+			return
+		end 'said'
+		reported.insert(place.clone(), value: 0 as Count)
+		print("not edited  {place}: {text}\n")
+	end 'report'
+
+	// noteTarget takes the header of a type that a spawn starts, which a generic type keeps as it is.
+	function noteTarget(mutates self, consumes target ServiceTarget, generic bool)
+		let key = target.key()
+		if generic 'generic'
+			report(key, text: "'{target.name}' has type parameters, and a service takes none yet")
+			return
+		end 'generic'
+		if known.has(key) 'known'
+			return
+		end 'known'
+		known.insert(key, value: targets.count())
+		targets.push(target)
+	end 'noteTarget'
+end 'ServiceRewrite'
+
+// placeText is the file, the line and the column that the offset of a module is.
+function placeText(m ast.Module, offset diag.U32) returns String
+	let place = ast.locateModuleOffset(m, offset: offset)
+	return "{place.file}:{place.line}:{place.col}"
+end 'placeText'
+
+// isBlankInLine is whether c is a space or a tab.
+function isBlankInLine(c Byte) returns bool
+	return c == spaceByte or c == tabByte
+end 'isBlankInLine'
+
+// headerWordBefore is the offset of the word `type` that stands before the name of a type at nameAt in text, or nothing where
+// something else does.
+function headerWordBefore(text String, nameAt Count) returns table.Option with Count
+	var stop = nameAt
+	while stop > 0 and isBlankInLine(text.byteAt(stop - 1)) 'blanks'
+		stop = stop - 1
+	end 'blanks'
+	let begin = try stop - typeKeyword.byteLength() otherwise return table.Option.none
+	if not hasName(text, at: begin, name: typeKeyword) 'other'
+		return table.Option.none
+	end 'other'
+	if begin > 0 and isNameByte(text.byteAt(begin - 1)) 'longer'
+		return table.Option.none
+	end 'longer'
+	return table.Option.some(begin)
+end 'headerWordBefore'
+
+// headerOf is the header word of the type that the node id of a module declares, or nothing where the module's text does not
+// say `type` before its name.
+function headerOf(m ast.Module, id ast.NodeID, name String) returns table.Option with ServiceTarget
+	let nameAt = m.tree.reportStartOf(id)
+	var file = ""
+	var start = 0 as diag.U32
+	for span in m.files 'files'
+		if span.start <= nameAt 'inside'
+			file = span.path.clone()
+			start = span.start
+		end 'inside'
+	end 'files'
+	if file == "" 'none'
+		return table.Option.none
+	end 'none'
+	let local = try (nameAt as Count) - (start as Count) otherwise panic("rewrite: a declaration before its file")
+	let word = headerWordBefore(readSourceText(file), nameAt: local)
+	if not word.isSome() 'missing'
+		return table.Option.none
+	end 'missing'
+	return table.Option.some(ServiceTarget.make(file.clone(), offset: word.unwrap(), name: name.clone()))
+end 'headerOf'
+
+// noteSpawn adds the type that the spawn at id starts, which the checker resolved, to found: the type that owns the static
+// factory it calls, wherever it is declared.
+function noteSpawn(mutates found ServiceRewrite, p ast.Project, m ast.Module, index Count, id ast.NodeID)
+	let at = placeText(m, offset: m.tree.startOf(id))
+	let info = callInfoOf(p, module: index, id: ast.spawnExprCall(m.tree, id: id))
+	if info.kind != ast.CallKind.callStatic 'unresolved'
+		found.unresolved = increment(found.unresolved)
+		print("unresolved  {at}: the checker did not resolve this spawn to a static factory\n")
+		return
+	end 'unresolved'
+	let owner = ast.funcEntry(ast.FuncSlot.none(), funcReads: p.funcs, f: info.fn).ownerTy
+	let origin = ast.originOf(ast.TypeSlot.none(), reads: p.types, t: owner)
+	let entry = ast.typeEntry(ast.TypeSlot.none(), reads: p.types, t: origin).clone()
+	if entry.isService 'service'
+		return
+	end 'service'
+	if not entry.hasDecl or entry.decl.module == diag.stdlibID or not ast.declIsType(p, ref: entry.decl) 'builtin'
+		found.report(at, text: "'{entry.name}' is not a type that a program declares")
+		return
+	end 'builtin'
+	for declaring in p.modules 'modules'
+		if declaring.id != entry.decl.module 'other'
+			continue 'modules'
+		end 'other'
+		match consumes headerOf(declaring, id: ast.declNodeID(p, ref: entry.decl), name: entry.name) 'header'
+			some(target) then found.noteTarget(target, generic: entry.typeParams.count() > 0)
+			none then found.report(at, text: "the header of '{entry.name}' does not say `{typeKeyword}` before its name")
+		end 'header'
+	end 'modules'
+end 'noteSpawn'
+
+// isLibraryProgram is whether the root module of p is the library's: the program is the library itself.
+function isLibraryProgram(p ast.Project) returns bool
+	for m in p.modules 'modules'
+		if m.id == p.rootModule 'root'
+			return m.isLibrary
+		end 'root'
+	end 'modules'
+	return false
+end 'isLibraryProgram'
+
+// collectSpawns checks the program at path, a file or a project's directory, as far as the checker goes, and adds the type of
+// each spawn in its modules to found. The library's modules belong to the program that is the library itself.
+function collectSpawns(mutates found ServiceRewrite, path String)
+	var errs = diag.ErrorList.create(0)
+	var p = ast.Project.new("")
+	if not project.loadProjectInto(p, rootPath: path, errs: errs) or p.modules.count() == 0 'unloaded'
+		print("unloaded  {path}\n")
+		return
+	end 'unloaded'
+	_ = frontEnd(p, makesProgram: false, errs: errs)
+	found.programs = increment(found.programs)
+	let ofLibrary = isLibraryProgram(p)
+	var index = 0 as Count
+	for m in p.modules 'modules'
+		let current = index
+		index = increment(index)
+		if m.isLibrary and not ofLibrary 'library'
+			continue 'modules'
+		end 'library'
+		for n in 1 upto m.tree.records.count() 'nodes'
+			let id = try n as ast.NodeID otherwise panic("rewrite: more nodes than a node id holds")
+			if m.tree.kindOf(id) == ast.NodeKind.spawnExpr 'spawn'
+				noteSpawn(found, p: p, m: m, index: current, id: id)
+			end 'spawn'
+		end 'nodes'
+	end 'modules'
+end 'collectSpawns'
+
+// mentionsSpawn is whether a file of the program at path says `spawn`, which one that has none cannot hold.
+function mentionsSpawn(path String) returns bool
+	var files = ast.StringList.create(0)
+	if project.isDirectoryPath(path) 'project'
+		files = project.sourceFiles(path)
+	end 'project' else 'file'
+		files.push(path.clone())
+	end 'file'
+	for file in files 'files'
+		if holdsText(readSourceText(file), needle: spawnKeyword) 'mentions'
+			return true
+		end 'mentions'
+	end 'files'
+	return false
+end 'mentionsSpawn'
+
+// serviceProgramsOf adds to programs the programs that root holds: a file is one; a directory of the corpus of tests holds a
+// program in each of its files, and a project in each directory of its modules; any other directory is one project.
+function serviceProgramsOf(root String, mutates programs ast.StringList) returns bool
+	if not isReadable(root) 'unreadable'
+		printError("cannot read {root}\n")
+		return false
+	end 'unreadable'
+	if not project.isDirectoryPath(root) 'file'
+		programs.push(root.clone())
+		return true
+	end 'file'
+	let full = project.absolutePath(root)
+	var found = ast.StringList.create(0)
+	if project.lastComponent(full) == modulesDir 'modules'
+		collectProjects(full, files: found)
+	end 'modules' else if corpusRootOf(project.joinPath(full, name: "x")).isSome() 'corpus'
+		let modulesRoot = project.joinPath(full, name: modulesDir)
+		var files = ast.StringList.create(0)
+		collectPrograms(full, modulesRoot: modulesRoot, benchRoot: "", files: files)
+		for file in files 'sources'
+			if project.endsWithMaxon(file) 'maxon'
+				found.push(file.clone())
+			end 'maxon'
+		end 'sources'
+		collectProjects(modulesRoot, files: found)
+	end 'corpus' else 'project'
+		found.push(full.clone())
+	end 'project'
+	project.sortStrings(found)
+	programs.append(found)
+	return true
+end 'serviceProgramsOf'
+
+// rootOf is the index of the first of roots that holds file, or nothing.
+function rootOf(roots ast.StringList, file String) returns table.Option with Count
+	var index = 0 as Count
+	for root in roots 'roots'
+		if project.isWithinPath(file, root: root) 'within'
+			return table.Option.some(index)
+		end 'within'
+		index = increment(index)
+	end 'roots'
+	return table.Option.none
+end 'rootOf'
+
+// listsFile is whether files has file.
+function listsFile(files ast.StringList, file String) returns bool
+	for listed in files 'files'
+		if listed == file 'same'
+			return true
+		end 'same'
+	end 'files'
+	return false
+end 'listsFile'
+
+// orderedCounts is counts in ascending order.
+function orderedCounts(counts CountList) returns CountList
+	var sorted = CountList.create(0)
+	for count in counts 'each'
+		var merged = CountList.create(0)
+		var placed = false
+		for existing in sorted 'merge'
+			if not placed and count < existing 'before'
+				merged.push(count)
+				placed = true
+			end 'before'
+			merged.push(existing)
+		end 'merge'
+		if not placed 'last'
+			merged.push(count)
+		end 'last'
+		sorted = merged
+	end 'each'
+	return sorted
+end 'orderedCounts'
+
+// writeServices writes `service` for the `type` at each of the offsets of file, and says how many types it did.
+function writeServices(file String, offsets CountList) returns Count
+	let sorted = orderedCounts(offsets)
+	var edits = syntax.Edits.create(0)
+	for offset in sorted 'edits'
+		edits.push(syntax.Edit.make(offset, until: try offset + typeKeyword.byteLength() otherwise panic("rewrite: a header past memory"), replacement: serviceKeyword.clone()))
+	end 'edits'
+	ast.writeOutputText(file, content: syntax.applyEdits(readSourceText(file), edits: edits))
+	return edits.count()
+end 'writeServices'
+
+// rewriteServices is `rewrite --services`: it checks every program under the roots, takes the type of each `spawn` in them, and
+// writes `service` for the `type` of each one that is declared in a file under the roots, and reports the rest.
+function rewriteServices(roots ast.StringList) returns ExitCode
+	var programs = ast.StringList.create(0)
+	for root in roots 'roots'
+		if not serviceProgramsOf(root, programs: programs) 'unreadable'
+			return diagnosticsExitCode
+		end 'unreadable'
+	end 'roots'
+	var found = ServiceRewrite.new()
+	for program in programs 'programs'
+		if mentionsSpawn(program) 'spawns'
+			collectSpawns(found, path: program)
+		end 'spawns'
+	end 'programs'
+	var files = ast.StringList.create(0)
+	for target in found.targets 'files'
+		if not listsFile(files, file: target.file) 'new'
+			files.push(target.file.clone())
+		end 'new'
+	end 'files'
+	project.sortStrings(files)
+	var written = ast.StringList.create(0)
+	var writtenTypes = CountList.create(0)
+	for file in files 'files'
+		var offsets = CountList.create(0)
+		for target in found.targets 'targets'
+			if target.file == file 'here'
+				offsets.push(target.offset)
+			end 'here'
+		end 'targets'
+		if not rootOf(roots, file: file).isSome() 'outside'
+			found.report(file, text: "{offsets.count()} types that a spawn starts are declared outside the given roots")
+			continue 'files'
+		end 'outside'
+		written.push(file.clone())
+		writtenTypes.push(writeServices(file, offsets: offsets))
+	end 'files'
+	var at = 0 as Count
+	for root in roots 'roots'
+		var types = 0 as Count
+		var inFiles = 0 as Count
+		var next = 0 as Count
+		for file in written 'written'
+			let holder = rootOf(roots, file: file)
+			if holder.isSome() and holder.unwrap() == at 'inRoot'
+				types = try types + (try writtenTypes.get(next) otherwise panic("rewrite: a file without its count")) otherwise panic("rewrite: more types than memory")
+				inFiles = increment(inFiles)
+			end 'inRoot'
+			next = increment(next)
+		end 'written'
+		print("{root}: {types} types written as services in {inFiles} files\n")
+		at = increment(at)
+	end 'roots'
+	print("checked {found.programs} programs; {found.unresolved} spawns were not resolved by the checker and are listed above\n")
+	return 0
+end 'rewriteServices'

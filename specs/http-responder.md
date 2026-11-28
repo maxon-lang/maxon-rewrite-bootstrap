@@ -29,7 +29,7 @@ for an answer. `respondLater` throws `alreadyResponded` on an exchange already a
 <!-- procs: 1 -->
 The handler defers the answer with `respondLater`, sends the responder to the `Auth` service in a message of its own, and returns. `Auth` answers through the responder, so the answer reaches the client from the service, and `respondWith` is the finalizer that consumes it.
 ```maxon
-type Auth
+service Auth
 	var checked as Count
 
 	static function create() returns Self
@@ -130,7 +130,7 @@ allowed=200 welcome denied=401 busy=503
 <!-- procs: 1 -->
 The `Auth` service is shut down, so the handler's send fails `serviceStopped` and carries the responder back. The handler's `otherwise` arm answers 503 through it.
 ```maxon
-type Auth
+service Auth
 	var checked as Count
 
 	static function create() returns Self
@@ -214,7 +214,7 @@ busy=503 busy
 <!-- procs: 1 -->
 `Auth` passes the responder on to `Directory` in another message, and `Directory` answers. No message waits for the answer.
 ```maxon
-type Directory
+service Directory
 	var looked as Count
 
 	static function create() returns Self
@@ -245,7 +245,7 @@ function refuse(responder HttpResponder)
 	end 'unsent'
 end 'refuse'
 
-type Auth
+service Auth
 	let directory as Directory.handle
 
 	static function create(directory Directory.handle) returns Self
@@ -577,7 +577,7 @@ function answerValid(responder HttpResponder)
 	end 'unsent'
 end 'answerValid'
 
-type Auth
+service Auth
 	var checked as Count
 
 	static function create() returns Self

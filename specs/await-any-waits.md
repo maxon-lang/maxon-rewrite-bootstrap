@@ -24,7 +24,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Replies = Array with Promise with Integer
 
-type Peer
+service Peer
 	var n as Integer
 
 	static function create() returns Self
@@ -36,7 +36,7 @@ type Peer
 	end 'ping'
 end 'Peer'
 
-type Probe
+service Probe
 	var n as Integer
 
 	static function create() returns Self
@@ -165,7 +165,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias Jobs = Array with Promise with Tally
 
-type Ledger
+service Ledger
 	var total as Tally
 
 	static function create(total Tally) returns Self
@@ -260,7 +260,7 @@ typealias Tally = int(0 to u64.max)
 
 let RequestBytes = 4096
 
-type Fetcher
+service Fetcher
 	var seen as Tally
 
 	static function create() returns Self

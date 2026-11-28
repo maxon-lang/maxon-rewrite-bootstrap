@@ -3698,7 +3698,7 @@ type Holder
 	end 'reset'
 end 'Holder'
 
-type Joiner
+service Joiner
 	var seen as String
 
 	static function create() returns Self
@@ -4076,7 +4076,7 @@ type Holder
 	end 'reset'
 end 'Holder'
 
-type Joiner
+service Joiner
 	var seen as String
 
 	static function create() returns Self
@@ -4146,7 +4146,7 @@ type Holder
 	end 'reset'
 end 'Holder'
 
-type Joiner
+service Joiner
 	var seen as String
 
 	static function create() returns Self
@@ -4211,7 +4211,7 @@ type Holder
 	end 'reset'
 end 'Holder'
 
-type Joiner
+service Joiner
 	var seen as String
 
 	static function create() returns Self

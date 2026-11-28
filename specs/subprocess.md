@@ -3169,7 +3169,7 @@ let pollMs = 50
 
 let endsWithinMs = 30000
 
-type Spawner
+service Spawner
 	var started as Tally
 	var pids as PidArray
 

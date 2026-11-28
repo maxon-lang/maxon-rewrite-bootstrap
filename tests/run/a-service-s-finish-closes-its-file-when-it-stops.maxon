@@ -7,7 +7,7 @@
 //> by shutdown: one|two|end of 2
 //> finish after 1 lines
 //> by stop: three|end of 1
-type Log implements Ends
+service Log implements Ends
 	var out as FileWriter
 	var lines as Count
 

@@ -5266,6 +5266,9 @@ model-regions.md: model-hand-fa20-p4-return-part
 model-regions.md: model-hand-fa20-p4-store-part
 model-regions.md: model-report-ab-inline-1
 model-services.md: model-finding-ae-frozen-field-iso-recv-call-waits
+model-services.md: model-finding-z-scc-record-methods
+model-services.md: model-finding-z-scc-three-cycle-wait-deep
+model-services.md: model-finding-z-scc-three-cycle-wait-deep-reordered
 model-services.md: model-hand-ac-hx-handle-in-mailbox
 model-services.md: model-hand-ad-d-spawn-in-factory-chain
 model-services.md: model-hand-ad-hc-spawn-in-factory-cycle
@@ -7569,10 +7572,12 @@ services.md: error.a-factory-that-starts-a-promise-the-state-keeps-is-refused
 services.md: error.a-generic-service-argument-from-an-undefined-call-is-the-only-report
 services.md: error.a-handle-of-another-service-is-refused
 services.md: error.a-message-that-awaits-a-peer-of-its-own-type-is-refused
+services.md: error.a-message-that-calls-a-waiting-closure-is-refused
 services.md: error.a-message-that-starts-a-waiting-coroutine-is-refused
 services.md: error.a-message-that-waits-through-a-helper-is-refused
 services.md: error.a-message-with-two-awaits-is-refused-at-the-first
 services.md: error.a-private-method-is-absent-from-the-handle
+services.md: error.a-promise-may-not-be-sent
 services.md: error.a-reply-bearing-message-sent-as-a-statement-is-refused
 services.md: error.a-reply-in-an-integer-parameter
 services.md: error.a-reply-stored-without-its-error-type-is-refused

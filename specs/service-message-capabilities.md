@@ -23,6 +23,7 @@ factory that `spawn` names. A message parameter that is a promise, a function va
 
 <!-- test: error.an-unmarked-record-parameter-is-refused -->
 <!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- positions: moved -->
 `plot` takes a `Point` with no capability word.
 
 ```maxon
@@ -37,7 +38,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plotter
+service Plotter
 	var total as Integer
 
 	static function create() returns Self
@@ -61,6 +62,7 @@ error E3217: <fragment>:26:16: parameter `point` of the message `Plotter.plot` i
 
 <!-- test: error.an-unmarked-record-reply-is-refused -->
 <!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- positions: moved -->
 `origin` returns a `Point` with no capability word.
 
 ```maxon
@@ -75,7 +77,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plotter
+service Plotter
 	var total as Integer
 
 	static function create() returns Self
@@ -99,6 +101,7 @@ error E3217: <fragment>:26:16: the message `Plotter.origin` returns a `Point` wi
 
 <!-- test: error.an-unmarked-union-reply-is-refused -->
 <!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- positions: moved -->
 A union that carries a `ByteArray` is data of the region like a record.
 
 ```maxon
@@ -109,7 +112,7 @@ union Outcome
 	missing
 end 'Outcome'
 
-type Finder
+service Finder
 	var calls as Integer
 
 	static function create() returns Self
@@ -145,7 +148,7 @@ union Outcome
 	missing
 end 'Outcome'
 
-type Finder
+service Finder
 	var calls as Integer
 
 	static function create() returns Self
@@ -189,7 +192,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plotter
+service Plotter
 	var total as Integer
 
 	static function create() returns Self
@@ -221,7 +224,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntegerArray = Array with Integer
 
-type Summer
+service Summer
 	var total as Integer
 
 	static function create() returns Self
@@ -245,6 +248,7 @@ error E3217: <fragment>:18:15: parameter `numbers` of the message `Summer.add` i
 
 <!-- test: error.an-unmarked-interface-value-parameter-is-refused -->
 <!-- skip: language difference: maxon refuses an interface value that holds a function value as a message's parameter (E3217), and this compiler lets it cross (D5); the call through the interface value that the message then makes is judged by E3221, a message that calls through an interface may wait on another party, whose check is D4's -->
+<!-- positions: moved -->
 A value held at an interface type is a record behind a witness.
 
 ```maxon
@@ -266,7 +270,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-type Painter
+service Painter
 	var painted as Integer
 
 	static function create() returns Self
@@ -290,6 +294,7 @@ error E3217: <fragment>:33:16: parameter `shape` of the message `Painter.paint` 
 
 <!-- test: error.an-unmarked-factory-parameter-is-refused -->
 <!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- positions: moved -->
 `create` takes a `Point` with no capability word, and the `spawn` names `create`.
 
 ```maxon
@@ -303,7 +308,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plotter
+service Plotter
 	var total as Integer
 
 	static function create(origin Point) returns Self
@@ -339,7 +344,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plotter
+service Plotter
 	var total as Integer
 
 	static function create(total Integer) returns Self
@@ -387,7 +392,7 @@ interface Greeter
 	function greet(mutates self, point Point) returns Integer
 end 'Greeter'
 
-type Polite implements Greeter
+service Polite implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -427,7 +432,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plotter
+service Plotter
 	var total as Integer
 
 	static function create(origin frozen with Point) returns Self
@@ -485,7 +490,7 @@ union Outcome
 	missing
 end 'Outcome'
 
-type Finder
+service Finder
 	var weight as Integer
 
 	static function create(consumes first Outcome) returns Self
@@ -558,7 +563,7 @@ union Signal
 	go
 end 'Signal'
 
-type Relay
+service Relay
 	var seen as Integer
 
 	static function create() returns Self
@@ -595,7 +600,7 @@ enum Mode
 	slow
 end 'Mode'
 
-type Echo
+service Echo
 	var calls as Integer
 
 	static function create(start Integer, label String, mode Mode) returns Self
@@ -636,7 +641,7 @@ type Echo
 	end 'read'
 end 'Echo'
 
-type Relay
+service Relay
 	var seen as Integer
 
 	static function create() returns Self
@@ -689,7 +694,7 @@ type Token is noncopyable
 	end 'create'
 end 'Token'
 
-type Vault
+service Vault
 	var held as Integer
 
 	static function create() returns Self
@@ -728,7 +733,7 @@ A `TcpListener` and a `TcpClient` each own an OS socket, so each is `unique`: th
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Acceptor implements Ends
+service Acceptor implements Ends
 	var listener as TcpListener
 	var accepted as Tally
 
@@ -798,7 +803,7 @@ type Door
 	end 'port'
 end 'Door'
 
-type Gatehouse
+service Gatehouse
 	var visits as NetworkPort
 
 	static function create() returns Self
@@ -841,7 +846,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Watcher
+service Watcher
 	var total as Integer
 
 	static function create() returns Self
@@ -880,7 +885,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -925,7 +930,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -970,7 +975,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Svc
+service Svc
 	var pending as IntPromiseArray
 
 	static function create() returns Self
@@ -1069,7 +1074,7 @@ type Triangle implements Shape
 	end 'sides'
 end 'Triangle'
 
-type Keeper
+service Keeper
 	var last as Shape
 
 	static function create(consumes first Shape) returns Self
@@ -1118,7 +1123,7 @@ type Chunk
 	end 'create'
 end 'Chunk'
 
-type Sink
+service Sink
 	var total as Integer
 
 	static function create() returns Self
@@ -1160,12 +1165,13 @@ end 'main'
 
 <!-- test: error.an-inline-range-message-parameter-is-refused-at-its-declaration -->
 <!-- skip: minimaxon does not parse the converted source: Expected ')' but got '(' -->
+<!-- positions: moved -->
 A message parameter spells its number type with a typealias. The refused declaration is reported once, at the parameter, and a send of that message adds nothing.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -1203,7 +1209,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plotter
+service Plotter
 	var total as Integer
 
 	static function create() returns Self
@@ -1256,7 +1262,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plotter
+service Plotter
 	var total as Integer
 
 	static function create() returns Self

@@ -7,7 +7,7 @@ interface Sink
 	function put(mutates self, value Count)
 end 'Sink'
 
-type Tally implements Sink
+service Tally implements Sink
 	var sum as Count
 
 	static function create() returns Self
@@ -19,7 +19,7 @@ type Tally implements Sink
 	end 'put'
 end 'Tally'
 
-type Sup
+service Sup
 	var sink as Sink.handle
 
 	static function create(sink Sink.handle) returns Self

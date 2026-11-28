@@ -55,7 +55,7 @@ type Fair implements SheddingPolicy with Api.Message
 	end 'shed'
 end 'Fair'
 
-type Api
+service Api
 	var fair as Fair
 	var handled as Amount
 	var quietHandled as Amount

@@ -223,7 +223,7 @@ services then run on.
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Worker
+service Worker
 	var done as Tally
 
 	static function create() returns Self

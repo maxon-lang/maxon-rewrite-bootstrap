@@ -14,7 +14,7 @@ export type Page
 	end 'make'
 end 'Page'
 
-type Tally
+service Tally
 	var n as Amount
 	var titles as Amount
 
@@ -48,7 +48,7 @@ type Tally
 	end 'titleCount'
 end 'Tally'
 
-type Relay
+service Relay
 	var sent as Amount
 
 	static function create() returns Self

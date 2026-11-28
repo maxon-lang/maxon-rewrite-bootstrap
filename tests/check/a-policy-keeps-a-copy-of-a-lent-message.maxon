@@ -26,7 +26,7 @@ type Request
 	end 'make'
 end 'Request'
 
-type Api
+service Api
 	var fair as Fair
 	var seen as Count
 

@@ -28,7 +28,7 @@ end 'scriptText'
 typealias Writers = Array with Writer.handle
 
 // A Writer writes and runs files and counts the runs that did not end as the file says, keeping how the first one ended.
-type Writer
+service Writer
 	var failures as Count
 	var first as String
 

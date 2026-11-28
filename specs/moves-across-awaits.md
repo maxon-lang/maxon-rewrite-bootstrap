@@ -199,7 +199,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var kept as Tally
 
 	static function create() returns Self

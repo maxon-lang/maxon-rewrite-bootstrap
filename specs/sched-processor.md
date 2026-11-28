@@ -339,7 +339,7 @@ typealias ReplyPromiseArray = Array with ReplyPromise
 
 let shares = 4
 
-type Share
+service Share
 	var id as Integer
 
 	static function create(id Integer) returns Self

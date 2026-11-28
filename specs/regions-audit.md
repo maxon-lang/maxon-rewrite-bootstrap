@@ -129,7 +129,7 @@ typealias LineArray = Array with String
 
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var n as Tally
 
 	static function create() returns Self
@@ -202,7 +202,7 @@ type Settings
 	end 'create'
 end 'Settings'
 
-type Sorter
+service Sorter
 	var settings as Settings
 
 	static function create(settings frozen with Settings) returns Self
@@ -268,7 +268,7 @@ typealias LineArray = Array with String
 
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var n as Tally
 
 	static function create() returns Self

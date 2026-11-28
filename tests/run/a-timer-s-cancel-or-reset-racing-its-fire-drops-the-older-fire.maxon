@@ -47,7 +47,7 @@ end 'isSet'
 
 // A Racer arms timers whose fires it or a peer handles, and holds what the handler checks each fire against: what the
 // arming side did to the timer before the fire was handled.
-type Racer
+service Racer
 	var handled as Amounts
 	var replacedHandled as Amounts
 	var cancelled as Amounts

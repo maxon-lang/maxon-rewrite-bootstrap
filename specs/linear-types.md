@@ -246,7 +246,7 @@ function thrv(c Code) returns Code throws Oops
 	return c
 end 'thrv'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -304,7 +304,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -507,7 +507,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -1585,7 +1585,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Factory
+service Factory
 	var n as Code
 
 	static function create() returns Self
@@ -1726,7 +1726,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -1912,7 +1912,7 @@ function thrv(c Code) returns Code throws Oops
 	return c
 end 'thrv'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -1967,7 +1967,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -2188,7 +2188,7 @@ function ansNow(consumes waiting CodeReply)
 	waiting.answer(3)
 end 'ansNow'
 
-type Dr
+service Dr
 	var n as Code
 
 	static function create() returns Self
@@ -2363,7 +2363,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Ledger
+service Ledger
 	var total as Code
 
 	static function create() returns Self
@@ -2770,7 +2770,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -2844,7 +2844,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -2925,7 +2925,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -3012,7 +3012,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -3618,7 +3618,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Doubler
+service Doubler
 	var n as Code
 
 	static function create() returns Self
@@ -3685,7 +3685,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -3740,7 +3740,7 @@ enum SinkError implements Error
 	refused
 end 'SinkError'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create(r Resp) returns Self throws SinkError
@@ -4471,7 +4471,7 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-type Sink
+service Sink
 	var n as Code
 
 	static function create() returns Self
@@ -6872,7 +6872,7 @@ function settle(m Maybe)
 	end 'which'
 end 'settle'
 
-type Desk
+service Desk
 	var served as Code
 
 	static function create() returns Self
@@ -7327,7 +7327,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Starter
+service Starter
 	var k as Num
 
 	static function create(consumes r Rl) returns Self
@@ -7395,7 +7395,7 @@ function drain(m Mp)
 	end 'drained'
 end 'drain'
 
-type Starter
+service Starter
 	var k as Num
 
 	static function create(m Mp) returns Self
@@ -7519,7 +7519,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -7581,7 +7581,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -7645,7 +7645,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -7716,7 +7716,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -7766,7 +7766,7 @@ type Tp is noncopyable
 	end 'create'
 end 'Tp'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -7815,7 +7815,7 @@ union Sn
 	notSent(r Rl)
 end 'Sn'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7879,7 +7879,7 @@ union Sn
 	notSent(r Rl)
 end 'Sn'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7947,7 +7947,7 @@ type Reply
 	end 'finish'
 end 'Reply'
 
-type Taker
+service Taker
 	var n as Count
 
 	static function create(n Count) returns Self

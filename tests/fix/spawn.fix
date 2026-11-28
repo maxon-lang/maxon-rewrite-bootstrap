@@ -6,7 +6,7 @@ enum StartError implements Error
 	refused
 end 'StartError'
 
-type Gate
+service Gate
 	var open as Whole
 
 	static function create(ok bool) returns Self throws StartError

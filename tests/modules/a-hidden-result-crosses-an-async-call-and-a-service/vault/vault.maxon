@@ -16,7 +16,7 @@ export function promised(code Count) returns Promise with Secret
 	return async make(code)
 end 'promised'
 
-export type Keeper
+export service Keeper
 	var held as Count
 
 	export static function create(held Count) returns Self

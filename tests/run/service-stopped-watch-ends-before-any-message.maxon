@@ -5,7 +5,7 @@
 //> watched with the handle held
 export typealias Count = int(0 to 1000)
 
-type Counter
+service Counter
 	var n as Count
 
 	static function create() returns Self

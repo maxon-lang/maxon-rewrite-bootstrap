@@ -39,7 +39,7 @@ function triple(n Count) returns Count
 	return try n * 3 otherwise 0
 end 'triple'
 
-type Shelf
+service Shelf
 	var held as Shapes
 	var seen as Count
 	var shared as Array with frozen with Shape

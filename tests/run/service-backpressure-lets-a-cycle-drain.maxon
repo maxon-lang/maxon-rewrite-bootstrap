@@ -11,7 +11,7 @@ let hops = 4 as Amount
 // handledInAll is every message of the cycle: each start, and the hops it is passed on for, to each of the two.
 let handledInAll = 600 as Amount
 
-type Peer
+service Peer
 	var handled as Amount
 
 	static function create() returns Self

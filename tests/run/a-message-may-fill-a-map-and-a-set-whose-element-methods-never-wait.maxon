@@ -9,7 +9,7 @@ export typealias Numbers = Set with Count
 
 export typealias Words = Array with String
 
-type Keeper
+service Keeper
 	var names as Names
 	var numbers as Numbers
 

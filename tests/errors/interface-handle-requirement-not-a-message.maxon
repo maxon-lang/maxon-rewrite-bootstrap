@@ -7,7 +7,7 @@ interface Pinger
 	function ping(value Count) returns Count
 end 'Pinger'
 
-type Quiet implements Pinger
+service Quiet implements Pinger
 	static function create() returns Self
 		return Self{}
 	end 'create'

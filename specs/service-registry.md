@@ -45,7 +45,7 @@ interface Tally
 	function total(mutates self) returns Integer
 end 'Tally'
 
-type Counter implements Tally
+service Counter implements Tally
 	var n as Integer
 
 	static function create() returns Self
@@ -84,7 +84,7 @@ interface Source
 	function value() returns Integer
 end 'Source'
 
-type Fixed implements Source
+service Fixed implements Source
 	let n as Integer
 
 	static function create(n Integer) returns Self
@@ -104,7 +104,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Relay
+service Relay
 	var asked as Integer
 
 	static function create() returns Self
@@ -158,7 +158,7 @@ interface Bumper
 	function read() returns Integer
 end 'Bumper'
 
-type Counter implements Bumper
+service Counter implements Bumper
 	var n as Integer
 
 	static function create() returns Self
@@ -198,7 +198,7 @@ interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-type Polite implements Greeter
+service Polite implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -259,7 +259,7 @@ interface Ledger
 	function total(mutates self) returns Integer
 end 'Ledger'
 
-type Tally implements Ledger
+service Tally implements Ledger
 	var n as Integer
 
 	static function create() returns Self
@@ -278,7 +278,7 @@ end 'Tally'
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Ledger = spawn Tally.create()
 
-type Worker
+service Worker
 	let k as Integer
 
 	static function create(k Integer) returns Self
@@ -316,7 +316,7 @@ interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-type Polite implements Greeter
+service Polite implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -329,7 +329,7 @@ type Polite implements Greeter
 	end 'greet'
 end 'Polite'
 
-type Rude implements Greeter
+service Rude implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -345,7 +345,7 @@ end 'Rude'
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Greeter = spawn Polite.create()
 
-type Installer
+service Installer
 	var installs as Integer
 
 	static function create() returns Self
@@ -379,7 +379,7 @@ interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-type Polite implements Greeter
+service Polite implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -392,7 +392,7 @@ type Polite implements Greeter
 	end 'greet'
 end 'Polite'
 
-type Rude implements Greeter
+service Rude implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -430,7 +430,7 @@ interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-type Polite implements Greeter
+service Polite implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -443,7 +443,7 @@ type Polite implements Greeter
 	end 'greet'
 end 'Polite'
 
-type Rude implements Greeter
+service Rude implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -485,7 +485,7 @@ interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-type Polite implements Greeter
+service Polite implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -498,7 +498,7 @@ type Polite implements Greeter
 	end 'greet'
 end 'Polite'
 
-type Rude implements Greeter
+service Rude implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -608,7 +608,7 @@ end 'Config'
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(1)
 
-type Reader
+service Reader
 	var reads as Integer
 
 	static function create() returns Self
@@ -643,7 +643,7 @@ interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-type Loud implements Greeter
+service Loud implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -694,7 +694,7 @@ public interface Tone
 	function pitch(mutates self) returns TonePitch
 end 'Tone'
 
-public type Soft implements Tone
+public service Soft implements Tone
 	var calls as TonePitch
 
 	public static function create() returns Self
@@ -710,7 +710,7 @@ end 'Soft'
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Tone = spawn Soft.create()
 // --- file: main.maxon
-type Loud implements Tone
+service Loud implements Tone
 	var calls as TonePitch
 
 	static function create() returns Self
@@ -743,7 +743,7 @@ interface Journal
 	function write(mutates self, line Integer)
 end 'Journal'
 
-type Console implements Journal
+service Console implements Journal
 	var written as Integer
 
 	static function create() returns Self
@@ -784,7 +784,7 @@ interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-type Polite implements Greeter
+service Polite implements Greeter
 	var calls as Integer
 
 	static function create() returns Self
@@ -892,7 +892,7 @@ end 'Config'
 // TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
-type Reader
+service Reader
 	let cell as ConfigCell
 
 	static function create(cell ConfigCell) returns Self
@@ -1052,7 +1052,7 @@ end 'Config'
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(5)
 
-type Printer
+service Printer
 	var said as Integer
 
 	static function create() returns Self
@@ -1094,7 +1094,7 @@ interface Sink
 	function put(mutates self, n Integer)
 end 'Sink'
 
-type Collector implements Sink
+service Collector implements Sink
 	var received as Integer
 
 	static function create() returns Self
@@ -1110,7 +1110,7 @@ end 'Collector'
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Sink = spawn Collector.create()
 
-type Worker
+service Worker
 	var worked as Integer
 
 	static function create() returns Self
@@ -1150,7 +1150,7 @@ interface Tally
 	function total(mutates self) returns Integer
 end 'Tally'
 
-type Counter implements Tally
+service Counter implements Tally
 	var n as Integer
 
 	static function create() returns Self
@@ -1192,7 +1192,7 @@ interface Tally
 	function total(mutates self) returns Integer
 end 'Tally'
 
-type Counter implements Tally
+service Counter implements Tally
 	var n as Integer
 
 	static function create() returns Self
@@ -1208,7 +1208,7 @@ type Counter implements Tally
 	end 'total'
 end 'Counter'
 
-type Ledger implements Tally
+service Ledger implements Tally
 	let label as String
 	var adds as Integer
 	var sum as Integer
@@ -1257,7 +1257,7 @@ interface Echo
 	function echo(mutates self) returns Integer
 end 'Echo'
 
-type Innocent implements Echo
+service Innocent implements Echo
 	var calls as Integer
 
 	static function create() returns Self
@@ -1270,7 +1270,7 @@ type Innocent implements Echo
 	end 'echo'
 end 'Innocent'
 
-type Relay implements Echo
+service Relay implements Echo
 	var calls as Integer
 
 	static function create() returns Self
@@ -1283,7 +1283,7 @@ type Relay implements Echo
 	end 'echo'
 end 'Relay'
 
-type Bouncer
+service Bouncer
 	var calls as Integer
 
 	static function create() returns Self
@@ -1412,7 +1412,7 @@ note: <fragment>:14:9: the `default` for `Config`
 A message with no reply takes a `float` argument. A reply cell carries one integer word (E3140), so the
 awaited answer is the average in hundredths.
 ```maxon
-type Averager
+service Averager
 	var total as FullRangeFloat
 	var count as Integer
 
@@ -1469,7 +1469,7 @@ interface Worker
 	function work(mutates self) returns Integer throws Error
 end 'Worker'
 
-type Left implements Worker
+service Left implements Worker
 	var runs as Integer
 
 	static function create() returns Self
@@ -1485,7 +1485,7 @@ type Left implements Worker
 	end 'work'
 end 'Left'
 
-type Right implements Worker
+service Right implements Worker
 	var runs as Integer
 
 	static function create() returns Self
@@ -1524,7 +1524,7 @@ interface Source
 	function bump(mutates self, by Integer)
 end 'Source'
 
-type Fixed implements Source
+service Fixed implements Source
 	var n as Integer
 
 	static function create(n Integer) returns Self
@@ -1575,7 +1575,7 @@ interface Source
 	function value() returns Integer
 end 'Source'
 
-type Fixed implements Source
+service Fixed implements Source
 	let n as Integer
 
 	static function create(n Integer) returns Self
@@ -1606,7 +1606,7 @@ interface Tally
 	function total(mutates self) returns Integer
 end 'Tally'
 
-type Counter implements Tally
+service Counter implements Tally
 	var n as Integer
 
 	static function create() returns Self
@@ -1659,6 +1659,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-spawned-service-missing-an-interface-message-is-a-diagnostic -->
+<!-- positions: moved -->
 A spawned service that declares an interface it does not fully implement is refused like any other partial conformer, naming the missing requirement.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1667,7 +1668,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type A implements Pinger
+service A implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1679,7 +1680,7 @@ type A implements Pinger
 	end 'ping'
 end 'A'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1705,6 +1706,7 @@ error E3016: <fragment>:20:6: Partial interface implementation: type 'B' is miss
 ```
 
 <!-- test: error.a-non-conforming-service-spawned-first-is-still-reported-as-partial -->
+<!-- positions: moved -->
 The same program with the non-conforming service spawned first: the order of the spawns does not decide which diagnostic is reported.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1713,7 +1715,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type A implements Pinger
+service A implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1725,7 +1727,7 @@ type A implements Pinger
 	end 'ping'
 end 'A'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1751,6 +1753,7 @@ error E3016: <fragment>:20:6: Partial interface implementation: type 'B' is miss
 ```
 
 <!-- test: error.a-non-conforming-service-as-the-handle-is-reported-as-partial -->
+<!-- positions: moved -->
 The non-conforming service is declared first and is the one converted to the interface handle.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1759,7 +1762,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1771,7 +1774,7 @@ type B implements Pinger
 	end 'value'
 end 'B'
 
-type A implements Pinger
+service A implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1798,6 +1801,7 @@ error E3016: <fragment>:8:6: Partial interface implementation: type 'B' is missi
 
 <!-- test: error.an-interface-message-no-service-implements-is-refused -->
 <!-- skip: language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon) -->
+<!-- positions: moved -->
 When no service implementing the interface declares the requirement, the handle has no such message to send.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1806,7 +1810,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1833,6 +1837,7 @@ error E3136: <fragment>:22:22: `interface Pinger` requires `ping`, but no servic
 
 <!-- test: error.a-withheld-interface-message-is-refused -->
 <!-- skip: language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon) -->
+<!-- positions: moved -->
 A service that declares the requirement as a private method withholds it: it is not a message, so the handle cannot send it.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -1841,7 +1846,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type A implements Pinger
+service A implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1853,7 +1858,7 @@ type A implements Pinger
 	end 'ping'
 end 'A'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1887,7 +1892,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type A implements Pinger
+service A implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1899,7 +1904,7 @@ type A implements Pinger
 	end 'ping'
 end 'A'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1937,7 +1942,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type A implements Pinger
+service A implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1949,7 +1954,7 @@ type A implements Pinger
 	end 'ping'
 end 'A'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -1988,7 +1993,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type A implements Pinger
+service A implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -2000,7 +2005,7 @@ type A implements Pinger
 	end 'ping'
 end 'A'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -2030,6 +2035,7 @@ end 'main'
 
 <!-- test: error.a-withheld-interface-message-spawned-first-is-refused -->
 <!-- skip: language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon) -->
+<!-- positions: moved -->
 The order of the spawns does not decide whether the withheld requirement is refused.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -2038,7 +2044,7 @@ interface Pinger
 	function ping() returns Count
 end 'Pinger'
 
-type A implements Pinger
+service A implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -2050,7 +2056,7 @@ type A implements Pinger
 	end 'ping'
 end 'A'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -2085,7 +2091,7 @@ interface Tone
 	function pitch(mutates self) returns TonePitch
 end 'Tone'
 
-type Loud implements Tone
+service Loud implements Tone
 	var calls as TonePitch
 
 	static function create() returns Self
@@ -2098,7 +2104,7 @@ type Loud implements Tone
 	end 'pitch'
 end 'Loud'
 
-type Soft implements Tone
+service Soft implements Tone
 	var calls as TonePitch
 
 	static function create() returns Self
@@ -2135,7 +2141,7 @@ interface Tone
 	function pitch(mutates self) returns TonePitch
 end 'Tone'
 
-type Loud implements Tone
+service Loud implements Tone
 	var calls as TonePitch
 
 	static function create() returns Self
@@ -2148,7 +2154,7 @@ type Loud implements Tone
 	end 'pitch'
 end 'Loud'
 
-type Soft implements Tone
+service Soft implements Tone
 	var calls as TonePitch
 
 	static function create() returns Self
@@ -2187,7 +2193,7 @@ interface Sub extends Pinger
 	function tag() returns Count
 end 'Sub'
 
-type A implements Sub
+service A implements Sub
 	let n as Count
 
 	static function create() returns Self
@@ -2203,7 +2209,7 @@ type A implements Sub
 	end 'tag'
 end 'A'
 
-type B implements Pinger
+service B implements Pinger
 	let n as Count
 
 	static function create() returns Self
@@ -2301,7 +2307,7 @@ interface Greeter
 	function greet(mutates self) returns Integer
 end 'Greeter'
 
-type Stranger
+service Stranger
 	var calls as Integer
 
 	static function create() returns Self
@@ -2343,7 +2349,7 @@ end 'Config'
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(3)
 
-type Reader
+service Reader
 	var reads as Integer
 
 	static function create() returns Self
@@ -2509,7 +2515,7 @@ end 'Config'
 // TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ConfigCell = SharedValue with Config
 
-type Reader
+service Reader
 	let cell as ConfigCell
 
 	static function create(cell ConfigCell) returns Self
@@ -2565,7 +2571,7 @@ end 'Config'
 // TODO: language difference: maxon's program-wide registry (a top-level default declaration) is dropped: a program passes its services' handles explicitly (README, Where it differs from Maxon: there is no program-wide registry)
 default Config = Config.create(3)
 
-type Reader
+service Reader
 	var reads as Integer
 
 	static function create() returns Self
@@ -2614,7 +2620,7 @@ end 'Board'
 // TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias BoardCell = SharedValue with Board
 
-type Summer
+service Summer
 	let cell as BoardCell
 
 	static function create(cell BoardCell) returns Self
@@ -2668,7 +2674,7 @@ end 'Ladder'
 // TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias LadderCell = SharedValue with Ladder
 
-type Lookup
+service Lookup
 	let cell as LadderCell
 
 	static function create(cell LadderCell) returns Self
@@ -2766,7 +2772,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias Step = function(Tally) returns Tally
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2847,7 +2853,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias Step = function(Tally) returns Tally
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -3719,7 +3725,7 @@ The cell is made holding a `Plain`, but `open` converts a `Port` to `Shape`, so 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -3804,7 +3810,7 @@ function work() returns Tally
 	return 7
 end 'work'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -4158,7 +4164,7 @@ type Stepper implements Shape
 	end 'area'
 end 'Stepper'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self

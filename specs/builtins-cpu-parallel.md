@@ -579,7 +579,7 @@ one that follows the wait, and the wait answers 0. wasm32-wasi has no green thre
 ```maxon
 typealias Greetings = int(0 to 1000)
 
-type Greeter
+service Greeter
 	var greeted as Greetings
 
 	static function create() returns Self
@@ -672,7 +672,7 @@ typealias ReleaseCell = SharedValue with bool
 
 let releasePollMs = 1
 
-type Holder
+service Holder
 	let released as ReleaseCell
 	var held as Count
 

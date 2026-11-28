@@ -3403,7 +3403,7 @@ typealias Num = int(0 to 1000)
 
 typealias Pair = (Num, Num)
 
-type Keeper
+service Keeper
 	var pair as Pair
 
 	static function create(pair Pair) returns Self
@@ -3448,7 +3448,7 @@ type Spot
 	end 'create'
 end 'Spot'
 
-type Tally
+service Tally
 	var sum as Num
 
 	static function create() returns Self
@@ -3499,7 +3499,7 @@ typealias Num = int(0 to 1000)
 
 typealias Pair = (Num, Num)
 
-type Tally
+service Tally
 	var sum as Num
 
 	static function create() returns Self
@@ -3577,7 +3577,7 @@ typealias Num = int(0 to 1000)
 
 typealias Nums = Array with Num
 
-type Tally
+service Tally
 	var sum as Num
 
 	static function create() returns Self
@@ -3660,7 +3660,7 @@ function echo(p Pair) returns Pair
 	return p.clone()
 end 'echo'
 
-type Tally
+service Tally
 	var sum as Num
 
 	static function create() returns Self

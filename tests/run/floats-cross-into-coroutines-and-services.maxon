@@ -24,7 +24,7 @@ function awaitLater(x T) uses T returns T where T implements Copyable
 	return await p
 end 'awaitLater'
 
-type Meter
+service Meter
 	var total as Real
 	var count as Integer
 

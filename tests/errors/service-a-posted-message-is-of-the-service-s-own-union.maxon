@@ -1,6 +1,6 @@
 export typealias Amount = int(0 to 1000000)
 
-type Child
+service Child
 	var id as Amount
 
 	static function create(id Amount) returns Self
@@ -12,7 +12,7 @@ type Child
 	end 'ended'
 end 'Child'
 
-type Sup
+service Sup
 	var told as Amount
 
 	static function create() returns Self

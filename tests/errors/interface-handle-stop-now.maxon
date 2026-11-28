@@ -7,7 +7,7 @@ interface Pinger
 	function ping(value Count) returns Count
 end 'Pinger'
 
-type Echo implements Pinger
+service Echo implements Pinger
 	static function create() returns Self
 		return Self{}
 	end 'create'

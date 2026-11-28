@@ -5,7 +5,7 @@ enum Refusal implements Error
 	refused
 end 'Refusal'
 
-type Picky
+service Picky
 	static function create(ok bool) returns Self throws Refusal
 		if not ok 'refused'
 			throw Refusal.refused
@@ -33,7 +33,7 @@ end 'Key'
 
 typealias Keys = Map with Key, Count
 
-type Keeper
+service Keeper
 	var keys as Keys
 
 	static function create() returns Self

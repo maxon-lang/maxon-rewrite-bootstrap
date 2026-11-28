@@ -9,7 +9,7 @@ let loud = 1 as Count
 
 let quiet = 2 as Count
 
-type Api
+service Api
 	var fair as PerClientFair with Api.Message
 	var handled as Amount
 	var quietHandled as Amount

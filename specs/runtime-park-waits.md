@@ -20,7 +20,7 @@ category: concurrency
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Settler
+service Settler
 	var seen as Tally
 
 	static function create() returns Self
@@ -48,7 +48,7 @@ error E3221: <fragment>:11:18: the message 'settle' may wait (it calls 'quiesce'
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Stresser
+service Stresser
 	var seen as Tally
 
 	static function create() returns Self
@@ -77,7 +77,7 @@ A spawn factory holds its own service while it runs, so it may not park either. 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Booted
+service Booted
 	var seen as Tally
 
 	static function create() returns Self
@@ -107,7 +107,7 @@ function drain() returns Tally
 	return __Builtins.gtQuiesce() as Tally
 end 'drain'
 
-type Relay
+service Relay
 	var seen as Tally
 
 	static function create() returns Self
@@ -208,7 +208,7 @@ An `int(…)` spelled inline in a message's return type is the same E3005 a plai
 ```maxon
 typealias Money = int(i64.min to i64.max)
 
-type Account
+service Account
 	var balance as Money
 
 	static function create(opening Money) returns Self
@@ -235,7 +235,7 @@ error E3005: <fragment>:11:40: Cannot use bare 'int' as a type. Define a typeali
 ```maxon
 typealias Money = int(i64.min to i64.max)
 
-type Account
+service Account
 	var balance as Money
 
 	static function create(opening Money) returns Self
@@ -262,7 +262,7 @@ error E3005: <fragment>:11:29: Cannot use bare 'int' as a type. Define a typeali
 ```maxon
 typealias Money = int(i64.min to i64.max)
 
-type Account
+service Account
 	var balance as Money
 
 	static function create(opening Money) returns Self
@@ -288,7 +288,7 @@ error E3005: <fragment>:11:43: Cannot use bare 'int' as a type. Define a typeali
 ```maxon
 typealias Money = int(i64.min to i64.max)
 
-type Account
+service Account
 	var balance as Money
 
 	static function create(opening Money) returns Self
@@ -319,7 +319,7 @@ typealias Narrow = int(0 to 9)
 
 typealias Pair = (Money, Narrow)
 
-type Account
+service Account
 	var balance as Money
 
 	static function create(opening Money) returns Self

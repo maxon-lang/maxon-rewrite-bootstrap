@@ -8,7 +8,7 @@ export typealias Amount = int(0 to 1000000)
 
 export typealias Waiting = Array with Reply with String
 
-type Parker
+service Parker
 	var waiting as Waiting
 
 	static function create() returns Self
@@ -30,7 +30,7 @@ type Parker
 	end 'told'
 end 'Parker'
 
-type Child
+service Child
 	var id as Amount
 
 	static function create() returns Self

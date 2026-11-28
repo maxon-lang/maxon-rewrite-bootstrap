@@ -1,6 +1,6 @@
 export typealias Amount = int(0 to 1000000)
 
-export type Log
+export service Log
 	var last as Amount
 
 	export static function create() returns Self

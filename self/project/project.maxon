@@ -481,6 +481,21 @@ function belowDirectory(path String, dir String) returns bool
 	return path.sliceBytes(0, endPos: n) == dir
 end 'belowDirectory'
 
+// isWithinPath is whether the file or directory at path is the one at root or lies below it, the paths made absolute and
+// their ASCII letters compared without their case, as Windows compares them.
+export function isWithinPath(path String, root String) returns bool
+	let full = absolutePath(path)
+	let base = absolutePath(root)
+	if sameText(full, b: base) 'same'
+		return true
+	end 'same'
+	let n = base.byteLength()
+	if full.byteLength() <= n or full.byteAt(n) != nativeSeparatorByte() 'short'
+		return false
+	end 'short'
+	return sameText(full.sliceBytes(0, endPos: n), b: base)
+end 'isWithinPath'
+
 // listMemory is listDirectory for the files that are held in memory, which a program names itself, and so a file of
 // tests too: the paths of the source files in dir, and the names of
 // the directories below it that hold a file, each in order. It is whether dir holds an ignore marker. A project held in

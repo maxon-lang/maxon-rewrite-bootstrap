@@ -36,7 +36,7 @@ A message body never waits, so the chain is made of coroutines of `main` and the
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Z
+service Z
 	var n as Integer
 
 	static function create() returns Self
@@ -80,7 +80,7 @@ The same chain at four processors.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Z
+service Z
 	var n as Integer
 
 	static function create() returns Self
@@ -126,7 +126,7 @@ sleep while `waitFor` is still parked on the reply.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Waiter
+service Waiter
 	var n as Integer
 
 	static function create() returns Self
@@ -172,7 +172,7 @@ The same shape at four processors.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Waiter
+service Waiter
 	var n as Integer
 
 	static function create() returns Self
@@ -225,7 +225,7 @@ typealias Integer = int(i64.min to i64.max)
 // TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias ReleaseCell = SharedValue with bool
 
-type Slow
+service Slow
 	let released as ReleaseCell
 
 	static function create(released ReleaseCell) returns Self
@@ -278,7 +278,7 @@ function flip(v Integer) returns Integer
 	return try v + 1 otherwise panic("out of range")
 end 'flip'
 
-type Handler
+service Handler
 	var n as Integer
 
 	static function create() returns Self
@@ -328,7 +328,7 @@ function child() returns Integer
 	return 1
 end 'child'
 
-type S
+service S
 	var n as Integer
 
 	static function create() returns Self
@@ -415,7 +415,7 @@ function handOffSpinUntil(deadline InstantMs) returns HandOffTurns
 	return turns
 end 'handOffSpinUntil'
 
-type HandOffThread
+service HandOffThread
 	var held as HandOffTurns
 
 	static function create() returns Self

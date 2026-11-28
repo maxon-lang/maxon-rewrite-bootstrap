@@ -3313,7 +3313,7 @@ union Reading
 	missing
 end 'Reading'
 
-type Thermometer
+service Thermometer
 	var shown as Integer
 
 	static function create() returns Self

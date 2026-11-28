@@ -749,12 +749,13 @@ end 'main'
 
 <!-- test: a-function-value-that-awaits-a-service-does-not-convert-to-a-plain-function-type -->
 <!-- skip: language difference: the regions of maxon, its immutable, isolated and unique values and its modify blocks, are replaced by owned values, borrows and frozen values, so the rule behind the code does not exist -->
+<!-- positions: moved -->
 `viaService` calls `ask`, which awaits a reply, so it may wait; a function type never waits or yields.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Doubler
+service Doubler
 	var calls as Tally
 
 	static function create() returns Self

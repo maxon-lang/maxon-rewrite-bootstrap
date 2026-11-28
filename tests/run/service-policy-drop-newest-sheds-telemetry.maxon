@@ -4,7 +4,7 @@
 //> counted some: true, at most sent: true, reported: done
 export typealias Amount = int(0 to 1000000)
 
-type Metrics
+service Metrics
 	var counted as Amount
 	var last as String
 

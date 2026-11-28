@@ -13,7 +13,7 @@ let most = 2000 as Amount
 // slack is the live boxes that may differ besides the ticker's, such as a mailbox's room.
 let slack = 16 as HeapCount
 
-type Pacer implements Ends
+service Pacer implements Ends
 	var tickers as Tickers
 	var ticks as Amount
 	var dropped as Amount

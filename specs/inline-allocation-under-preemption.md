@@ -36,7 +36,7 @@ let ServiceCount = 8
 
 let Rounds = 8000000 as Word
 
-type Churn
+service Churn
 	var finished as Total
 
 	static function create() returns Self

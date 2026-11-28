@@ -6,7 +6,7 @@
 //> a read that waits took the arm: more
 export typealias Amount = int(0 to 1000000)
 
-type Watcher
+service Watcher
 	var told as Amount
 
 	static function create() returns Self

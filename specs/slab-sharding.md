@@ -517,7 +517,7 @@ let sinkCount = 8
 
 let waves = 40
 
-type Sink
+service Sink
 	var seen as Integer
 
 	static function create() returns Self
@@ -576,7 +576,7 @@ typealias Counted = int(0 to 1000000)
 
 typealias StringBox = Array with String
 
-type Sink
+service Sink
 	var seen as Integer
 
 	static function create() returns Self
@@ -704,7 +704,7 @@ function makePad(fill String, length Tally) returns String
 	return sb
 end 'makePad'
 
-type Churn
+service Churn
 	var pad as String
 	var padLength as Tally
 	var fillByte as Tally
@@ -894,7 +894,7 @@ function makePad(fill String, length Tally) returns String
 	return sb
 end 'makePad'
 
-type Churn
+service Churn
 	var pad as String
 	var padLength as Tally
 	var fillByte as Tally
@@ -946,7 +946,7 @@ type Churn
 	end 'wrongCount'
 end 'Churn'
 
-type Scavenger
+service Scavenger
 	var passes as Tally
 
 	static function create() returns Self
@@ -1087,7 +1087,7 @@ function makePad(fill String, length Tally) returns String
 	return sb
 end 'makePad'
 
-type Churn
+service Churn
 	var pad as String
 	var padLength as Tally
 	var fillByte as Tally
@@ -1284,7 +1284,7 @@ function makePad(fill String, length Tally) returns String
 	return sb
 end 'makePad'
 
-type Churn
+service Churn
 	var pad as String
 	var padLength as Tally
 	var fillByte as Tally
@@ -1336,7 +1336,7 @@ type Churn
 	end 'wrongCount'
 end 'Churn'
 
-type Scavenger
+service Scavenger
 	var passes as Tally
 
 	static function create() returns Self

@@ -18,7 +18,7 @@ let timers = 32768 as Count
 
 let asks = 3 as Count
 
-type Churner implements Ends
+service Churner implements Ends
 	var timers as Timers
 	var fires as Count
 	var churning as bool

@@ -496,7 +496,7 @@ function settle(p Parcel)
 	end 'which'
 end 'settle'
 
-type Bay
+service Bay
 	var loads as Count
 
 	static function create() returns Self
@@ -628,7 +628,7 @@ function settle(p Parcel)
 	end 'which'
 end 'settle'
 
-type Shed
+service Shed
 	var item as Box
 
 	static function create(consumes item Box) returns Self
@@ -687,7 +687,7 @@ function settle(consumes p Parcel)
 	end 'which'
 end 'settle'
 
-type Counter
+service Counter
 	var seen as Count
 
 	static function create() returns Self
@@ -759,7 +759,7 @@ function drain(m Mp)
 	end 'drained'
 end 'drain'
 
-type Taker
+service Taker
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -829,7 +829,7 @@ function drain(m Mp)
 	end 'drained'
 end 'drain'
 
-type Taker
+service Taker
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -892,7 +892,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -949,7 +949,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1010,7 +1010,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1022,7 +1022,7 @@ type TpTaker
 	end 'take'
 end 'TpTaker'
 
-type Forwarder
+service Forwarder
 	var keep as Bx
 	var out as TpTaker.handle
 
@@ -1081,7 +1081,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1093,7 +1093,7 @@ type TpTaker
 	end 'take'
 end 'TpTaker'
 
-type Keeper
+service Keeper
 	var t as Tp
 
 	static function create(t Tp) returns Self
@@ -1152,7 +1152,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1164,7 +1164,7 @@ type TpTaker
 	end 'take'
 end 'TpTaker'
 
-type Maker
+service Maker
 	var keep as Bx
 
 	static function create() returns Self
@@ -1213,7 +1213,7 @@ union Link
 	next(u U)
 end 'Link'
 
-type UTaker
+service UTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1260,7 +1260,7 @@ type U is noncopyable
 	end 'create'
 end 'U'
 
-type UTaker
+service UTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1307,7 +1307,7 @@ union Link
 	next(u U)
 end 'Link'
 
-type UTaker
+service UTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1354,7 +1354,7 @@ type U is noncopyable
 	end 'create'
 end 'U'
 
-type UTaker
+service UTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1403,7 +1403,7 @@ union Link
 	next(u U)
 end 'Link'
 
-type UTaker
+service UTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1452,7 +1452,7 @@ end 'U'
 
 typealias LinkArray = Array with Link
 
-type UTaker
+service UTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -1518,7 +1518,7 @@ function settle(p Parcel)
 	end 'which'
 end 'settle'
 
-type Shed
+service Shed
 	var item as Bx
 
 	static function create(consumes item Bx) returns Self
@@ -1565,7 +1565,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type RlTaker
+service RlTaker
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -1635,7 +1635,7 @@ function drainQ(m Mq)
 	end 'drained'
 end 'drainQ'
 
-type QTaker
+service QTaker
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -1707,7 +1707,7 @@ function drain(m Mp)
 	end 'drained'
 end 'drain'
 
-type Taker
+service Taker
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -1770,7 +1770,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type TpTaker
+service TpTaker
 	var seen as Num
 
 	static function create(seen Num) returns Self
@@ -2502,7 +2502,7 @@ type Ko
 	end 'create'
 end 'Ko'
 
-type Taker
+service Taker
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -2563,7 +2563,7 @@ type Ko
 	end 'create'
 end 'Ko'
 
-type Taker
+service Taker
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -2704,7 +2704,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Keeper
+service Keeper
 	var total as Count
 
 	static function create() returns Self

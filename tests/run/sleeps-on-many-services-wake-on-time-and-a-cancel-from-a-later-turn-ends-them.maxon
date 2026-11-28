@@ -30,7 +30,7 @@ function short(ms Amount) returns Amount
 	return 1
 end 'short'
 
-type Napper
+service Napper
 	var rounds as Amount
 
 	static function create() returns Self
@@ -64,7 +64,7 @@ type Napper
 	end 'nap'
 end 'Napper'
 
-type Spinner
+service Spinner
 	var spins as Amount
 
 	static function create() returns Self

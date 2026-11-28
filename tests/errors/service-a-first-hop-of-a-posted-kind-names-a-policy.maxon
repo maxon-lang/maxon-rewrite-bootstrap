@@ -1,7 +1,7 @@
 // A kind the runtime posts is fed by a source that cannot be slowed, so a kind its handler sends must name a policy.
 export typealias Amount = int(0 to 1000000)
 
-type Child
+service Child
 	var id as Amount
 
 	static function create(id Amount) returns Self
@@ -9,7 +9,7 @@ type Child
 	end 'create'
 end 'Child'
 
-type Log
+service Log
 	var last as Amount
 
 	static function create() returns Self
@@ -21,7 +21,7 @@ type Log
 	end 'record'
 end 'Log'
 
-type Sup
+service Sup
 	var log as Log.handle
 
 	static function create(consumes log Log.handle) returns Self

@@ -10,7 +10,7 @@ enum WorkError implements Error
 	zero
 end 'WorkError'
 
-type Worker implements StopsNow
+service Worker implements StopsNow
 	var done as Amount
 
 	static function create() returns Self

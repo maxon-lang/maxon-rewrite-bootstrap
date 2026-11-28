@@ -608,7 +608,7 @@ end 'main'
 <!-- test: multi-line-call-service-send -->
 ```maxon
 // --- file: sub/calc.maxon
-export type Calc
+export service Calc
 	var count as Integer
 
 	export static function create() returns Self

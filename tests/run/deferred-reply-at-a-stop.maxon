@@ -6,7 +6,7 @@
 //> five six stopped closed
 export typealias Waiting = Array with Reply with String
 
-type Parker implements StopsNow
+service Parker implements StopsNow
 	var waiting as Waiting
 
 	static function create() returns Self

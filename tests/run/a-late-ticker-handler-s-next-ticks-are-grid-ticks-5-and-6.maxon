@@ -18,7 +18,7 @@ let period = 10 as DurationMs
 
 let lateBy = 35 as DurationMs
 
-type Pacer implements Ends
+service Pacer implements Ends
 	var tickers as Tickers
 	var start as InstantMs
 	var ticks as Amount

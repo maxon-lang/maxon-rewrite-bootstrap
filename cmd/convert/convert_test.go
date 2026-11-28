@@ -580,6 +580,32 @@ func TestConvertDropsMailboxCapacity(t *testing.T) {
 	}
 }
 
+// TestConvertDeclaresSpawnedTypesAsServices covers maxon's `spawn`, which starts any type where minimaxon's starts a service:
+// a type that the program spawns, however the spawn names it, is declared with `service`, header clauses and visibility kept, and a
+// type that nothing spawns, or that has type parameters, stays a type. A library file's type is spawned in another file of the run.
+func TestConvertDeclaresSpawnedTypesAsServices(t *testing.T) {
+	in := "export type Store implements Ends\n\tvar n as Count\nend 'Store'\n\ntype Lines is noncopyable\n\tvar n as Count\nend 'Lines'\n\ntype Plain\n\tvar n as Count\nend 'Plain'\n\nfunction main() returns ExitCode\n\tlet a = spawn(capacity: 4) Store.create()\n\tlet b = spawn lib.Lines.create()\n\tlet c = Plain{n: 1}\n\treturn 0\nend 'main'\n"
+	res := convertProgram("test.maxon", in, specProgram, programNamesOf(in))
+	for _, want := range []string{"export service Store implements Ends\n", "service Lines is noncopyable\n", "\ntype Plain\n", "let a = spawn Store.create()\n"} {
+		if !strings.Contains(res.Text, want) {
+			t.Errorf("missing %q in:\n%s", want, res.Text)
+		}
+	}
+	declared := "type Worker\n\tvar n as Count\nend 'Worker'\n\ntypealias Workers = Array with Worker\n"
+	library := convertProgram("stdlib/Pool.maxon", declared, sourceFile, programNames{spawned: spawnedTypesOf("function start() returns Worker.handle\n\treturn spawn Worker.create()\nend 'start'\n")})
+	if !strings.HasPrefix(library.Text, "service Worker\n") || !strings.Contains(library.Text, "typealias Workers") {
+		t.Errorf("a type spawned in another file:\n%s", library.Text)
+	}
+	generic := convertProgram("stdlib/Pool.maxon", "type Box uses T\n\tvar value as T\nend 'Box'\n", sourceFile, programNames{spawned: []string{"Box"}})
+	if !strings.HasPrefix(generic.Text, "type Box uses T\n") {
+		t.Errorf("a generic type that is spawned, which a service cannot be yet:\n%s", generic.Text)
+	}
+	kept := convertProgram("stdlib/Pool.maxon", declared, sourceFile, programNames{})
+	if !strings.HasPrefix(kept.Text, "type Worker\n") {
+		t.Errorf("a type that nothing spawns:\n%s", kept.Text)
+	}
+}
+
 // TestConvertWarnsOfSharedValueAndTheLogLibrary covers the types minimaxon lacks: a program that names SharedValue gets the
 // permanent warning, one that names a type of the Log library gets the temporary one, and a program that declares a type of
 // that name itself, or reaches one as a member, keeps its own.

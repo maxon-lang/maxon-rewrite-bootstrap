@@ -268,7 +268,7 @@ done
 Sending a message and discarding its reply with `_ =` is an explicit fire-and-forget.
 
 ```maxon
-type Echo
+service Echo
 	var n as Count
 
 	static function create() returns Self
@@ -295,11 +295,12 @@ sent
 ```
 
 <!-- test: a-service-reply-held-in-a-local-and-never-consumed-is-refused -->
+<!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 Binding the reply makes it a promise in a local, so the end of `main` drops it.
 
 ```maxon
-type Echo
+service Echo
 	var n as Count
 
 	static function create() returns Self

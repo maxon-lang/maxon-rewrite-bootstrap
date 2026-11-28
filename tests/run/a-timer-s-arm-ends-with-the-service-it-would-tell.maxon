@@ -7,7 +7,7 @@
 //> a timer whose service ended is spent: its reset says false
 export typealias Amount = int(0 to 1000000)
 
-type Ticker implements StopsNow
+service Ticker implements StopsNow
 	var ticks as Amount
 
 	static function create() returns Self
@@ -25,7 +25,7 @@ type Ticker implements StopsNow
 end 'Ticker'
 
 // A Holder keeps a timer in its state, which its finish cancels.
-type Holder implements Ends
+service Holder implements Ends
 	var timer as Timer
 
 	static function create(consumes timer Timer) returns Self

@@ -40,7 +40,7 @@ typealias Consumers = Array with Consumer.handle
 
 typealias Producers = Array with Producer.handle
 
-type Consumer
+service Consumer
 	var handled as Amount
 	var sink as Amount
 	// modulus is a field, so that each spin of take costs a division that the compiler cannot fold into a multiplication: the
@@ -65,7 +65,7 @@ type Consumer
 	end 'count'
 end 'Consumer'
 
-type Producer
+service Producer
 	var to as Consumer.handle
 	var produced as Amount
 

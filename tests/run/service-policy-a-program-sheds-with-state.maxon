@@ -28,7 +28,7 @@ type KeepEveryThird implements SheddingPolicy with Sampler.Message
 	end 'shed'
 end 'KeepEveryThird'
 
-type Sampler
+service Sampler
 	var sampler as KeepEveryThird
 	var handled as Amount
 

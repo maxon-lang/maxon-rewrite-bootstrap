@@ -2,7 +2,7 @@ enum JobError implements Error
 	failed
 end 'JobError'
 
-type Job implements StopsNow
+service Job implements StopsNow
 	var runs as Count
 
 	static function create() returns Self

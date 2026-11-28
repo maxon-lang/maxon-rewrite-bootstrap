@@ -8,7 +8,7 @@ export type Page
 	end 'make'
 end 'Page'
 
-type Shelf
+service Shelf
 	var count as Amount
 
 	static function create() returns Self

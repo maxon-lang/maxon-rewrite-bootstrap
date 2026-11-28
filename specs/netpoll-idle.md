@@ -135,7 +135,7 @@ function forever() returns Integer
 	return 1
 end 'forever'
 
-type Napper
+service Napper
 	let napped as NapCell
 
 	static function create(napped NapCell) returns Self

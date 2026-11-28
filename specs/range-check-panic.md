@@ -2666,7 +2666,7 @@ function top(one Count) returns Count
 	return try one shl 63 otherwise panic("out of range")
 end 'top'
 
-type Sink
+service Sink
 	var seen = 0 as Count
 
 	static function create() returns Self
@@ -2705,7 +2705,7 @@ On wasm32-wasi this case's expected diagnostic is displaced by E3104 ('spawn' lo
 `i - 1` is arithmetic over a counted loop's counter, so the `-1` it reaches is known at compile time and
 the handler's `Count` parameter refuses it at the send with E3005.
 ```maxon
-type Sink
+service Sink
 	var seen = 0 as Count
 
 	static function create() returns Self
@@ -2826,7 +2826,7 @@ Stack trace:
 <!-- test: a-negative-difference-sent-to-a-service-handler-panics-at-the-send -->
 The run-time twin of the refusal above: the difference is unknown to the compiler, so the handler's `Count` parameter catches the borrow when the send is made.
 ```maxon
-type Sink
+service Sink
 	var seen = 0 as Count
 
 	static function create() returns Self

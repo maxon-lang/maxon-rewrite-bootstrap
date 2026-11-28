@@ -10,7 +10,7 @@ enum StoreError implements Error
 	zero
 end 'StoreError'
 
-type Store
+service Store
 	var last as Amount
 
 	static function create() returns Self

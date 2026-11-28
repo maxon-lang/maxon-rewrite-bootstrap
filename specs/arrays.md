@@ -4686,7 +4686,7 @@ A `<Service>.handle` is a pointer to a cown box, so a zeroed slot is a null hand
 ```maxon
 typealias Digit = int(0 to 9)
 
-type Worker
+service Worker
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -4714,7 +4714,7 @@ error E3106: <fragment>:18:16: 'create(n)' cannot publish zeroed slots of 'Worke
 ```maxon
 typealias Digit = int(0 to 9)
 
-type Worker
+service Worker
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -4742,7 +4742,7 @@ Only the not-zeroed form builds an array of handles, and `push` supplies each on
 ```maxon
 typealias Digit = int(0 to 9)
 
-type Worker
+service Worker
 	static function create() returns Self
 		return Self{}
 	end 'create'

@@ -40,7 +40,7 @@ holding the next one's handle, is not a cycle.
 <!-- positions: moved -->
 `Echo` keeps a handle to itself in a field.
 ```maxon
-type Echo
+service Echo
 	var count as Tally
 	var me as Echo.handle
 
@@ -75,7 +75,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias EchoHandleArray = Array with Echo.handle
 
-type Echo
+service Echo
 	var count as Tally
 	var receivers as EchoHandleArray
 
@@ -106,7 +106,7 @@ typealias PongHandleArray = Array with Pong.handle
 
 typealias PingHandleArray = Array with Ping.handle
 
-type Ping
+service Ping
 	var peers as PongHandleArray
 
 	static function create() returns Self
@@ -118,7 +118,7 @@ type Ping
 	end 'meet'
 end 'Ping'
 
-type Pong
+service Pong
 	var peers as PingHandleArray
 
 	static function create() returns Self
@@ -154,7 +154,7 @@ interface Listener
 	function note(mutates self, by Tally)
 end 'Listener'
 
-type Hub implements Listener
+service Hub implements Listener
 	var count as Tally
 	var listeners as ListenerHandleArray
 
@@ -202,7 +202,7 @@ type Rec uses T
 	end 'create'
 end 'Rec'
 
-type Sv
+service Sv
 	var r as TallyRec
 
 	static function create() returns Self
@@ -241,7 +241,7 @@ function forward(target Echo.handle, by Tally) returns Tally
 	return by
 end 'forward'
 
-type Echo
+service Echo
 	var count as Tally
 	var notify as Notifier
 
@@ -290,7 +290,7 @@ function nudgePing(target Ping.handle, by Tally) returns Tally
 	return by
 end 'nudgePing'
 
-type Ping
+service Ping
 	var hook as Notifier
 
 	static function create() returns Self
@@ -306,7 +306,7 @@ type Ping
 	end 'meet'
 end 'Ping'
 
-type Pong
+service Pong
 	var hook as Notifier
 
 	static function create() returns Self
@@ -359,7 +359,7 @@ end 'Box'
 
 typealias EchoBox = Box with Echo.handle
 
-type Echo
+service Echo
 	var sink as Sink
 
 	static function create(me Echo.handle) returns Self
@@ -402,7 +402,7 @@ function forward(target Logger.handle, by Tally) returns Tally
 	return by
 end 'forward'
 
-type Logger
+service Logger
 	var total as Tally
 
 	static function create() returns Self
@@ -414,7 +414,7 @@ type Logger
 	end 'add'
 end 'Logger'
 
-type Echo
+service Echo
 	var notify as Notifier
 
 	static function create() returns Self
@@ -451,7 +451,7 @@ end 'main'
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Back
+service Back
 	var total as Tally
 
 	static function create() returns Self
@@ -463,7 +463,7 @@ type Back
 	end 'add'
 end 'Back'
 
-type Middle
+service Middle
 	let back as Back.handle
 
 	static function create(back Back.handle) returns Self
@@ -475,7 +475,7 @@ type Middle
 	end 'relay'
 end 'Middle'
 
-type Front
+service Front
 	let middle as Middle.handle
 
 	static function create(middle Middle.handle) returns Self
@@ -513,7 +513,7 @@ chain built
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Oracle
+service Oracle
 	var asked as Tally
 
 	static function create() returns Self
@@ -526,7 +526,7 @@ type Oracle
 	end 'ask'
 end 'Oracle'
 
-type Asker
+service Asker
 	var got as Tally
 
 	static function create() returns Self
@@ -605,7 +605,7 @@ typealias TallyGen = Gen with Tally
 
 typealias EchoWrap = Wrap with Echo.handle
 
-type Echo
+service Echo
 	var sink as Sink
 
 	static function create() returns Self
@@ -669,7 +669,7 @@ typealias TallyGen = Gen with Tally
 
 typealias TallyWrap = Wrap with Tally
 
-type Echo
+service Echo
 	var gen as TallyGen
 
 	static function create() returns Self

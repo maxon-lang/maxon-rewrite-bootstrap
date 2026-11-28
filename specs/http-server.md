@@ -2411,7 +2411,7 @@ typealias ReleaseCell = SharedValue with bool
 
 let GatePollMs = 2
 
-type Gate
+service Gate
 	var entered as bool
 
 	static function create() returns Gate
@@ -2503,7 +2503,7 @@ The handler is one read-only value every connection reads at once, so what the c
 a handle to. Each connection's thread sends the service a message, and the service counts them one at a time: three
 requests, three counts, whichever threads they ran on.
 ```maxon
-type Tally
+service Tally
 	var seen as Count
 
 	static function create() returns Tally

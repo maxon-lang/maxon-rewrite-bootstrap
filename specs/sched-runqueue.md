@@ -307,7 +307,7 @@ typealias ReplyPromise = Promise with Integer
 
 typealias ReplyPromiseArray = Array with ReplyPromise
 
-type Marker
+service Marker
 	var id as Integer
 
 	static function create(id Integer) returns Self
@@ -365,7 +365,7 @@ typealias Integer = int(i64.min to i64.max)
 
 let totalBounces = 30000000
 
-type Ping
+service Ping
 	var seen as Integer
 	var stopped as bool
 
@@ -387,7 +387,7 @@ type Ping
 	end 'stop'
 end 'Ping'
 
-type Pong
+service Pong
 	var seen as Integer
 
 	static function create() returns Self
@@ -402,7 +402,7 @@ type Pong
 	end 'hit'
 end 'Pong'
 
-type Bystander
+service Bystander
 	var poked as Integer
 
 	static function create() returns Self
@@ -870,7 +870,7 @@ function spinner(steps Integer) returns Integer
 	return acc
 end 'spinner'
 
-type Hub
+service Hub
 	var pokes as Integer
 
 	static function create() returns Self
@@ -944,7 +944,7 @@ function spinner(steps Integer) returns Integer
 	return acc
 end 'spinner'
 
-type Hub
+service Hub
 	var pokes as Integer
 
 	static function create() returns Self
@@ -1021,7 +1021,7 @@ that made. The program then stops at the reply that never comes.
 ```maxon
 typealias SinkHandleArray = Array with Sink.handle
 
-type Sink
+service Sink
 	var n as Integer
 
 	static function create() returns Self
@@ -1113,7 +1113,7 @@ single publish per round would, and 6,000 remains a floor rather than a number t
 service free to migrate between Ps splits its wakes across several rings and each one advances more slowly,
 which is the one change that could put 6,000 rounds back under the threshold.
 ```maxon
-type Step
+service Step
 	var n as Integer
 
 	static function create() returns Self
@@ -1205,7 +1205,7 @@ let drainPollMs = 1
 
 // The 301st service, and the only shared sequence in the program. A send is an ENQUEUE, so the order these
 // arrive in is the order the leaves ran — with no word two green threads both step.
-type Tally
+service Tally
 	var n as Integer
 	var firstSlice as Integer
 	var oldestSlice as Integer
@@ -1233,7 +1233,7 @@ type Tally
 	end 'slicesWaited'
 end 'Tally'
 
-type Leaf
+service Leaf
 	var id as Integer
 
 	static function create(id Integer) returns Self
@@ -1338,7 +1338,7 @@ let spawneeId = 1
 let yielderId = 2
 
 // The only shared sequence in the program — see the note above.
-type Tally
+service Tally
 	var n as Integer
 	var sPos as Integer
 	var yPos as Integer
@@ -1369,7 +1369,7 @@ type Tally
 	end 'yielderPosition'
 end 'Tally'
 
-type Spawnee
+service Spawnee
 	var n as Integer
 
 	static function create() returns Self
@@ -1381,7 +1381,7 @@ type Spawnee
 	end 'go'
 end 'Spawnee'
 
-type Spawner
+service Spawner
 	var n as Integer
 
 	static function create() returns Self
@@ -1395,7 +1395,7 @@ type Spawner
 	end 'go'
 end 'Spawner'
 
-type Yielder
+service Yielder
 	var n as Integer
 
 	static function create() returns Self
@@ -1467,7 +1467,7 @@ pinning the count is what keeps it the assertion its name makes.
 ```maxon
 typealias WorkHandleArray = Array with Work.handle
 
-type Work
+service Work
 	var n as Integer
 
 	static function create() returns Self

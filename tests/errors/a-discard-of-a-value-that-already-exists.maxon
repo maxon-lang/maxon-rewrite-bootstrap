@@ -10,7 +10,7 @@ type Point
 	end 'at'
 end 'Point'
 
-type Calc
+service Calc
 	var n as Count
 
 	static function create() returns Self

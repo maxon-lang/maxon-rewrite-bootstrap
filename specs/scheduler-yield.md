@@ -281,7 +281,7 @@ function textOf(read LineOrEnd) returns String
 	end 'read'
 end 'textOf'
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self
@@ -345,7 +345,7 @@ function textOf(read LineOrEnd) returns String
 	end 'read'
 end 'textOf'
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self
@@ -416,7 +416,7 @@ function textOf(read LineOrEnd) returns String
 	end 'read'
 end 'textOf'
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self

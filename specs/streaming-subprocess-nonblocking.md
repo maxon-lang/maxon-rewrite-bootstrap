@@ -178,7 +178,7 @@ function shown(read LineOrEnd) returns String
 	end 'read'
 end 'shown'
 
-type LineService
+service LineService
 	var reader as ChildOutputReader
 
 	static function create(consumes reader ChildOutputReader) returns Self
@@ -271,7 +271,7 @@ function shown(read LineOrEnd) returns String
 	end 'read'
 end 'shown'
 
-type LineService
+service LineService
 	var reader as ChildOutputReader
 
 	static function create(consumes reader ChildOutputReader) returns Self

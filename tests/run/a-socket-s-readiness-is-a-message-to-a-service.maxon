@@ -14,7 +14,7 @@
 //> told: at once of an edge that came before the arm
 export typealias Amount = int(0 to 1000000)
 
-type Watcher
+service Watcher
 	var told as Amount
 
 	static function create() returns Self

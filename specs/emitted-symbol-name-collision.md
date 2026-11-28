@@ -159,7 +159,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -202,7 +202,7 @@ wasm32-wasi lays no chunk under this name and answers E3104 for the `spawn` befo
 ```maxon
 typealias Tally = int(0 to 1000)
 
-type Calc
+service Calc
 	var count as Tally
 
 	static function create() returns Self
@@ -242,7 +242,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -286,7 +286,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -331,7 +331,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -375,7 +375,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -420,7 +420,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -464,7 +464,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -509,7 +509,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -553,7 +553,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Hook = function() returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self

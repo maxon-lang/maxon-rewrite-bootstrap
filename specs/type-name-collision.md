@@ -3483,7 +3483,7 @@ typealias Fault = int(0 to 10)
 
 typealias Integer = int(i64.min to i64.max)
 
-export type Calc
+export service Calc
 	var count as Integer
 	var seen as Fault
 
@@ -3526,7 +3526,7 @@ end 'Fault'
 // --- file: calc/calc.maxon
 export typealias Count = int(i64.min to i64.max)
 
-export type Calc
+export service Calc
 	var count as Count
 
 	export static function create() returns Self
@@ -3559,6 +3559,7 @@ end 'main'
 ```
 
 <!-- test: error.a-service-throws-the-alias-its-own-directory-declares -->
+<!-- positions: moved -->
 The same pair, with the message's clause naming `calc.Fault` — the ranged alias. That names no enum or union,
 so the clause is refused, whatever `faults/` declares under the same name.
 ```maxon
@@ -3573,7 +3574,7 @@ end 'Fault'
 // --- file: calc/calc.maxon
 export typealias Count = int(i64.min to i64.max)
 
-export type Calc
+export service Calc
 	var count as Count
 
 	export static function create() returns Self
@@ -3597,6 +3598,7 @@ error E3113: calc/<fragment>:20:18: 'throws calc.Fault' names no declared enum o
 ```
 
 <!-- test: error.a-service-throws-a-bare-name-means-the-readers-own-directorys-declaration -->
+<!-- positions: moved -->
 The same pair, with the clause written bare in a file of `calc/`: the bare name means `calc/`'s own `Fault`,
 the ranged alias, so the clause names no enum or union however `faults/` is declared.
 ```maxon
@@ -3611,7 +3613,7 @@ end 'Fault'
 // --- file: calc/calc.maxon
 export typealias Count = int(i64.min to i64.max)
 
-export type Calc
+export service Calc
 	var count as Count
 
 	export static function create() returns Self
@@ -4211,7 +4213,7 @@ enum MathError implements Error
 	end 'code'
 end 'MathError'
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self

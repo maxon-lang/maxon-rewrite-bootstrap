@@ -14,7 +14,7 @@ type TwoTurns implements OverloadPolicy with Worker.Message
 	end 'admit'
 end 'TwoTurns'
 
-type Worker
+service Worker
 	var done as Amount
 	var cheap as Amount
 

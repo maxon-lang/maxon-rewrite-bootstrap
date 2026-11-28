@@ -1,6 +1,6 @@
 export typealias Amount = int(0 to 1000000)
 
-type Echo
+service Echo
 	var me as Array with Echo.handle
 
 	static function create() returns Self
@@ -13,4 +13,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E4014 at 12:10
+// expect-error: E4014 at 3:9

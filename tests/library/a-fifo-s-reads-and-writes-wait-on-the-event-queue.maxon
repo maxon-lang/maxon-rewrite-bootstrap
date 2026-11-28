@@ -28,7 +28,7 @@ let stepBudgetMs = 6000
 
 // Watchdog is told by the step timer when a step has waited past its budget, and ends the program, naming it on standard
 // error.
-type Watchdog
+service Watchdog
 	static function create() returns Self
 		return Self{}
 	end 'create'

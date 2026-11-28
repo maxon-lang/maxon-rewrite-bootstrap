@@ -7,7 +7,7 @@ export typealias Count = int(0 to 1000)
 
 export typealias Parked = Array with Reply with Count
 
-type Sampler
+service Sampler
 	var seen as Count
 	var parked as Parked
 

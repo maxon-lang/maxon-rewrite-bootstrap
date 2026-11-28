@@ -577,6 +577,7 @@ error E3168: <fragment>:15:11: 'throws Failure' is declared but nothing in the b
 
 <!-- test: error.throws-service-message-can-never-throw -->
 <!-- skip: language difference: a throws that nothing can make fail is allowed, so a sharper analysis never breaks a program -->
+<!-- positions: moved -->
 A service message is checked like any other function. A `throws` clause gives the message a reply slot, but a
 body that cannot throw still makes the clause false.
 ```maxon
@@ -586,7 +587,7 @@ end 'Failure'
 
 typealias Integer = int(i64.min to i64.max)
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self

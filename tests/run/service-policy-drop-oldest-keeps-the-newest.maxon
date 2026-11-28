@@ -5,7 +5,7 @@
 //> handled some: true, at most sent: true, newest handled: true
 export typealias Amount = int(0 to 1000000)
 
-type Feed
+service Feed
 	var handled as Amount
 	var newest as Amount
 

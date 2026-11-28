@@ -4,7 +4,7 @@
 //> asked 3 times, answered 3 times, the last 30
 export typealias Amount = int(0 to 1000000)
 
-type Echo
+service Echo
 	var calls as Amount
 
 	static function create() returns Self
@@ -17,7 +17,7 @@ type Echo
 	end 'ask'
 end 'Echo'
 
-type Asker
+service Asker
 	var asked as Amount
 	var answered as Amount
 	var last as Amount

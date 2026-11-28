@@ -151,6 +151,7 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 		rewriteLibraryAliasChecks(lines)
 	}
 	warnIdentityOperators(lines, addWarn)
+	writeSpawnedTypesAsServices(lines, names.spawned)
 
 	candidate := renderFallbackLayout(lines)
 	laid := formatter.format(candidate)
@@ -3163,7 +3164,7 @@ func renderFallbackLayout(lines []sourceLine) string {
 		declIdx := skipModifiers(l.code)
 		if declIdx < len(l.code) && l.code[declIdx].kind == tokIdent {
 			switch l.code[declIdx].text {
-			case "type", "enum", "union":
+			case "type", serviceKeyword, "enum", "union":
 				stack = append(stack, frame{indent: l.indent, kind: inTypeLike})
 			case "interface":
 				stack = append(stack, frame{indent: l.indent, kind: inInterface})

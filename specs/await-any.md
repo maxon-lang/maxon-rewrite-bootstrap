@@ -344,7 +344,7 @@ typealias ReplyPromise = Promise with Integer
 
 typealias ReplyPromiseArray = Array with ReplyPromise
 
-type Slow
+service Slow
 	var n as Integer
 
 	static function create() returns Self
@@ -357,7 +357,7 @@ type Slow
 	end 'value'
 end 'Slow'
 
-type Quick
+service Quick
 	var n as Integer
 
 	static function create() returns Self
@@ -561,7 +561,7 @@ let rounds = 300
 
 let services = 4
 
-type Echo
+service Echo
 	var served as Integer
 
 	static function create() returns Self
@@ -626,7 +626,7 @@ let rounds = 300
 
 let services = 4
 
-type Echo
+service Echo
 	var served as Integer
 
 	static function create() returns Self
@@ -706,7 +706,7 @@ let slotStride = 7
 
 let roundStride = 5
 
-type Echo
+service Echo
 	var served as Integer
 
 	static function create() returns Self
@@ -780,7 +780,7 @@ let slotStride = 7
 
 let roundStride = 5
 
-type Echo
+service Echo
 	var served as Integer
 
 	static function create() returns Self

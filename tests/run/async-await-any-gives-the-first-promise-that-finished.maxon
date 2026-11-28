@@ -13,7 +13,7 @@ function nap(delay Milliseconds, tag Tag) returns Tag
 	return tag
 end 'nap'
 
-type Echo
+service Echo
 	var delay as Milliseconds
 
 	static function create(delay Milliseconds) returns Self

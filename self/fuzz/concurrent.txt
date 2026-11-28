@@ -114,7 +114,7 @@ function gridOf(rows Count, columns Count) returns Grid
 end 'gridOf'
 
 // Acc is a service: its messages from many senders arrive in any order, and what it keeps does not depend on it.
-type Acc
+service Acc
 	var sum as Num
 	var count as Num
 

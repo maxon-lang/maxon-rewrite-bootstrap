@@ -7,7 +7,7 @@ interface Pinger
 	function ping(value Count) returns Count
 end 'Pinger'
 
-type Abrupt implements Pinger, StopsNow
+service Abrupt implements Pinger, StopsNow
 	static function create() returns Self
 		return Self{}
 	end 'create'

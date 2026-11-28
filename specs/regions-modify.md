@@ -2334,7 +2334,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias LineArray = Array with String
 
-type Oracle
+service Oracle
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -2344,7 +2344,7 @@ type Oracle
 	end 'answer'
 end 'Oracle'
 
-type Relay
+service Relay
 	var seen as Tally
 
 	static function create() returns Self
@@ -2383,7 +2383,7 @@ typealias LineArray = Array with String
 
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var n as Tally
 
 	static function create() returns Self
@@ -3451,7 +3451,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Svc
+service Svc
 	var n as Num
 
 	static function create() returns Self

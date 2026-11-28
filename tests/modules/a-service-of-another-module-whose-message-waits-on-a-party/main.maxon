@@ -7,4 +7,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3221 at 5:14
+// expect-error: E3221 at 23:2

@@ -1,6 +1,6 @@
 // The state of a service that holds an open file cannot be dropped, so its type implements Ends, whose finish the service
 // calls once it has stopped and which closes the file: a type that does not is refused at its declaration.
-type Log
+service Log
 	var out as FileWriter
 	var lines as Count
 
@@ -22,4 +22,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3956 at 3:6
+// expect-error: E3956 at 3:9

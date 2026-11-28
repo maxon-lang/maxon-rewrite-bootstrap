@@ -745,7 +745,7 @@ writes lower straight to runtime entries wasm32-wasi does not have, and both are
 exempts an unreached STDLIB body; it does not exempt the program's own code, which `SemanticCheck` visits
 whole, as it does to report a type error in a function nothing calls.
 ```maxon
-type Plot
+service Plot
 	var n as Integer
 
 	static function create() returns Self

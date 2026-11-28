@@ -59,7 +59,7 @@ function isSet(xs Amounts, at Amount) returns bool
 end 'isSet'
 
 // The Sink handles every fire and holds what the holders did to each timer before the fire was handled.
-type Sink
+service Sink
 	var handled as Amounts
 	var replacedHandled as Amounts
 	var cancelled as Amounts
@@ -146,7 +146,7 @@ type Sink
 end 'Sink'
 
 // A Holder takes the timers an Armer hands it and races their fires from its own turns.
-type Holder implements Ends
+service Holder implements Ends
 	var held as Held
 	var sink as Sink.handle
 
@@ -203,7 +203,7 @@ type Holder implements Ends
 end 'Holder'
 
 // An Armer arms its share of the timers toward the sink and hands each to a holder as it is armed.
-type Armer
+service Armer
 	var first as Amount
 
 	static function create(first Amount) returns Self

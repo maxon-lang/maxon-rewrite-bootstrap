@@ -411,7 +411,7 @@ A message hands its arguments to another green thread, which owns them and write
 ```maxon
 typealias Count = int(0 to 1000)
 
-type Counter
+service Counter
 	var total as Count
 
 	static function create() returns Self
@@ -440,7 +440,7 @@ A `spawn` hands the factory's arguments to the service, which owns them and writ
 ```maxon
 typealias Count = int(0 to 1000)
 
-type Counter
+service Counter
 	var total as Count
 
 	static function create(mutates start Count) returns Self

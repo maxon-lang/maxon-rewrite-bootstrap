@@ -1,6 +1,6 @@
 // A service whose state holds an interface handle of an interface its own type implements may hold its own handle, which
 // would keep it alive for ever.
-// expect-error: E4014 at 30:12
+// expect-error: E4014 at 12:9
 export typealias Tally = int(0 to 1000)
 
 typealias Listeners = Array with Listener.handle
@@ -9,7 +9,7 @@ interface Listener
 	function note(mutates self, by Tally)
 end 'Listener'
 
-type Hub implements Listener
+service Hub implements Listener
 	var count as Tally
 	var listeners as Listeners
 

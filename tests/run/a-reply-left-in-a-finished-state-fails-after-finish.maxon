@@ -9,7 +9,7 @@
 //> at once: stopped
 export typealias Waiting = Array with Reply with String
 
-type Parker implements StopsNow, Ends
+service Parker implements StopsNow, Ends
 	var waiting as Waiting
 
 	static function create() returns Self

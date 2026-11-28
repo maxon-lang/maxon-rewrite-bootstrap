@@ -16,7 +16,7 @@ type Twice implements Scale
 	end 'apply'
 end 'Twice'
 
-type Runner
+service Runner
 	var n as Amount
 	var scale as Scale
 

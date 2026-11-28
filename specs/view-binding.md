@@ -532,7 +532,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self

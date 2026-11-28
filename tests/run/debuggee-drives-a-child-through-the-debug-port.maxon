@@ -101,7 +101,7 @@ type Session
 end 'Session'
 
 // Spinner is busy for a while in each message, on whichever thread runs it.
-type Spinner
+service Spinner
 	var spins as Count
 
 	static function create() returns Self

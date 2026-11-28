@@ -160,7 +160,7 @@ standing in front of the unresolved name. ⇒ **This
 case's gate is "the companions exist and the program runs"; the DIAGNOSTIC for an absent one is the
 cross-file case's, and one claim may not be filed under both.**
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -210,7 +210,7 @@ the pre-fold token walk, this case reports `error E3011: Unknown type 'Calc.hand
 to completion — its `spawn` is in the other file — so the unresolved companion is actually reached.
 ```maxon
 // --- file: calc.maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -253,7 +253,7 @@ companion unresolved.
 references is E3092. Both would have made this case pass without ever building the spawn it is about.
 ```maxon
 // --- file: calc.maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -297,7 +297,7 @@ end 'main'
 and the spawn starts that type as a service.
 ```maxon
 // --- file: sub/calc.maxon
-export type Calc
+export service Calc
 	var count as Integer
 
 	export static function create() returns Self
@@ -327,7 +327,7 @@ end 'main'
 spawn starts that type as a service exactly as it does for a one-segment qualifier.
 ```maxon
 // --- file: outer/inner/calc.maxon
-export type Calc
+export service Calc
 	var count as Integer
 
 	export static function create() returns Self
@@ -357,7 +357,7 @@ The `default` for `Greeter` spawns `Polite`, declared in `sub/`, by its qualifie
 the registry hands `main` that service.
 ```maxon
 // --- file: sub/polite.maxon
-export type Polite implements Greeter
+export service Polite implements Greeter
 	var calls as Integer
 
 	export static function create() returns Self
@@ -404,7 +404,7 @@ end 'Calc'
 
 export typealias Integer = int(i64.min to i64.max)
 // --- file: sub/Calc/inner.maxon
-export type Inner
+export service Inner
 	var count as sub.Integer
 
 	export static function create() returns Self
@@ -459,12 +459,13 @@ error E3134: <fragment>:3:10: `spawn Calc.create(…)` does not start a service:
 ```
 
 <!-- test: error.a-spawn-whose-head-is-a-binding-is-refused-as-a-value -->
+<!-- positions: moved -->
 A chain whose head is a binding in scope is a value expression, so `spawn sub.Calc.create()` names no
 type even though a directory `sub` declares one: the refusal names the value, and no service is
 started for the directory's `Calc`.
 ```maxon
 // --- file: sub/calc.maxon
-export type Calc
+export service Calc
 	var count as Integer
 
 	export static function create() returns Self
@@ -531,7 +532,7 @@ A top-level `let sub` is in scope at the file's `default`, so `spawn sub.Calc.cr
 expression and names no type, though the directory `sub` declares a `Calc` that conforms to `Greeter`.
 ```maxon
 // --- file: sub/calc.maxon
-export type Calc implements Greeter
+export service Calc implements Greeter
 	var calls as Integer
 
 	export static function create() returns Self
@@ -570,7 +571,7 @@ error E3134: <fragment>:22:19: `spawn sub.Calc.create(…)` does not start a ser
 `bump` is a message, not a factory. A `spawn` calls its factory DIRECTLY — there is no service yet for a
 message to reach — so the target must be a `static`.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -597,7 +598,7 @@ error E3134: <fragment>:15:10: `spawn Calc.bump(…)` does not start a service: 
 <!-- positions: moved -->
 A static that does not hand back the type has produced no state for the message loop to own.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -659,7 +660,7 @@ diagnostic fires at the `spawn`, because that is what made `Calc` a service.
 ```maxon
 typealias IntPromise = Promise with Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -689,7 +690,7 @@ parameter of a function type is refused.
 ```maxon
 typealias IntOp = function(Integer) returns Integer
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -728,7 +729,7 @@ function forever() returns Integer
 	return 1
 end 'forever'
 
-type Sink
+service Sink
 	var n as Integer
 
 	static function create() returns Self
@@ -763,7 +764,7 @@ typealias IntPromise = Promise with Integer
 
 typealias PromiseArray = Array with IntPromise
 
-type Sink
+service Sink
 	var n as Integer
 
 	static function create() returns Self
@@ -801,7 +802,7 @@ union Slot
 	held(p IntPromise)
 end 'Slot'
 
-type Sink
+service Sink
 	var n as Integer
 
 	static function create() returns Self
@@ -848,7 +849,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Sink
+service Sink
 	var n as Integer
 
 	static function create() returns Self
@@ -884,7 +885,7 @@ function forever() returns Integer
 	return 1
 end 'forever'
 
-type Sink
+service Sink
 	var n as Integer
 
 	static function create(p IntPromise) returns Self
@@ -928,7 +929,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Sink
+service Sink
 	var n as Integer
 
 	static function create(consumes h Holder) returns Self
@@ -972,7 +973,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -1157,7 +1158,7 @@ typealias Whole = int(i64.min to i64.max)
 
 typealias IntPromise = Promise with Whole
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -1198,7 +1199,7 @@ position uses.
 STATIC CALL on a type"*), which is a sentence about a program the author did not write. The whole-program
 discovery walk reads the same two names, and the two must widen together or one accepts a spawn the other minted no companions for.
 ```maxon
-type Reader
+service Reader
 	var n as Integer
 
 	static function from(path Integer) returns Self
@@ -1267,7 +1268,7 @@ A message's send error is a declared type with a name an author can write: `Stor
 `throws` clause, and its cases in a `match`. The mailbox runtime produces it — here a send after `shutdown()`
 — and `ping` takes no parameters, so `mailboxFull` and `serviceStopped` carry nothing.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -1305,7 +1306,7 @@ A service whose whole state is one small immutable field answers and then shuts 
 ```maxon
 typealias Count = int(0 to 1000)
 
-type A
+service A
 	let n as Count
 
 	static function create() returns Self
@@ -1342,7 +1343,7 @@ its own green thread and, above one processor, on another OS thread — so `main
 ordered by nothing. Every expectation below is therefore built out of prints made by ONE service at a time,
 whose order is its own mailbox's FIFO.
 ```maxon
-type Counter
+service Counter
 	var n as Integer
 
 	static function create() returns Self
@@ -1378,7 +1379,7 @@ n=2
 <!-- test: messages-are-serialized-in-fifo-order -->
 Handlers run one at a time, in send order — so three digits pushed in order read back as one number.
 ```maxon
-type Log
+service Log
 	var acc as Integer
 
 	static function create() returns Self
@@ -1427,7 +1428,7 @@ let backlog = 100 as Tally
 
 let edge = 3
 
-type FifoTape
+service FifoTape
 	var seen as Tally
 	var misplaced as Tally
 	var trail as String
@@ -1486,7 +1487,7 @@ let backlog = 19 as Tally
 
 let edge = 2
 
-type InboxTape
+service InboxTape
 	var seen as Tally
 	var misplaced as Tally
 	var trail as String
@@ -1545,7 +1546,7 @@ let backlog = 100 as Tally
 
 let replyEvery = 25 as Tally
 
-type Backlog
+service Backlog
 	var n as Integer
 
 	static function create() returns Self
@@ -1619,7 +1620,7 @@ let firstBatch = 6 as Tally
 
 let secondBatch = 18 as Tally
 
-type WrapTape
+service WrapTape
 	var seen as Tally
 	var misplaced as Tally
 
@@ -1686,7 +1687,7 @@ typealias Tally = int(0 to 1000)
 
 let burst = 40 as Tally
 
-type ShrinkTape
+service ShrinkTape
 	var seen as Tally
 	var misplaced as Tally
 
@@ -1749,7 +1750,7 @@ services printing on two green threads with nothing between them would be ordere
 `a`'s handle to `b`'s handler is what buys that ordering; `borrow.a-sent-handle-may-be-kept-by-the-handler`
 pins a sent handle on its own.
 ```maxon
-type Counter
+service Counter
 	var id as Integer
 	var n as Integer
 
@@ -1796,7 +1797,7 @@ typealias Integer = int(i64.min to i64.max)
 impossible: one type, one method, reached both ways in one program. The direct calls run before the `spawn`
 exists, so the two lines are ordered by the program rather than by the scheduler.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -1836,7 +1837,7 @@ total=3
 <!-- positions: moved -->
 A private helper is not on the handle, so a call to it through the handle is not a message.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -1869,7 +1870,7 @@ exactly (`Parser.structCloneIsSynthesized`): a service that declares an `export 
 own WINS, and the compiler's close is then unspellable for it — which leaves dropping the last handle, the
 other road to the same drain.
 ```maxon
-type Log
+service Log
 	var acc as Integer
 
 	static function create() returns Self
@@ -1912,7 +1913,7 @@ after `shutdown()`, so the mailbox is closed and the send is refused with `servi
 `String` the `let` moved. The first `keep`, queued before the shutdown, still runs at the exit drain. Exit 0
 says the returned `String` was released once and the queued one by the service (exit 101 otherwise).
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -1963,7 +1964,7 @@ At one processor with preemption off the service runs nothing until `main` retur
 fill a capacity of two and the third is refused with `mailboxFull`, handing back the `String` it was given. The
 two queued messages still run at the exit drain, and exit 7 says the refused `String` was released.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2009,7 +2010,7 @@ retry loop reassigns a `var` from the returned value and sends it until it lands
 retry cannot land without `Scheduler.yield()` letting `h`'s service drain its queue, and the loop prints
 once per refusal, so the output shows it took exactly one yield. Exit 0 says every `String` was released.
 ```maxon
-type Store
+service Store
 	var tag as Integer
 
 	static function create(tag Integer) returns Self
@@ -2064,7 +2065,7 @@ store1 kept s2
 A send after `shutdown()` is refused with `serviceStopped` and gets its `String` back; the message sent before the
 shutdown still runs.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2106,7 +2107,7 @@ kept a1
 A reply-bearing send fails at the send too, and the one `try` of `try await` catches it: `value` takes no
 parameters, so its `mailboxFull` and `serviceStopped` carry nothing.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2158,7 +2159,7 @@ typealias ValuePromise = Promise with (Integer, StoreError)
 
 typealias ValuePromiseArray = Array with ValuePromise
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2211,7 +2212,7 @@ value=5
 <!-- positions: moved -->
 A send can fail, so a send with no `try` is the ordinary refusal of a throwing call made without one.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2242,7 +2243,7 @@ A message that returns or throws sent as a statement drops its reply, and with i
 handler's error. The send's own error is handled here, so the drop is the only fault: await the reply,
 store it, or discard it with `_ =`.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2273,7 +2274,7 @@ error E3190: <fragment>:16:2: `Store.value` returns or throws, so a send of it d
 `shutdown()` takes no slot, so it succeeds on a full mailbox: both queued messages still run, and the send
 after it is refused with `serviceStopped`.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2325,7 +2326,7 @@ let attempts = 1025 as Tally
 
 let lastQueued = 1024
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2370,7 +2371,7 @@ ran 1024 last=s1023
 A bare `try` propagates the send's error through a function declared to throw `Store.keep.sendError`, and
 the caller that catches it gets the `String` back.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2421,7 +2422,7 @@ union Wrap
 	empty
 end 'Wrap'
 
-type Store
+service Store
 	var n as Integer
 	var tag as Integer
 
@@ -2501,7 +2502,7 @@ union Wrap
 	empty
 end 'Wrap'
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2603,7 +2604,7 @@ type Holder
 	end 'measure'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2647,7 +2648,7 @@ the original measures 1
 The binding that caught a send's error owns it alone, so `throw e` hands it on to the caller, which gets the
 `String` back.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2693,7 +2694,7 @@ kept s1
 A send's error caught with `otherwise` leaves nothing for the declared clause to carry, so the clause is
 refused as one the body can never throw.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2725,7 +2726,7 @@ error E3168: <fragment>:14:10: 'throws Store.ping.sendError' is declared but not
 A send-error a function is handed may be thrown by it: the box the send failed on is counted, so the catcher and
 the function each hold a counted reference to it.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2764,7 +2765,7 @@ A capacity is a `MailboxCapacity`, `int(1 to 2^31)`, so a literal outside it is 
 refusal.
 wasm32-wasi has no services, so it answers `E3104` for the `spawn` and the sends before it reaches this refusal; the case is pinned on the native lanes.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2802,7 +2803,7 @@ typealias Tally = int(0 to u64.max)
 
 let attempts = 22 as Tally
 
-type Ledger
+service Ledger
 	var taken as Tally
 	var log as String
 
@@ -2866,7 +2867,7 @@ finding `main` queued, moves `main`'s `s1` into the freed slot and readies `main
 parked sender's element into the buffer. The send is already delivered when `main` runs again. The service
 keeps the processor until it parks, so it handles `s0` and then `s1` before `main` prints.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2915,7 +2916,7 @@ order. A third send after `main` wakes, a yield that lets the service start it (
 handler starts) and an awaited `count` behind it show the mailbox keeps working afterwards: `s2` is run before the count
 is read.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -2978,7 +2979,7 @@ typealias Tally = int(0 to 1000)
 
 let queued = 17 as Tally
 
-type FullRingTape
+service FullRingTape
 	var seen as Tally
 	var misplaced as Tally
 
@@ -3036,7 +3037,7 @@ with its `String`, and `Store`, which first runs after the shutdown, still runs 
 ```maxon
 let longTimeoutMs = 60000
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -3049,7 +3050,7 @@ type Store
 	end 'keep'
 end 'Store'
 
-type Closer
+service Closer
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -3094,7 +3095,7 @@ no parameters takes `h.ping(sendTimeout: 5000)`. The shape is `a-send-with-a-tim
 second ping parks until the service's receive takes the first and moves the second into the freed slot. The
 service then runs both pings before `main` prints.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -3133,7 +3134,7 @@ sent the second ping
 
 <!-- test: a-message-with-a-defaulted-first-parameter-may-name-it -->
 ```maxon
-type Meter
+service Meter
 	var n as Integer
 
 	static function create(start Integer = 0) returns Self
@@ -3171,7 +3172,7 @@ total=11
 
 <!-- test: a-message-with-a-defaulted-first-parameter-takes-it-positionally -->
 ```maxon
-type Meter
+service Meter
 	var n as Integer
 
 	static function create(start Integer = 0) returns Self
@@ -3213,7 +3214,7 @@ total=10
 `try await` takes `sendTimeout:` too. The send waits for the service to take `s0`, as in
 `a-send-with-a-timeout-waits-for-room`, and the one `try` then awaits the reply.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -3274,7 +3275,7 @@ let timeoutMs = 20
 
 let releasePollMs = 1
 
-type Store
+service Store
 	let released as ReleaseCell
 	var n as Integer
 
@@ -3346,7 +3347,7 @@ let longTimeoutMs = 60000
 
 let releasePollMs = 1
 
-type Store
+service Store
 	let released as ReleaseCell
 	var n as Integer
 
@@ -3367,7 +3368,7 @@ type Store
 	end 'keep'
 end 'Store'
 
-type Closer
+service Closer
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -3428,7 +3429,7 @@ let longTimeoutMs = 60000
 
 let pollMs = 1
 
-type Store
+service Store
 	let released as ReleaseCell
 	var n as Integer
 
@@ -3512,7 +3513,7 @@ let longTimeoutMs = 60000
 
 let pollMs = 1
 
-type Store
+service Store
 	let released as ReleaseCell
 	var n as Integer
 
@@ -3587,7 +3588,7 @@ kept s0
 `a-full-mailbox-refuses-a-send-and-hands-its-arguments-back` does with no label. `main` never parks, so the
 service runs nothing until the exit drain.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -3634,7 +3635,7 @@ full and parks until the service has taken `s0`, then lands in the slot that tak
 ```maxon
 let longestTimeoutMs = u64.max
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -3692,7 +3693,7 @@ let indefiniteTimeoutMs = i64.max
 
 let releasePollMs = 1
 
-type Store
+service Store
 	let released as ReleaseCell
 	var n as Integer
 
@@ -3759,7 +3760,7 @@ the mailbox it has to receive from — is refused, because a message may not wai
 service while it waits. Only `main` and its coroutines send with a timeout, and `main`'s own waits are pinned by
 `an-indefinite-send-waits-past-a-sleeping-handler-and-delivers` and the cases around it.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -3795,7 +3796,7 @@ A send with a `sendTimeout:` of anything but a literal `0` waits for room in a f
 makes one holds its own service while it waits and is refused. A `sendTimeout:` of `0` is the default spelled out:
 a full mailbox fails at once and nothing waits (see `a-message-may-send-with-a-literal-zero-timeout`).
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -3807,7 +3808,7 @@ type Store
 	end 'fill'
 end 'Store'
 
-type Pusher
+service Pusher
 	var n as Integer
 
 	static function create() returns Self
@@ -3851,7 +3852,7 @@ function begin() returns IntPromise
 	return async seven()
 end 'begin'
 
-type Sink
+service Sink
 	var n as Integer
 
 	static function create() returns Self
@@ -3879,7 +3880,7 @@ error E3221: <fragment>:21:18: the message 'settle' may wait (it awaits a promis
 Only a literal `sendTimeout: 0` is known not to wait. A timeout the compiler cannot read as that literal may be any
 duration, so a message that sends with one is refused even when every caller passes `0`.
 ```maxon
-type Peer
+service Peer
 	var n as Integer
 
 	static function create() returns Self
@@ -3891,7 +3892,7 @@ type Peer
 	end 'note'
 end 'Peer'
 
-type Probe
+service Probe
 	var n as Integer
 
 	static function create() returns Self
@@ -3924,7 +3925,7 @@ inside it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Peer
+service Peer
 	var n as Integer
 
 	static function create() returns Self
@@ -3940,7 +3941,7 @@ function waitsOnPeer(p Peer.handle) returns Integer
 	return try await p.ping() otherwise 0
 end 'waitsOnPeer'
 
-type Probe
+service Probe
 	var n as Integer
 
 	static function create() returns Self
@@ -3971,7 +3972,7 @@ counter whose mailbox holds one: the first lands and the other two fail `mailbox
 counts, so the reply is the number of refusals. `main`'s own send of `total` waits for room, which is `main`'s
 to do.
 ```maxon
-type Counter
+service Counter
 	var n as Integer
 
 	static function create() returns Self
@@ -3987,7 +3988,7 @@ type Counter
 	end 'total'
 end 'Counter'
 
-type Relay
+service Relay
 	var refused as Integer
 
 	static function create() returns Self
@@ -4029,7 +4030,7 @@ A service that needs another service's answer sends the request with its own han
 message. `Asker.start` posts `Oracle.ask` with a clone of its own handle and returns at once; `Oracle.ask` posts
 `Asker.answer` back and returns; neither waits. `main` polls `Asker.result` until the answer has landed.
 ```maxon
-type Oracle
+service Oracle
 	var n as Integer
 
 	static function create() returns Self
@@ -4041,7 +4042,7 @@ type Oracle
 	end 'ask'
 end 'Oracle'
 
-type Asker
+service Asker
 	var got as Integer
 
 	static function create() returns Self
@@ -4089,7 +4090,7 @@ answer=42
 `sendTimeout:` is reserved on every message call, so a message may not declare a parameter of that name: a
 call could not tell the payload from the timeout.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -4146,7 +4147,7 @@ is exactly the kind of scheduler edit whose blast radius someone should have to 
 answer is to re-baseline it DELIBERATELY, with the reason in the commit** — never to loosen the block, and
 never to read the red as a shutdown bug. What would be a shutdown bug is a line MISSING, or a non-zero exit.
 ```maxon
-type Beeper
+service Beeper
 	var tag as Integer
 
 	static function create(tag Integer) returns Self
@@ -4182,7 +4183,7 @@ beep 2
 A handle is an ordinary box, so `.clone()` reaches it — and on a handle the clone is a second HANDLE to the
 SAME service, not a second service. Dropping one leaves the mailbox open; the last one to go closes it.
 ```maxon
-type Counter
+service Counter
 	var n as Integer
 
 	static function create() returns Self
@@ -4495,7 +4496,7 @@ DROPS it — the un-consumed payload drop the loop owes for every message it run
 send MOVES it: that drop is the `Logger`'s last handle, and the logger shuts down without `main` ever naming
 it again.
 ```maxon
-type Logger
+service Logger
 	var n as Integer
 
 	static function create() returns Self
@@ -4507,7 +4508,7 @@ type Logger
 	end 'say'
 end 'Logger'
 
-type Worker
+service Worker
 	var n as Integer
 
 	static function create() returns Self
@@ -4539,7 +4540,7 @@ log: from the worker
 Handles are ordinary boxes and live in containers — which means the array's element drop is the handle drop,
 and two services shut down when the array does.
 ```maxon
-type Counter
+service Counter
 	var n as Integer
 
 	static function create() returns Self
@@ -4581,7 +4582,7 @@ alike, two sends are exit 92 (`RuntimeAbort.schedulerDeadlock`) and a `.clone()`
 exit 89 (`slabFreeOfParkedSpan`)** — a heap corruption, not a diagnostic. This case
 therefore sends THREE times through three separate reads, and its answer is the accumulated total.
 ```maxon
-type Counter
+service Counter
 	var n as Integer
 
 	static function create() returns Self
@@ -4638,7 +4639,7 @@ of calling `byteLength()` on it interns one name fewer and the program compiles.
 carrier's own header records the lexer's keyword map having — *"a read that is right only while two
 independent insertion orders agree is a wrong answer waiting"*.
 ```maxon
-type Logger
+service Logger
 	var bytes as Integer
 
 	static function create() returns Self
@@ -4654,7 +4655,7 @@ type Logger
 	end 'report'
 end 'Logger'
 
-type Worker
+service Worker
 	var n as Integer
 
 	static function create() returns Self
@@ -4689,7 +4690,7 @@ box's one owner. Nothing is increfed at the send and nothing is dropped by the s
 the plain refcount correct across a green thread. The bare literal is an immortal `.rdata` record, promoted
 to a fresh owned copy at the send; a `let` local is moved exactly as a `var` is.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -4738,7 +4739,7 @@ enum StoreError
 	full
 end 'StoreError'
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -4774,7 +4775,7 @@ kept a1
 The synthesized request union is an ordinary union, so its `.unionCases` companion exists — and the first
 message an author declares is variant 0, the next variant 1.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -4815,7 +4816,7 @@ already-finished thread to reap.
 rule for every binding and not a service question (`reportUnusedBindings` follows both references). A case
 that wants a handle BOUND has to read it, which `dropping-the-last-handle-shuts-the-service-down` does.
 ```maxon
-type Idler
+service Idler
 	var n as Integer
 
 	static function create() returns Self
@@ -4843,7 +4844,7 @@ typealias Integer = int(i64.min to i64.max)
 programs. `A` names `B`'s handle in a message and `B` names `A`'s, which is a ring of services and no wait at
 all, because neither send waits.
 ```maxon
-type A
+service A
 	var n as Integer
 
 	static function create() returns Self
@@ -4859,7 +4860,7 @@ type A
 	end 'ack'
 end 'A'
 
-type B
+service B
 	var n as Integer
 
 	static function create() returns Self
@@ -4893,7 +4894,7 @@ returns. The services name each other in a ring, and no message waits for anythi
 ⚠ `B.work` sends its own handle (`me`, a clone `A.kick` made of `peer`) so that the reply can come back as a
 message. A handle a message was given is borrowed and a send moves, so each forward is a `.clone()`.
 ```maxon
-type A
+service A
 	var n as Integer
 
 	static function create() returns Self
@@ -4910,7 +4911,7 @@ type A
 	end 'ack'
 end 'A'
 
-type B
+service B
 	var heard as Integer
 
 	static function create() returns Self
@@ -4956,7 +4957,7 @@ every service whose handle is the only caller. It is credited by the send op nam
 `maxonOpCalleeKind` road an ordinary call is credited by, which is why this needs no arm of its own.
 ```maxon
 // --- file: calc/calc.maxon
-export type Calc
+export service Calc
 	var count as Integer
 
 	export static function create() returns Self
@@ -4990,7 +4991,7 @@ at the send (`promoteToOwnedString`) — which leaves the source readable, corre
 given a copy and never the author's record. Only an OWNED String is moved, so only an owned one can be read
 back too soon.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -5020,7 +5021,7 @@ error E3102: <fragment>:18:10: use of moved value 'buf': its ownership moved to 
 <!-- positions: moved -->
 A `let` argument MOVES exactly as a `var` does: the send consumes the binding and a later read is E3102.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -5049,7 +5050,7 @@ error E3102: <fragment>:18:10: use of moved value 'buf': its ownership moved to 
 <!-- test: a-sent-let-is-moved-and-the-service-frees-it -->
 The service becomes the sole owner of a `let` it was sent, and releases it exactly once.
 ```maxon
-type Store
+service Store
 	var sum as Integer
 
 	static function create() returns Self
@@ -5089,7 +5090,7 @@ kept hello padded out long enough to heap allocate 1
 A String a container also holds has a second owner on this green thread, and a send of it is correct: the box
 counts its owners, so the service and the sender each hold a counted reference to one String.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -5138,7 +5139,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5186,7 +5187,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5230,7 +5231,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5276,7 +5277,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5319,7 +5320,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5370,7 +5371,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5414,7 +5415,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5453,7 +5454,7 @@ type Config
 	end 'create'
 end 'Config'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5501,7 +5502,7 @@ type Config
 	end 'create'
 end 'Config'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -5551,7 +5552,7 @@ re-point it at `wasm32-wasi` beside an existing wasm sibling, and do not re-add 
 loses the facility.** While wasm refuses the facility, the wasm case carries the rule by itself.
 
 ```maxon
-type Plot
+service Plot
 	var n as Integer
 
 	static function create() returns Self
@@ -5590,7 +5591,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Plot
+service Plot
 	var n as Integer
 
 	static function create() returns Self
@@ -5651,7 +5652,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Svc
+service Svc
 	var held as Holder
 
 	static function create(consumes held Holder) returns Self
@@ -5687,7 +5688,7 @@ nothing to refuse and the awaiter takes the container whole.
 ```maxon
 typealias IntegerArray = Array with Integer
 
-type Source
+service Source
 	var n as Integer
 
 	static function create() returns Self
@@ -5734,7 +5735,7 @@ type Note
 	end 'create'
 end 'Note'
 
-type Author
+service Author
 	var n as Integer
 
 	static function create() returns Self
@@ -5778,7 +5779,7 @@ end 'Cell'
 
 typealias CellArray = Array with Cell
 
-type Store
+service Store
 	var cells as CellArray
 
 	static function create() returns Self
@@ -5826,7 +5827,7 @@ end 'Cell'
 
 typealias CellArray = Array with Cell
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -5881,7 +5882,7 @@ end 'Cell'
 
 typealias CellArray = Array with Cell
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -5917,7 +5918,7 @@ two sides, so the service's lines land before `main` reads `a` back.
 ```maxon
 typealias IntegerArray = Array with Integer
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -5967,7 +5968,7 @@ A `String` moved by a send is walked like every other managed argument. A clone 
 so the walk finds nothing outside the graph and the temporary crosses while `main` goes on reading and writing
 the source it was copied from. The reply sequences the two sides.
 ```maxon
-type Svc
+service Svc
 	var last as String
 
 	static function create() returns Self
@@ -6005,7 +6006,7 @@ A slice is a temporary too: each `slice` form hands back the fresh record `slice
 the source's bytes that nothing but the send can name. It moves, the walk detaches the view onto bytes of its
 own, and `main` goes on reading and writing the source.
 ```maxon
-type Svc
+service Svc
 	var last as String
 
 	static function create() returns Self
@@ -6047,7 +6048,7 @@ record's second owner, so the record's count turns shared at the view and every 
 atomic: the service drops the String on its own green thread while this one drops the view, and neither frees the
 bytes early nor leaks them. The send is a plain move and nothing walks the String.
 ```maxon
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6093,7 +6094,7 @@ let serviceCount = 8
 
 let rounds = 100000
 
-type Reader
+service Reader
 	var sum as Integer
 
 	static function create() returns Self
@@ -6154,7 +6155,7 @@ let serviceCount = 8
 
 let rounds = 100000
 
-type Reader
+service Reader
 	var sum as Integer
 
 	static function create() returns Self
@@ -6211,7 +6212,7 @@ owner and the whole chain moves.
 ```maxon
 typealias Texts = List with String
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6263,7 +6264,7 @@ end 'Cell'
 
 typealias Cells = List with Cell
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6298,7 +6299,7 @@ case for `Map`, which is the point: a record that holds containers is a record.
 ```maxon
 typealias Names = Map with (String, String)
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6349,7 +6350,7 @@ end 'Cell'
 
 typealias Cells = Map with (String, Cell)
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6385,7 +6386,7 @@ map would free them under `main`.
 ```maxon
 typealias Texts = Map with (String, String)
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6446,7 +6447,7 @@ end 'Cell'
 
 typealias Cells = Set with Cell
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6498,7 +6499,7 @@ end 'Cell'
 
 typealias Cells = Map with (String, Cell)
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6546,7 +6547,7 @@ A set that keeps a member after `remove` crosses with that member, and `main` ke
 ```maxon
 typealias Names = Set with String
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6601,7 +6602,7 @@ end 'Cell'
 
 typealias Cells = Map with (String, Cell)
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6647,7 +6648,7 @@ union Shape
 	labelled(text String)
 end 'Shape'
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -6696,7 +6697,7 @@ union Shape
 	held(c Cell)
 end 'Shape'
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -7310,7 +7311,7 @@ type S63
 	end 'create'
 end 'S63'
 
-type Sink
+service Sink
 	var seen as Level
 
 	static function create() returns Self
@@ -7383,7 +7384,7 @@ type Pair
 	end 'create'
 end 'Pair'
 
-type Svc
+service Svc
 	var held as Pair
 
 	static function create(consumes held Pair) returns Self
@@ -7435,7 +7436,7 @@ function oneCellTwice() returns CellArray
 	return cs
 end 'oneCellTwice'
 
-type Svc
+service Svc
 	var cells as CellArray
 
 	static function create(consumes cells CellArray) returns Self
@@ -7495,7 +7496,7 @@ type Frame
 	end 'create'
 end 'Frame'
 
-type Svc
+service Svc
 	var frame as Frame
 
 	static function create(consumes frame Frame) returns Self
@@ -7564,7 +7565,7 @@ type Pair
 	end 'create'
 end 'Pair'
 
-type Maker
+service Maker
 	var n as Integer
 
 	static function create() returns Self
@@ -7630,7 +7631,7 @@ type Pair
 	end 'around'
 end 'Pair'
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -7668,7 +7669,7 @@ type Holder
 	end 'around'
 end 'Holder'
 
-type Reader
+service Reader
 	var n as Integer
 
 	static function create() returns Self
@@ -7720,7 +7721,7 @@ function oneCellUnderTwoKeys() returns Cells
 	return m
 end 'oneCellUnderTwoKeys'
 
-type Svc
+service Svc
 	var cells as Cells
 
 	static function create(consumes cells Cells) returns Self
@@ -7774,7 +7775,7 @@ function oneCellTwice() returns Cells
 	return xs
 end 'oneCellTwice'
 
-type Svc
+service Svc
 	var cells as Cells
 
 	static function create(consumes cells Cells) returns Self
@@ -7831,7 +7832,7 @@ function pairedCells(pairs Integer) returns CellArray
 	return cs
 end 'pairedCells'
 
-type Svc
+service Svc
 	var cells as CellArray
 
 	static function create(consumes cells CellArray) returns Self
@@ -7891,7 +7892,7 @@ function pairedCellsAround(kept Cell, pairs Integer) returns CellArray
 	return cs
 end 'pairedCellsAround'
 
-type Svc
+service Svc
 	var cells as CellArray
 
 	static function create(consumes cells CellArray) returns Self
@@ -7922,7 +7923,7 @@ error E3200: <fragment>:40:27: 'pairedCellsAround(kept, pairs: 40)' is not isola
 A `let` local handed to a message is MOVED: the service becomes its owner, and the sender's binding is gone
 even after the reply it awaited.
 ```maxon
-type Meter
+service Meter
 	var n as Integer
 
 	static function create() returns Self
@@ -7953,7 +7954,7 @@ error E3102: <fragment>:19:29: use of moved value 'buf': its ownership moved to 
 A clone bound to a `let` is moved by the send, and its walk meets a record of its own: the source it was
 copied from is not part of the graph, so `main` may go on writing it after the send.
 ```maxon
-type Meter
+service Meter
 	var n as Integer
 
 	static function create() returns Self
@@ -8023,7 +8024,7 @@ type Shelf
 	end 'weight'
 end 'Shelf'
 
-type Keeper
+service Keeper
 	let shelf as Shelf
 
 	static function create(consumes shelf Shelf) returns Self
@@ -8076,7 +8077,7 @@ A `toByteArray()` view of an owned `String` counts the String's own record, beca
 send turns that count shared, so the service's release and the view's release step one atomic count
 (`deepmove.a-string-whose-bytes-the-sender-still-views-crosses-the-send`).
 ```maxon
-type Meter
+service Meter
 	var n as Integer
 
 	static function create() returns Self
@@ -8155,7 +8156,7 @@ function digest(d Doc) returns Integer
 	return try total + noteLength(d.note) otherwise panic("out of range")
 end 'digest'
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create(id Integer) returns Self
@@ -8220,7 +8221,7 @@ type Tree
 	end 'create'
 end 'Tree'
 
-type Tally
+service Tally
 	var sends as Integer
 	var letters as Integer
 
@@ -8296,7 +8297,7 @@ type Tree
 	end 'create'
 end 'Tree'
 
-type Keeper
+service Keeper
 	var seen as String
 
 	static function create() returns Self
@@ -8362,7 +8363,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -8428,7 +8429,7 @@ type Pair
 	end 'create'
 end 'Pair'
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -8494,7 +8495,7 @@ type Pair
 	end 'create'
 end 'Pair'
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -8553,7 +8554,7 @@ type Shelf
 	end 'create'
 end 'Shelf'
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -8621,7 +8622,7 @@ type Pair
 	end 'around'
 end 'Pair'
 
-type Svc
+service Svc
 	var n as Integer
 
 	static function create() returns Self
@@ -8662,7 +8663,7 @@ type Holder
 	end 'around'
 end 'Holder'
 
-type Reader
+service Reader
 	var n as Integer
 
 	static function create() returns Self
@@ -8706,7 +8707,7 @@ type Holder
 	end 'around'
 end 'Holder'
 
-type Reader
+service Reader
 	var n as Integer
 
 	static function create() returns Self
@@ -8751,7 +8752,7 @@ type Holder
 	end 'around'
 end 'Holder'
 
-type Reader
+service Reader
 	var n as Integer
 
 	static function create() returns Self
@@ -8787,7 +8788,7 @@ sends through it in a later message, while `main` goes on sending through its ow
 send and answers without waiting for the counter's reply, and `relay.forward` is answered before `main`'s own
 send goes out, so the counter has `5` in its mailbox ahead of `main`'s `2` and `main`'s reply is `7`.
 ```maxon
-type Counter
+service Counter
 	var n as Integer
 
 	static function create() returns Self
@@ -8802,7 +8803,7 @@ end 'Counter'
 
 typealias CounterHandles = Array with Counter.handle
 
-type Relay
+service Relay
 	var peers as CounterHandles
 
 	static function create() returns Self
@@ -8864,7 +8865,7 @@ enum Route
 	toArray
 end 'Route'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -8938,7 +8939,7 @@ enum Route
 	toArray
 end 'Route'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9000,7 +9001,7 @@ enum Route
 	toArray
 end 'Route'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9064,7 +9065,7 @@ enum Route
 	toArray
 end 'Route'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9136,7 +9137,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9178,7 +9179,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9229,7 +9230,7 @@ type Pair
 	end 'create'
 end 'Pair'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9279,7 +9280,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9327,7 +9328,7 @@ union Wrap
 	held(b Box)
 end 'Wrap'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9371,7 +9372,7 @@ end 'Box'
 
 typealias Boxes = Array with Box
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9413,7 +9414,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9458,7 +9459,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9500,7 +9501,7 @@ end 'Box'
 
 typealias Boxes = Array with Box
 
-type Svc
+service Svc
 	var kept as Boxes
 
 	static function create() returns Self
@@ -9548,7 +9549,7 @@ end 'Pair'
 
 typealias Boxes = Array with Box
 
-type Svc
+service Svc
 	var kept as Boxes
 
 	static function create() returns Self
@@ -9588,7 +9589,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9629,7 +9630,7 @@ type Box
 	end 'bump'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9678,7 +9679,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9731,7 +9732,7 @@ function nudge(t Holder)
 	t.inner.bump()
 end 'nudge'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9774,7 +9775,7 @@ function pick(t Holder) returns Counts
 	return t.items
 end 'pick'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -9802,6 +9803,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.a-promise-may-not-be-sent -->
+<!-- positions: moved -->
 A `Promise` is a green-thread handle its awaiter owns, and a message MOVES its arguments to another green
 thread — so sending one would leave a second thread holding a thread this one is still waiting on.
 
@@ -9816,7 +9818,7 @@ function work() returns Integer
 	return 5
 end 'work'
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -9847,7 +9849,7 @@ typealias Wide = int(0 to u64.max)
 
 typealias Narrow = int(0 to 16)
 
-type Store
+service Store
 	var n as Wide
 
 	static function create() returns Self
@@ -9875,7 +9877,7 @@ error E3005: <fragment>:20:13: type mismatch: 'expected Narrow, got Wide' — ca
 Two services' handles are two nominal types, so handing one where the other is expected is the ordinary
 struct-identity mismatch and needs no rule of its own.
 ```maxon
-type Calc
+service Calc
 	var n as Integer
 
 	static function create() returns Self
@@ -9887,7 +9889,7 @@ type Calc
 	end 'bump'
 end 'Calc'
 
-type Logger
+service Logger
 	var n as Integer
 
 	static function create() returns Self
@@ -9921,7 +9923,7 @@ awaitable, which is why the diagnostic names what would give this one a reply. T
 `try h.bump() otherwise …` is the one a send takes, so it is the spelling that must get this sentence rather
 than the generic "does not return a value".
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -9948,7 +9950,7 @@ error E2015: <fragment>:16:10: Unsupported: the value of `Calc.bump` sent as a M
 <!-- test: send-and-await-a-reply -->
 A value-returning message is awaitable RPC.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -9985,7 +9987,7 @@ enum MathError implements Error
 	divideByZero
 end 'MathError'
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -10020,7 +10022,7 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: a-call-after-shutdown-fails-service-stopped -->
 A call to a stopped service fails at the send with `serviceStopped`, so the awaiter never has a reply to wait for.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -10061,7 +10063,7 @@ population is a message PARAMETER — see the case below it.
 type is a service is a whole-program property, and the `spawn` deciding it may be in another file entirely
 from the method the rule fires on.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -10094,7 +10096,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Items = Array with Integer
 
-type Store
+service Store
 	var items as Items
 
 	static function create() returns Self
@@ -10135,7 +10137,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Items = Array with Integer
 
-type Store
+service Store
 	var items as Items
 
 	static function create() returns Self
@@ -10177,7 +10179,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Items = Array with Integer
 
-type Store
+service Store
 	var items as Items
 
 	static function create() returns Self
@@ -10218,7 +10220,7 @@ error E3209: <fragment>:23:3: a return does not fit the declared result: the ret
 gives the awaiter a counted reference to the same String, which is correct because the String's box counts its
 owners.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -10262,7 +10264,7 @@ type Shelf
 	end 'describe'
 end 'Shelf'
 
-type Keeper
+service Keeper
 	let shelf as Shelf
 
 	static function create(shelf Shelf) returns Self
@@ -10295,7 +10297,7 @@ shelf of 4
 Mutual reentrancy is made unrepresentable rather than diagnosed at run time: a message never waits for another
 service's reply, so two services cannot wait on each other, and each message that awaits one is refused.
 ```maxon
-type A
+service A
 	var n as Integer
 
 	static function create() returns Self
@@ -10311,7 +10313,7 @@ type A
 	end 'ack'
 end 'A'
 
-type B
+service B
 	var n as Integer
 
 	static function create() returns Self
@@ -10347,7 +10349,7 @@ the per-message type a `throws` clause can spell, which is what lets a bare `try
 intermediate function. A message that also throws has its handler's error beside the send's, and a bare propagating
 `try await` of it is refused (see `error.bare-try-propagation-of-a-two-member-reply-is-refused`).
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -10387,7 +10389,7 @@ enum MathError implements Error
 	divideByZero
 end 'MathError'
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -10426,7 +10428,7 @@ enum MathError implements Error
 	divideByZero
 end 'MathError'
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -10476,7 +10478,7 @@ enum Halt implements Error
 	halted
 end 'Halt'
 
-type Guard
+service Guard
 	var count as Integer
 
 	static function create() returns Self
@@ -10514,7 +10516,7 @@ runs, so its stored reply resolves with the handler's value; a message sent afte
 `serviceStopped`, so there is no reply to wait for. The case passes by TERMINATING at all, and its exit code
 says which road each took.
 ```maxon
-type Slow
+service Slow
 	var n as Integer
 
 	static function create() returns Self
@@ -10551,7 +10553,7 @@ The reply carries a MANAGED value across green threads. It is sound for the reas
 handler's result is freshly minted in the handler's own frame, so the service gives up its only reference and
 the awaiter takes it — one owner throughout, which is what a plain refcount requires.
 ```maxon
-type Echo
+service Echo
 	var n as Integer
 
 	static function create() returns Self
@@ -10584,7 +10586,7 @@ is dropped at statement end while the cell is still PENDING. The dropper may not
 it — so it adds the consumer ticket only, and the reply's own completion supplies the runner's half. The managed
 result nobody took is released by whichever arrives second.
 ```maxon
-type Echo
+service Echo
 	var n as Integer
 
 	static function create() returns Self
@@ -10615,7 +10617,7 @@ service runs, so the replier writes into a cell its awaiter has already renounce
 teardown rendezvous exists for, and freeing the cell at the drop is a clobbered green thread rather than a
 leak.
 ```maxon
-type Echo
+service Echo
 	var n as Integer
 
 	static function create() returns Self
@@ -10650,7 +10652,7 @@ The other order: `p`'s first cell COMPLETES while `main` is parked on the middle
 finds the runner ticket already there and reclaims; an arm that took a completed cell as merely queued would
 strand the struct invisibly, because the green-thread count the exit gate reads has already been debited.
 ```maxon
-type Echo
+service Echo
 	var n as Integer
 
 	static function create() returns Self
@@ -10684,7 +10686,7 @@ typealias Integer = int(i64.min to i64.max)
 reply that completes the cell readies the awaiter. A message body never waits, so the awaiter is `main`'s
 coroutine and the service stays a leaf; the answer comes back through the coroutine's promise.
 ```maxon
-type Inner
+service Inner
 	var n as Integer
 
 	static function create() returns Self
@@ -10722,7 +10724,7 @@ E3142 and not the linearity pass's E3100: the second `await` READS a name whose 
 already handed back, and that is a use of a spent promise before it is a second await. See
 `async-linearity.md`'s *Documentation* for the one statement of how the three codes divide this family.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -10753,7 +10755,7 @@ error E3142: <fragment>:18:16: this promise was already consumed by an earlier '
 Every send throws, whatever the message itself declares — so a plain `await` of a send is E3057 by construction.
 Only the promise a send returns is awaited without `try`, when the handler cannot throw.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -10792,7 +10794,7 @@ union Trouble implements Error
 	detail(text String)
 end 'Trouble'
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -10827,7 +10829,7 @@ function relay(b B.handle, peer A.handle) returns Integer
 	return try await b.pong(peer.clone()) otherwise 0
 end 'relay'
 
-type A
+service A
 	var n as Integer
 
 	static function create() returns Self
@@ -10843,7 +10845,7 @@ type A
 	end 'ack'
 end 'A'
 
-type B
+service B
 	var n as Integer
 
 	static function create() returns Self
@@ -10875,7 +10877,7 @@ HIT.** Two instances of the same service could not actually deadlock, but the re
 body — it holds its own service while it waits — and not of which instance answers. The message says the
 workaround: send the request with this service's handle and handle the reply in another message.
 ```maxon
-type Worker
+service Worker
 	var n as Integer
 
 	static function create() returns Self
@@ -10911,7 +10913,7 @@ appended**: a refusal that kept only whichever wait it saw LAST would name the i
 looked only at the first would stop at the first. **Delete the `C` await and the case still refuses — which is
 the point: it must refuse WITH it, at the earliest wait.**
 ```maxon
-type A
+service A
 	var n as Integer
 
 	static function create() returns Self
@@ -10929,7 +10931,7 @@ type A
 	end 'ack'
 end 'A'
 
-type B
+service B
 	var n as Integer
 
 	static function create() returns Self
@@ -10941,7 +10943,7 @@ type B
 	end 'pong'
 end 'B'
 
-type C
+service C
 	var n as Integer
 
 	static function create() returns Self
@@ -10973,6 +10975,7 @@ error E3221: <fragment>:27:18: the message 'pong' may wait (it awaits a reply fr
 ```
 
 <!-- test: error.a-message-that-calls-a-waiting-closure-is-refused -->
+<!-- positions: moved -->
 ⛔⛔ **A WAIT BEHIND A CLOSURE VALUE IS A WAIT, AND THE REFUSAL FOLLOWS THE CLOSURE'S BODY.** `A.kick` calls a
 local function value, whose body is decided at the call site rather than at a callee's name; the closure awaits
 `B.work`'s reply, so `kick` may wait while it holds `A`, and the chain names the closure and the `await` inside
@@ -10981,7 +10984,7 @@ services awaiting each other is unrepresentable even behind an indirect call.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type A
+service A
 	var n as Integer
 
 	static function create() returns Self
@@ -10998,7 +11001,7 @@ type A
 	end 'ack'
 end 'A'
 
-type B
+service B
 	var n as Integer
 
 	static function create() returns Self
@@ -11042,7 +11045,7 @@ typealias IntPromise = Promise with Integer
 
 typealias IntPromiseArray = Array with IntPromise
 
-type Idle
+service Idle
 	var n as Integer
 
 	static function create() returns Self
@@ -11081,7 +11084,7 @@ can deadlock, because no service ever waits.
 so the handle it forwards has to be one this frame owns. The originals are dropped with the messages, which is
 what shuts `C` and `Sink` down once the chain has answered.
 ```maxon
-type Sink
+service Sink
 	var count as Integer
 	var sum as Integer
 
@@ -11103,7 +11106,7 @@ type Sink
 	end 'total'
 end 'Sink'
 
-type C
+service C
 	var n as Integer
 
 	static function create() returns Self
@@ -11115,7 +11118,7 @@ type C
 	end 'value'
 end 'C'
 
-type B
+service B
 	var n as Integer
 
 	static function create() returns Self
@@ -11128,7 +11131,7 @@ type B
 	end 'value'
 end 'B'
 
-type A
+service A
 	var n as Integer
 
 	static function create() returns Self
@@ -11181,7 +11184,7 @@ typealias ReplyPromise = Promise with Integer
 
 typealias ReplyPromiseArray = Array with ReplyPromise
 
-type Slow
+service Slow
 	var n as Integer
 
 	static function create() returns Self
@@ -11224,7 +11227,7 @@ typealias DivideReply = Promise with (Integer, MathError)
 
 typealias DivideReplyArray = Array with DivideReply
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -11274,7 +11277,7 @@ type Tally
 	end 'create'
 end 'Tally'
 
-type Counter
+service Counter
 	var count as Integer
 
 	static function create() returns Self
@@ -11324,7 +11327,7 @@ typealias ReplyPromise = Promise with (Integer, OtherError)
 
 typealias ReplyPromiseArray = Array with ReplyPromise
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -11362,7 +11365,7 @@ typealias ReplyPromise = Promise with Integer
 
 typealias ReplyPromiseArray = Array with ReplyPromise
 
-type Slow
+service Slow
 	var n as Integer
 
 	static function create() returns Self
@@ -11410,7 +11413,7 @@ typealias BarePromise = Promise with Integer
 
 typealias BarePromiseArray = Array with BarePromise
 
-type Slow
+service Slow
 	var n as Integer
 
 	static function create() returns Self
@@ -11873,7 +11876,7 @@ co-owns the handle box through a plain `__mm_incref`, so a program whose ONLY in
 retain must still install `__mm_incref`. Nothing here allocates but the handle, which is what makes the
 case discriminating.
 ```maxon
-type Calc
+service Calc
 	var count as Whole
 
 	static function create() returns Self
@@ -11950,7 +11953,7 @@ MESSAGE gets one rule over (`error.void-message-sent-for-its-value`). It is the 
 a message of the service, so it is refused where its value is wanted instead of being looked up on the message
 roster, where it is not.
 ```maxon
-type Calc
+service Calc
 	var count as Whole
 
 	static function create() returns Self
@@ -11988,7 +11991,7 @@ reservation makes unreachable.
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-type Calc
+service Calc
 	var n as Whole
 
 	static function create(n Whole) returns Self
@@ -12032,7 +12035,7 @@ body RESERVES no descriptor slot no call site could ever fill.
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-type Calc
+service Calc
 	var n as Whole
 
 	static function create(n Whole) returns Self
@@ -12067,6 +12070,7 @@ end 'main'
 ```
 
 <!-- test: error.a-spawn-whose-factory-returns-another-type-is-refused -->
+<!-- positions: moved -->
 `create` returns an `Other`: it does not start a service, and the spawn is refused at the call.
 ```maxon
 public typealias Whole = int(i64.min to i64.max)
@@ -12079,7 +12083,7 @@ type Other
 	end 'make'
 end 'Other'
 
-type Counter
+service Counter
 	export var n as Whole
 
 	static function create(seed Whole) returns Other
@@ -12139,7 +12143,7 @@ type Holder
 	end 'take'
 end 'Holder'
 
-type Worker
+service Worker
 	var total as Integer
 
 	static function create() returns Self
@@ -12201,7 +12205,7 @@ end 'Stack'
 
 typealias JobStack = Stack with Job
 
-type Worker
+service Worker
 	var total as Integer
 
 	static function create() returns Self
@@ -12240,7 +12244,7 @@ written. A borrowed struct parameter that nothing writes is shared instead
 ⚠ A bare LITERAL is promoted the same way (`a-string-argument-moves-into-the-service`'s third send), and a
 `String` the frame built itself is MOVED, as before; the copy is only for a `String` this frame does not own.
 ```maxon
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -12291,7 +12295,7 @@ one frame out. A body that BINDS what it returns has statements between the cons
 so it is fresh only when every use of the local is one that cannot take a second reference (the
 `a-reply-a-sibling-builds-in-a-local` cases at the end of this file).
 ```maxon
-type Store
+service Store
 	var n as Integer
 	var last as String
 
@@ -12353,7 +12357,7 @@ type Payload
 	end 'count'
 end 'Payload'
 
-type Store
+service Store
 	var n as Integer
 
 	static function create() returns Self
@@ -12400,7 +12404,7 @@ one, building at the send needs nothing. `a-borrowed-parameter-may-be-sent-as-a-
 is `return sliceBytes(…)`: a call to a function that IS fresh by `noteFreshReturnShape`'s criterion, ONE HOP
 away. `ProgramSignatures.closeFreshReturnForwards` is that hop.
 ```maxon
-type Store
+service Store
 	var n as Integer
 	var last as String
 
@@ -12454,7 +12458,7 @@ compile and exit **8** — `isComplete()` answering `true` off a reclaimed cell.
 cannot stand in for it — a bare rebind consumes nothing, so there is no second consume for that pass to
 find.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -12488,7 +12492,7 @@ the value that will eventually produce an `Integer`, not an `Integer`. An untype
 compile and print the green thread's raw cell address (a different number on every run), which is the wrong
 answer this pins against.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -12521,7 +12525,7 @@ error E3005: <fragment>:15:2: Cannot return 'Promise with int' from function dec
 A reply is not a number, so it has no arithmetic. On an untyped cell word, `p + 1` would be pointer
 arithmetic on a green-thread cell address.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -12552,7 +12556,7 @@ error E2004: <fragment>:17:17: Cannot operate on Promise with int and int
 An `Integer` parameter does not take a reply. The cure is to `await` it and pass the RESULT — which is also
 the only spelling that keeps the cell's one owner intact. A reply renders as a `Promise` instance over its result.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -12586,7 +12590,7 @@ teardown rendezvous between the awaiter and the service loop, and exactly one ow
 `p.clone()` would hand back a second copy of the cell word, with nothing to say which of the two owned it.
 `Promise` declares no `clone`, and synthesizing one is refused at the receiver.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -12618,7 +12622,7 @@ A reply's `.inner` is library-tier surface: `promise-typing.md:promise-typing.er
 is this program refused in the user tier. A library-tier source reads it as the reply → `int` conversion. It peeks at the cell word without consuming
 the reply, so the `await` that follows still reclaims it and the program still balances to zero.
 ```maxon
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -12660,7 +12664,7 @@ function work(n Integer) returns Integer
 	return try n * 2 otherwise panic("out of range")
 end 'work'
 
-type Worker
+service Worker
 	var total as Integer
 
 	static function create() returns Self
@@ -12711,7 +12715,7 @@ let services = 100
 
 let carveBound = 64
 
-type Probe
+service Probe
 	var n as Integer
 
 	static function create(n Integer) returns Self
@@ -12763,7 +12767,7 @@ function compute() returns Count
 	return 3
 end 'compute'
 
-type Keeper
+service Keeper
 	var size as Sizer
 
 	static function create() returns Self
@@ -12816,7 +12820,7 @@ let backlog = 5000
 
 let batchPlusOne = 65
 
-type Ticker
+service Ticker
 	var n as Count
 	let mine as CountCell
 	let theirs as CountCell
@@ -12882,7 +12886,7 @@ function work() returns Integer
 	return 5
 end 'work'
 
-type Svc
+service Svc
 	var pending as IntPromiseArray
 
 	static function create() returns Self
@@ -12923,7 +12927,7 @@ function work() returns Integer
 	return 5
 end 'work'
 
-type Svc
+service Svc
 	var held as IntPromise
 
 	static function create() returns Self
@@ -12966,7 +12970,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Svc
+service Svc
 	var slot as Holder
 
 	static function create() returns Self
@@ -13008,7 +13012,7 @@ typealias FlagCell = SharedValue with bool
 
 let pollMs = 1
 
-type Slow
+service Slow
 	let begun as FlagCell
 	let released as FlagCell
 
@@ -13062,7 +13066,7 @@ whose body the first never built.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self
@@ -13120,7 +13124,7 @@ message it dispatches is reached — including `Inner.read`, which nobody sends 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Inner
+service Inner
 	var id as Integer
 
 	static function create() returns Self
@@ -13133,7 +13137,7 @@ type Inner
 	end 'read'
 end 'Inner'
 
-type Outer
+service Outer
 	var id as Integer
 
 	static function create() returns Self
@@ -13170,7 +13174,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var scale as Tally
 
 	static function create() returns Self
@@ -13215,7 +13219,7 @@ function buildReport(n Tally) returns Report
 	return Report.create(try n * 2 otherwise panic("out of range"))
 end 'buildReport'
 
-type Worker
+service Worker
 	var calls as Tally
 
 	static function create() returns Self
@@ -13251,7 +13255,7 @@ enum SetupError implements Error
 	zeroScale
 end 'SetupError'
 
-type Worker
+service Worker
 	var scale as Tally
 
 	static function prepare(scale Tally) returns Self throws SetupError
@@ -13298,7 +13302,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var report as Report
 
 	static function create() returns Self
@@ -13345,7 +13349,7 @@ function pass(report Report) returns Report
 	return report
 end 'pass'
 
-type Worker
+service Worker
 	var report as Report
 
 	static function create() returns Self
@@ -13387,7 +13391,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var history as ReportArray
 
 	static function create() returns Self
@@ -13437,7 +13441,7 @@ function buildReport(n Tally) returns Report
 	return Report.create(n * 2)
 end 'buildReport'
 
-type Worker
+service Worker
 	var report as Report
 
 	static function create() returns Self
@@ -13475,7 +13479,7 @@ argument to the service's thread, so `main` may not read `seed` afterwards.
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Worker
+service Worker
 	var scale as Tally
 
 	static function make(scale Tally) returns Self
@@ -13526,7 +13530,7 @@ type Shelf
 	end 'create'
 end 'Shelf'
 
-type Keeper
+service Keeper
 	var shelf as Shelf
 
 	static function create(consumes shelf Shelf) returns Self
@@ -13582,7 +13586,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Surveyor
+service Surveyor
 	var settings as Settings
 
 	static function create(consumes settings Settings) returns Self
@@ -13614,7 +13618,7 @@ A borrowed `String` a factory keeps in the service's state is copied, exactly as
 readable in `start`. Every other borrowed argument is still refused
 (`error.spawn-factory-argument-borrowed-from-a-parameter-refused`).
 ```maxon
-type Greeter
+service Greeter
 	var name as String
 
 	static function create(name String) returns Self
@@ -13677,7 +13681,7 @@ type Outer
 	end 'create'
 end 'Outer'
 
-type Surveyor
+service Surveyor
 	var settings as Settings
 
 	static function create(consumes settings Settings) returns Self
@@ -13726,7 +13730,7 @@ type Report
 	end 'echo'
 end 'Report'
 
-type Worker
+service Worker
 	var report as Report
 
 	static function create() returns Self
@@ -13769,7 +13773,7 @@ type Clock
 	end 'make'
 end 'Clock'
 
-type Worker
+service Worker
 	var scale as Tally
 
 	static function create() returns Self
@@ -13807,7 +13811,7 @@ enum MathError implements Error
 	divideByZero
 end 'MathError'
 
-type Calc
+service Calc
 	var calls as Tally
 
 	static function create() returns Self
@@ -13863,7 +13867,7 @@ type Cell
 	end 'create'
 end 'Cell'
 
-type Worker
+service Worker
 	var calls as Tally
 
 	static function create() returns Self
@@ -13916,7 +13920,7 @@ type Cell
 	end 'create'
 end 'Cell'
 
-type Worker
+service Worker
 	var calls as Tally
 
 	static function create() returns Self
@@ -14018,7 +14022,7 @@ end 'Holder'
 
 typealias Holders = List with Holder
 
-type Maker
+service Maker
 	var items as Holders
 
 	static function create(side Integer) returns Self
@@ -14099,7 +14103,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var scale as Tally
 
 	static function create() returns Self
@@ -14146,7 +14150,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var scale as Tally
 
 	static function create() returns Self
@@ -14199,7 +14203,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var history as ReportArray
 
 	static function create() returns Self
@@ -14244,7 +14248,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var last as Tally
 
 	static function create() returns Self
@@ -14297,7 +14301,7 @@ type Report
 	end 'keepIn'
 end 'Report'
 
-type Worker
+service Worker
 	var history as ReportArray
 
 	static function create() returns Self
@@ -14353,7 +14357,7 @@ type Report implements Hashable, Equatable
 	end 'equals'
 end 'Report'
 
-type Worker
+service Worker
 	var ranks as ReportRanks
 
 	static function create() returns Self
@@ -14408,7 +14412,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var kept as Inner
 
 	static function create() returns Self
@@ -14461,7 +14465,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-type Surveyor
+service Surveyor
 	var shape as Shape
 
 	static function create(side Tally) returns Self
@@ -14507,7 +14511,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-type Factory
+service Factory
 	var made as Tally
 
 	static function create() returns Self
@@ -14558,7 +14562,7 @@ function squareOf(side Tally) returns Shape
 	return Square.create(side)
 end 'squareOf'
 
-type Calc
+service Calc
 	var count as Tally
 
 	static function create() returns Self
@@ -14627,7 +14631,7 @@ function crateOf(cells Cells) returns Shape
 	return Crate.create(cells)
 end 'crateOf'
 
-type Svc
+service Svc
 	var seen as Tally
 
 	static function create() returns Self
@@ -14678,7 +14682,7 @@ function labelOf(width Tally) returns Shape
 	return Label.create("w{width}")
 end 'labelOf'
 
-type Calc
+service Calc
 	var count as Tally
 
 	static function create() returns Self
@@ -14731,7 +14735,7 @@ type Label implements Shape
 	end 'area'
 end 'Label'
 
-type Factory
+service Factory
 	var made as Tally
 
 	static function create() returns Self
@@ -14775,7 +14779,7 @@ interface Shape
 	function area() returns Tally
 end 'Shape'
 
-type Calc
+service Calc
 	var count as Tally
 
 	static function create() returns Self
@@ -14872,7 +14876,7 @@ type Label implements Shape
 	end 'area'
 end 'Label'
 
-type Factory
+service Factory
 	var made as Tally
 
 	static function create() returns Self
@@ -14958,7 +14962,7 @@ function labelOf(width Tally) returns Shape
 	return Label.create("w{width}")
 end 'labelOf'
 
-type Calc
+service Calc
 	var calls as Tally
 
 	static function create() returns Self
@@ -15015,7 +15019,7 @@ function counterOf() returns Counter
 	return Tick.create()
 end 'counterOf'
 
-type Svc
+service Svc
 	var seen as Tally
 
 	static function create() returns Self
@@ -15064,7 +15068,7 @@ function squareOf(side Tally) returns Shape
 	return Square.create(side)
 end 'squareOf'
 
-type Keeper
+service Keeper
 	var last as Shape
 
 	static function create() returns Self
@@ -15113,7 +15117,7 @@ end 'Wrapper'
 
 typealias Wrapped = Wrapper with Tally
 
-type Surveyor
+service Surveyor
 	var shape as Shape
 
 	static function create(side Tally) returns Self
@@ -15164,7 +15168,7 @@ function portOf(pin MachinePin) returns Shape
 	return Port.create(pin)
 end 'portOf'
 
-type Calc
+service Calc
 	var count as Tally
 
 	static function create() returns Self
@@ -15210,7 +15214,7 @@ type Port implements Shape
 	end 'area'
 end 'Port'
 
-type Calc
+service Calc
 	var count as Tally
 
 	static function create() returns Self
@@ -15256,7 +15260,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-type Surveyor
+service Surveyor
 	var shape as Shape
 
 	static function create(side Tally) returns Self
@@ -15294,7 +15298,7 @@ type Settings
 	end 'create'
 end 'Settings'
 
-type Surveyor
+service Surveyor
 	var settings as Settings
 
 	static function prepare(settings Settings) returns Self
@@ -15353,7 +15357,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Keeper
+service Keeper
 	var kept as Tally
 
 	static function create() returns Self
@@ -15400,7 +15404,7 @@ type Settings
 	end 'create'
 end 'Settings'
 
-type Surveyor
+service Surveyor
 	var settings as Settings
 	var label as String
 
@@ -15461,7 +15465,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Surveyor
+service Surveyor
 	var settings as Settings
 
 	static function create(consumes settings Settings) returns Self
@@ -15511,7 +15515,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Keeper
+service Keeper
 	var kept as Tally
 
 	static function create() returns Self
@@ -15574,7 +15578,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Keeper
+service Keeper
 	var kept as Tally
 
 	static function create() returns Self
@@ -15633,7 +15637,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Surveyor
+service Surveyor
 	var settings as Settings
 
 	static function create(consumes settings Settings) returns Self
@@ -15671,7 +15675,7 @@ A send moves the reference and consumes the sender's `var`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self
@@ -15702,7 +15706,7 @@ error E3102: <fragment>:22:10: use of moved value 'word': its ownership moved to
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self
@@ -15741,7 +15745,7 @@ The same cell-resident `var`, read after the send.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self
@@ -15778,7 +15782,7 @@ value moves to the service while the closure goes on reading the first.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self
@@ -15812,7 +15816,7 @@ use after move.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self
@@ -15860,7 +15864,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -15902,7 +15906,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -15949,7 +15953,7 @@ type Box
 	end 'doubled'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -15989,7 +15993,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Svc
+service Svc
 	var seen as Integer
 
 	static function create() returns Self
@@ -16033,7 +16037,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Words = Array with String
 
-type Summer
+service Summer
 	var total as Integer
 
 	static function create() returns Self
@@ -16074,7 +16078,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Words = Array with String
 
-type Summer
+service Summer
 	var total as Integer
 
 	static function create() returns Self
@@ -16118,7 +16122,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Words = Array with String
 
-type Summer
+service Summer
 	var total as Integer
 
 	static function create() returns Self
@@ -16161,7 +16165,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Words = Array with String
 
-type Summer
+service Summer
 	var total as Integer
 
 	static function create() returns Self
@@ -16224,7 +16228,7 @@ type Outer
 	end 'create'
 end 'Outer'
 
-type Holder
+service Holder
 	var total as Integer
 
 	static function create() returns Self
@@ -16270,7 +16274,7 @@ type Job
 	end 'create'
 end 'Job'
 
-type Calc
+service Calc
 	var count as Tally
 
 	static function create() returns Self
@@ -16302,7 +16306,7 @@ typealias Tally = int(0 to 1000)
 
 typealias Op = function(Tally) returns Tally
 
-type Maker
+service Maker
 	var seen as Tally
 
 	static function create() returns Self
@@ -16332,7 +16336,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias WorkerHandleArray = Array with Worker.handle
 
-type Worker
+service Worker
 	var total as Integer
 
 	static function create() returns Self
@@ -16371,7 +16375,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias WorkerHandleArray = Array with Worker.handle
 
-type Worker
+service Worker
 	var total as Integer
 
 	static function create() returns Self
@@ -16425,7 +16429,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -16475,7 +16479,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -16523,7 +16527,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var kept as Box
 
 	static function create() returns Self
@@ -16570,7 +16574,7 @@ type Person
 	end 'create'
 end 'Person'
 
-type Greeter
+service Greeter
 	var seen as Count
 
 	static function create() returns Self
@@ -16625,7 +16629,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var kept as Box
 
 	static function create() returns Self
@@ -16672,7 +16676,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -16725,7 +16729,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -16776,7 +16780,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -16838,7 +16842,7 @@ type Picker
 	end 'pick'
 end 'Picker'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -16890,7 +16894,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -16947,7 +16951,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -16994,7 +16998,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17046,7 +17050,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17096,7 +17100,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Worker
+service Worker
 	var held as Box
 
 	static function create(consumes held Box) returns Self
@@ -17141,7 +17145,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17187,7 +17191,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17243,7 +17247,7 @@ end 'Cell'
 
 typealias CountCell = Cell with Count
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17284,7 +17288,7 @@ union Note
 	blank
 end 'Note'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17339,7 +17343,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17382,7 +17386,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17429,7 +17433,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17507,7 +17511,7 @@ A message parameter spelled `lib.Names`, an alias of `Array with String` declare
 export typealias Names = Array with String
 
 // --- file: main.maxon
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17572,7 +17576,7 @@ export type Plate implements Named
 end 'Plate'
 
 // --- file: main.maxon
-type Store
+service Store
 	var seen as Count
 
 	static function create() returns Self
@@ -17615,7 +17619,7 @@ allocation count is zero, exactly as a program that declares no library spawn at
 // --- stdlib-overlay: Builtins.maxon
 public typealias ProbeCount = int(i64.min to i64.max)
 
-public type Probe
+public service Probe
 	var calls as ProbeCount
 
 	public static function create() returns Self
@@ -17653,7 +17657,7 @@ The same library function, called: the reached body spawns `Probe`, so the progr
 // --- stdlib-overlay: Builtins.maxon
 public typealias ProbeCount = int(i64.min to i64.max)
 
-public type Probe
+public service Probe
 	var calls as ProbeCount
 
 	public static function create() returns Self
@@ -17681,6 +17685,7 @@ end 'main'
 ```
 
 <!-- test: error.a-library-spawn-is-rejected-at-its-crossing-on-wasm -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A library body that spawns reaches the green-thread substrate exactly as a `spawn` in the program does, so on a
@@ -17690,7 +17695,7 @@ spawn lowers to. The scheduler install is never reached.
 // --- stdlib-overlay: Builtins.maxon
 public typealias ProbeCount = int(i64.min to i64.max)
 
-public type Probe
+public service Probe
 	var calls as ProbeCount
 
 	public static function create() returns Self
@@ -17718,6 +17723,7 @@ error E3104: <fragment>:25:10: 'startProbe' lowers to the runtime entry '__cown_
 ```
 
 <!-- test: error.a-library-send-is-rejected-at-its-crossing-on-wasm -->
+<!-- positions: moved -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 A library body that sends a message to a service it was handed reaches the substrate the same way, so the call
@@ -17726,7 +17732,7 @@ into it is refused with `E3104` naming the reply cell the awaited send mints, be
 // --- stdlib-overlay: Builtins.maxon
 public typealias ProbeCount = int(i64.min to i64.max)
 
-public type Probe
+public service Probe
 	var calls as ProbeCount
 
 	public static function create() returns Self
@@ -17768,7 +17774,7 @@ peer sent on its own green thread and writes it back; the peer, still on `main`'
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Echo implements Ends
+service Echo implements Ends
 	var client as TcpClient
 
 	static function create(consumes client TcpClient) returns Self
@@ -17839,7 +17845,7 @@ socket, not to a thread, so the service's `readSome` parks on it and is woken wh
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Echo implements Ends
+service Echo implements Ends
 	var client as TcpClient
 
 	static function create(consumes client TcpClient) returns Self
@@ -17921,7 +17927,7 @@ typealias Tally = int(0 to 1000000)
 
 typealias Clients = Array with TcpClient
 
-type Echo
+service Echo
 	var client as TcpClient
 
 	static function create(consumes client TcpClient) returns Self
@@ -17972,7 +17978,7 @@ error E3102: <fragment>:27:31: use of moved value 'accepted': its ownership move
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Echo
+service Echo
 	var client as TcpClient
 
 	static function create(consumes client TcpClient) returns Self
@@ -18037,7 +18043,7 @@ type Port implements Speaker
 	end 'speak'
 end 'Port'
 
-type Stage
+service Stage
 	var heard as Tally
 	var speaker as Speaker
 
@@ -18086,7 +18092,7 @@ service in the first place.
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Acceptor implements Ends
+service Acceptor implements Ends
 	var listener as TcpListener
 	var accepted as Tally
 
@@ -18147,7 +18153,7 @@ owner and crosses back to the caller.
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Dialer
+service Dialer
 	var port as NetworkPort
 	var dialled as Tally
 
@@ -18222,7 +18228,7 @@ type Box
 	end 'makeExtra'
 end 'Box'
 
-type Maker
+service Maker
 	var made as Tally
 
 	static function create() returns Self
@@ -18268,7 +18274,7 @@ type Box
 	end 'makeExtra'
 end 'Box'
 
-type Shelf
+service Shelf
 	var held as Box
 
 	static function create() returns Self
@@ -18314,7 +18320,7 @@ function forever() returns Integer
 	return 1
 end 'forever'
 
-type Sleeper
+service Sleeper
 	var held as Napped
 
 	static function create() returns Self
@@ -18355,7 +18361,7 @@ function forever() returns Integer
 	return 1
 end 'forever'
 
-type Sleepers
+service Sleepers
 	var held as NapArray
 
 	static function create(naps Count) returns Self
@@ -18390,7 +18396,7 @@ and the factory's output appears only once the spawner waits for the service.
 ```maxon
 typealias Tally = int(0 to 1000000)
 
-type Greeter
+service Greeter
 	var greeted as Tally
 
 	static function create() returns Self
@@ -18460,7 +18466,7 @@ The `spawn` of `create` and of `createCounted` runs the factory it names on the 
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-type Sink
+service Sink
 	var seen as Whole
 
 	static function create(label String) returns Self
@@ -18503,7 +18509,7 @@ thread, so the service starts from exactly the values an ordinary call would hav
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-type Calc
+service Calc
 	var value as Whole
 
 	static function create(first Whole, scale Whole = 10, offset Whole = 1) returns Self
@@ -18558,7 +18564,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-type Plot
+service Plot
 	var count as Whole
 	var span as Area
 
@@ -18596,7 +18602,7 @@ enum StartError implements Error
 	refused
 end 'StartError'
 
-type Gate
+service Gate
 	var open as Whole
 
 	static function create(ok bool) returns Self throws StartError
@@ -18642,7 +18648,7 @@ enum StartError implements Error
 	exhausted
 end 'StartError'
 
-type Gate
+service Gate
 	var open as Whole
 
 	static function create(code Whole) returns Self throws StartError
@@ -18693,7 +18699,7 @@ union StartError implements Error
 	exhausted(limit Whole)
 end 'StartError'
 
-type Gate
+service Gate
 	var open as Whole
 
 	static function create(code Whole) returns Self throws StartError
@@ -18745,7 +18751,7 @@ enum StartError implements Error
 	refused
 end 'StartError'
 
-type Gate
+service Gate
 	var open as Whole
 
 	static function create(ok bool) returns Self throws StartError
@@ -18797,7 +18803,7 @@ enum StartError implements Error
 	refused
 end 'StartError'
 
-type Gate
+service Gate
 	var open as Whole
 
 	static function create(ok bool) returns Self throws StartError
@@ -18957,7 +18963,7 @@ type Square implements Shape
 	end 'area'
 end 'Square'
 
-type Plot
+service Plot
 	var count as Whole
 	var span as Area
 
@@ -19007,7 +19013,7 @@ enum StartError implements Error
 	refused
 end 'StartError'
 
-type Worker
+service Worker
 	var id as Whole
 
 	static function create(ok bool) returns Self throws StartError
@@ -19022,7 +19028,7 @@ type Worker
 	end 'ident'
 end 'Worker'
 
-type Manager
+service Manager
 	var launched as Whole
 
 	static function create() returns Self
@@ -19056,7 +19062,7 @@ against the new service itself.
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-type Worker
+service Worker
 	var id as Whole
 
 	static function create(id Whole) returns Self
@@ -19068,7 +19074,7 @@ type Worker
 	end 'ident'
 end 'Worker'
 
-type Manager
+service Manager
 	var launched as Whole
 
 	static function create() returns Self
@@ -19113,7 +19119,7 @@ enum StartError implements Error
 	refused
 end 'StartError'
 
-type Ledger
+service Ledger
 	var label as String
 	var total as Whole
 
@@ -19169,7 +19175,7 @@ enum StartError implements Error
 	refused
 end 'StartError'
 
-type Gate
+service Gate
 	var open as Whole
 
 	static function create(ok bool) returns Self throws StartError
@@ -19196,12 +19202,13 @@ error E3057: <fragment>:25:10: throwing function requires try: 'Gate.create'
 
 <!-- test: error.try-on-a-spawn-of-a-non-throwing-factory-is-refused -->
 <!-- skip: language difference: a try that covers nothing that can fail is E3944 whatever it covers (a call that does not throw, a try block, an operation or an access the range analysis proves), where maxon names two of those with E3055 and E3083 -->
+<!-- positions: moved -->
 A `try` needs a call that can fail: a factory that cannot throw makes `try spawn` the same E3055 `try` on any
 non-throwing call is.
 ```maxon
 typealias Whole = int(i64.min to i64.max)
 
-type Gate
+service Gate
 	var open as Whole
 
 	static function create() returns Self
@@ -19300,7 +19307,7 @@ spawn probe reads raw tokens, so it records the written name and must resolve it
 directory: each `Calc` is a service, and each handle's `bump` runs in its own directory's service.
 ```maxon
 // --- file: a/calc.maxon
-export type Calc
+export service Calc
 	var count as ExitCode
 
 	export static function create() returns Self
@@ -19319,7 +19326,7 @@ export function runA() returns ExitCode
 end 'runA'
 
 // --- file: b/calc.maxon
-export type Calc
+export service Calc
 	var count as ExitCode
 
 	export static function create() returns Self

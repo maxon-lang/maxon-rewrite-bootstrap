@@ -52,7 +52,7 @@ enum AcceptorPhase
 	closing
 end 'AcceptorPhase'
 
-export type Acceptor implements services.Ends
+export service Acceptor implements services.Ends
 	var listener as ListenerHold
 	let handler as frozen with StandIn
 	let config as frozen with ServerConfig

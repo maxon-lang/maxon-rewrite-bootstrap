@@ -6,7 +6,7 @@
 //> told: 2
 export typealias Waiting = Array with Reply with Count
 
-type Witness
+service Witness
 	var waiting as Waiting
 
 	static function create() returns Self
@@ -27,7 +27,7 @@ type Witness
 	end 'told'
 end 'Witness'
 
-type Counter implements Ends
+service Counter implements Ends
 	var n as Count
 	var witness as Witness.handle
 

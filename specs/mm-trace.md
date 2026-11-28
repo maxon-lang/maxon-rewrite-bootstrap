@@ -457,7 +457,7 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-type Counter
+service Counter
 	var n as Integer
 
 	static function create() returns Self

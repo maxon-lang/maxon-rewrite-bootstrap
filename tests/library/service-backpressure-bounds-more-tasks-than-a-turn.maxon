@@ -16,7 +16,7 @@ let sendsPerTask = 100 as Count
 
 let turn = 64 as Count
 
-type Tally
+service Tally
 	var sum as Num
 	var sink as Num
 

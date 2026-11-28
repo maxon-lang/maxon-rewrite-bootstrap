@@ -437,7 +437,7 @@ union FileCount
 	unreadable
 end 'FileCount'
 
-type Counter
+service Counter
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -493,7 +493,7 @@ union Shape
 	nothing
 end 'Shape'
 
-type Store
+service Store
 	var seen = 0 as Coord
 
 	static function create() returns Self
@@ -551,7 +551,7 @@ union Shape
 	nothing
 end 'Shape'
 
-type Store
+service Store
 	var seen = 0 as Coord
 
 	static function create() returns Self
@@ -606,7 +606,7 @@ union Shape
 	nothing
 end 'Shape'
 
-type Store
+service Store
 	var seen = 0 as Coord
 
 	static function create() returns Self
@@ -655,7 +655,7 @@ union Note
 	blank
 end 'Note'
 
-type Store
+service Store
 	var seen = 0 as Count
 
 	static function create() returns Self
@@ -711,7 +711,7 @@ union Blob
 	nothing
 end 'Blob'
 
-type Store
+service Store
 	var seen = 0 as Count
 
 	static function create() returns Self
@@ -1663,7 +1663,7 @@ union Wide
 	ten
 end 'Wide'
 
-type Store
+service Store
 	var seen = 0 as Weight
 
 	static function create() returns Self

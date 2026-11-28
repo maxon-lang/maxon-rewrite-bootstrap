@@ -973,7 +973,7 @@ done
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self
@@ -1035,7 +1035,7 @@ The loop form for a cell: reassigned every trip, moved by a send on one back edg
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self
@@ -1129,7 +1129,7 @@ filled 3 padded out long enough to heap allocate!
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self
@@ -1212,7 +1212,7 @@ The cell is re-stored on even trips only, so on an odd trip the send reads the c
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var count as Integer
 
 	static function create() returns Self

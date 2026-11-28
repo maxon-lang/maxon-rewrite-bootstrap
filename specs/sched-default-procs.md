@@ -158,7 +158,7 @@ let workPerService = 20000
 
 let mixModulus = 7
 
-type Adder
+service Adder
 	var acc as Integer
 
 	static function create() returns Self
@@ -237,7 +237,7 @@ let workPerService = 20000
 
 let mixModulus = 7
 
-type Adder
+service Adder
 	var acc as Integer
 
 	static function create() returns Self
@@ -314,7 +314,7 @@ let workPerService = 20000
 
 let mixModulus = 7
 
-type Adder
+service Adder
 	var acc as Integer
 
 	static function create() returns Self
@@ -385,7 +385,7 @@ let workPerService = 20000
 
 let mixModulus = 7
 
-type Adder
+service Adder
 	var acc as Integer
 
 	static function create() returns Self

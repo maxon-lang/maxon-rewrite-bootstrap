@@ -234,7 +234,7 @@ enum MathError implements Error
 	divideByZero
 end 'MathError'
 
-type Calc
+service Calc
 	var calls as Tally
 
 	static function create() returns Self

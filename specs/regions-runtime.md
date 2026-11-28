@@ -100,7 +100,7 @@ type Forest
 	end 'total'
 end 'Forest'
 
-type Reader
+service Reader
 	static function create() returns Self
 		return Self{}
 	end 'create'

@@ -59,7 +59,7 @@ let KeptAliveField = "Connection: keep-alive\r\n"
 
 let ClosingField = "Connection: close\r\n"
 
-export type Conn implements services.Ends
+export service Conn implements services.Ends
 	var client as net.TcpClient
 	let handler as frozen with StandIn
 	let config as frozen with ServerConfig

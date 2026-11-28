@@ -1112,7 +1112,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1218,7 +1218,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1351,7 +1351,7 @@ typealias HeldB = B with A
 
 typealias TextNest = Nest with String
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1479,7 +1479,7 @@ typealias HeldJ = J with Plain0
 
 typealias TextFoo = Foo with String
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1583,7 +1583,7 @@ typealias HeldA = A with A
 
 typealias TextP = P with String
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1694,7 +1694,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1784,7 +1784,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1898,7 +1898,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2012,7 +2012,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self

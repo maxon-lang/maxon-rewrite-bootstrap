@@ -48,7 +48,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -119,7 +119,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -189,7 +189,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -262,7 +262,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -336,7 +336,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -409,7 +409,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -486,7 +486,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -563,7 +563,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -639,7 +639,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -715,7 +715,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -791,7 +791,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -871,7 +871,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -949,7 +949,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1027,7 +1027,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1103,7 +1103,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1178,7 +1178,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1253,7 +1253,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1324,7 +1324,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1397,7 +1397,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1471,7 +1471,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1545,7 +1545,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1620,7 +1620,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1695,7 +1695,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1765,7 +1765,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1839,7 +1839,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1921,7 +1921,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1996,7 +1996,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2073,7 +2073,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2145,7 +2145,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2220,7 +2220,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2296,7 +2296,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2372,7 +2372,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2446,7 +2446,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2524,7 +2524,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2602,7 +2602,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2678,7 +2678,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2757,7 +2757,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2840,7 +2840,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2917,7 +2917,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -2996,7 +2996,7 @@ type Cell
 	end 'give'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell

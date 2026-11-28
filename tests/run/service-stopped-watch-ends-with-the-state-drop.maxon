@@ -8,7 +8,7 @@ export typealias Count = int(0 to 1000)
 
 export typealias Parked = Array with Reply with Count
 
-type Parker
+service Parker
 	var parked as Parked
 
 	static function create() returns Self

@@ -40,7 +40,7 @@ line that follows the wait.
 ```maxon
 typealias Count = int(0 to 1000)
 
-type Greeter
+service Greeter
 	var greeted as Count
 
 	static function create() returns Self
@@ -95,7 +95,7 @@ shutdown finds none.
 ```maxon
 typealias Count = int(0 to 1000)
 
-type Greeter
+service Greeter
 	var greeted as Count
 
 	static function create() returns Self
@@ -203,7 +203,7 @@ function coroutineSum(v Integer) returns Integer
 	return (await a) + (await b) + (await c)
 end 'coroutineSum'
 
-type Worker
+service Worker
 	var answered as Integer
 
 	static function create() returns Self
@@ -283,7 +283,7 @@ function coroutineSum(v Integer) returns Integer
 	return (await a) + (await b) + (await c)
 end 'coroutineSum'
 
-type Worker
+service Worker
 	var answered as Integer
 
 	static function create() returns Self
@@ -417,7 +417,7 @@ and a second wait after the shutdown finds none either.
 ```maxon
 typealias Count = int(0 to 1000)
 
-type Greeter
+service Greeter
 	var greeted as Count
 
 	static function create() returns Self

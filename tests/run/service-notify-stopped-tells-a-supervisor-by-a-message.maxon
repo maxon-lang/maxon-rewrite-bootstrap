@@ -5,7 +5,7 @@
 //> told of 4 children, their ids summing to 10
 export typealias Amount = int(0 to 1000000)
 
-type Child implements StopsNow
+service Child implements StopsNow
 	var id as Amount
 
 	static function create(id Amount) returns Self
@@ -17,7 +17,7 @@ type Child implements StopsNow
 	end 'work'
 end 'Child'
 
-type Sup
+service Sup
 	var told as Amount
 	var sum as Amount
 	var expect as Amount

@@ -366,6 +366,7 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 ```
 
 <!-- test: promise-typing.error.inner-is-library-tier -->
+<!-- positions: moved -->
 A program has no promise → `int` conversion, and a service REPLY is a promise like any other: its handle
 word `.inner` is library-tier surface, so a read of it from a program is refused at the member and the
 remedy names the safe peek. `services.md:a-reply-inner-compiles-in-the-library-tier` is the same program
@@ -373,7 +374,7 @@ in the library tier; `library-tier-surface.md` pins the door on an `async` promi
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Calc
+service Calc
 	var count as Integer
 
 	static function create() returns Self
@@ -431,7 +432,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntPromiseArray = Array with Promise with Integer
 
-type Calc
+service Calc
 	var n as Integer
 
 	static function create() returns Self

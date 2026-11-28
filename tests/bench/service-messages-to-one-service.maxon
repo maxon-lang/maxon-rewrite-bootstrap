@@ -8,7 +8,7 @@ let batches = 1000 as Word
 
 let batchMessages = 1000 as Word
 
-type Counter
+service Counter
 	var sum as Word
 
 	static function create() returns Self

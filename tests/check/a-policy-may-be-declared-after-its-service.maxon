@@ -1,6 +1,6 @@
 // A message may name a policy that its module declares after the message's type, a stateless shedding policy by its type
 // and one with state by the field that holds it.
-type Feed
+service Feed
 	var sampler as Halve
 	var seen as Count
 

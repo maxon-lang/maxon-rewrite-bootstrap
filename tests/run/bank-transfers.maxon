@@ -1,6 +1,6 @@
 // Accounts whose balances must add up are one service: a transfer is one message, which changes both balances before any
 // other message runs, so no message ever sees money that has left one account and not reached the other.
-type Bank
+service Bank
 	var a as Count
 	var b as Count
 	var c as Count

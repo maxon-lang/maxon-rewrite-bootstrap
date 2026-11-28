@@ -2325,7 +2325,7 @@ type Leaf
 	end 'create'
 end 'Leaf'
 
-type Reader
+service Reader
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -2364,7 +2364,7 @@ type Leaf
 	end 'create'
 end 'Leaf'
 
-type Reader
+service Reader
 	static function create() returns Self
 		return Self{}
 	end 'create'

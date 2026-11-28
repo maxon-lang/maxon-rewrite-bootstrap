@@ -1226,7 +1226,7 @@ type Report
 	end 'create'
 end 'Report'
 
-type Worker
+service Worker
 	var seed as Tally
 
 	static function create(seed Tally) returns Self
@@ -1255,6 +1255,7 @@ end 'main'
 
 <!-- test: error.an-exported-services-message-names-a-file-private-type -->
 <!-- skip: language difference: a result may be a less visible type here -->
+<!-- positions: moved -->
 ⭐⭐ **THE EXEMPTION STOPS AT THE SERVICE TYPE'S TIER, AND ONE WORD IS THE WHOLE DIFFERENCE.** This program
 is the case above with `export` written on `type Worker`; every other byte is the same. Now any file may
 name `Worker`, spawn one and hold the handle `run` sits on — so `run`'s reply has to be nameable at that
@@ -1275,7 +1276,7 @@ type Report
 	end 'create'
 end 'Report'
 
-export type Worker
+export service Worker
 	var seed as Tally
 
 	static function create(seed Tally) returns Self
@@ -2576,7 +2577,7 @@ end 'main'
 A service's handle is the service's own tier, so an alias naming `Worker.handle` names `Worker`.
 ```maxon
 // --- file: api/lib.maxon
-type Worker
+service Worker
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -2607,7 +2608,7 @@ The control, and the reason the demand is filed against `Worker` and not against
 `api/lib.maxon` names `Worker`, and the audit would call it unused if the alias's demand did not reach it.
 ```maxon
 // --- file: api/lib.maxon
-export type Worker
+export service Worker
 	static function create() returns Self
 		return Self{}
 	end 'create'

@@ -1811,7 +1811,7 @@ function toHex(bytes ByteArray) returns String
 	return text
 end 'toHex'
 
-type Drawer
+service Drawer
 	var made as Tally
 
 	static function create() returns Self

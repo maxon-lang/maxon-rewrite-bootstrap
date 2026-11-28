@@ -2,7 +2,7 @@
 // first hop's handler sends in its turn, the second hop, needs no policy.
 export typealias Amount = int(0 to 1000000)
 
-type Child
+service Child
 	var id as Amount
 
 	static function create(id Amount) returns Self
@@ -10,7 +10,7 @@ type Child
 	end 'create'
 end 'Child'
 
-type Store
+service Store
 	var last as Amount
 
 	static function create() returns Self
@@ -22,7 +22,7 @@ type Store
 	end 'put'
 end 'Store'
 
-type Log
+service Log
 	var store as Store.handle
 
 	static function create(consumes store Store.handle) returns Self
@@ -34,7 +34,7 @@ type Log
 	end 'record'
 end 'Log'
 
-type Sup
+service Sup
 	var log as Log.handle
 
 	static function create(consumes log Log.handle) returns Self

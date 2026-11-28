@@ -1,6 +1,6 @@
 // A service whose state cannot be dropped is declared Ends by fix, after the interfaces it implements, and given a finish
 // that ends each field with the one destructor that takes nothing, called with try ... otherwise ignore where it throws.
-type Log implements StopsNow, Ends
+service Log implements StopsNow, Ends
 	var out as FileWriter
 	var copy as FileWriter
 	var lines as Count
@@ -25,7 +25,7 @@ type Log implements StopsNow, Ends
 	end 'finish'
 end 'Log'
 
-type Single implements Ends
+service Single implements Ends
 	var out as FileWriter
 
 	static function create(path FilePath) returns Self throws FileWriteError

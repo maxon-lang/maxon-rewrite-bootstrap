@@ -9,7 +9,7 @@ function nap(tag Tag) returns Tag
 	return tag
 end 'nap'
 
-type Picker
+service Picker
 	var seen as Tag
 
 	static function create() returns Self

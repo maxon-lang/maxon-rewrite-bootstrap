@@ -628,7 +628,7 @@ third.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Counter
+service Counter
 	var calls as Integer
 
 	static function create() returns Self
@@ -712,7 +712,7 @@ alone.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Counter
+service Counter
 	var calls as Integer
 
 	static function create() returns Self
@@ -779,7 +779,7 @@ move it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Adder
+service Adder
 	var total as Integer
 
 	static function create() returns Self
@@ -900,7 +900,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias Bytes = Array with Byte
 
-type Churn
+service Churn
 	var rounds as Integer
 
 	static function create() returns Self
@@ -1029,7 +1029,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias Bytes = Array with Byte
 
-type Idle
+service Idle
 	var calls as Integer
 
 	static function create() returns Self
@@ -1100,7 +1100,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias Bytes = Array with Byte
 
-type Churn
+service Churn
 	var rounds as Integer
 
 	static function create() returns Self

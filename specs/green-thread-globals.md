@@ -55,7 +55,7 @@ a reply is what carries a value back to a party that can order it, and it is the
 correct when the default is every processor. Two sends, then one await — so the exit code is the sum and a
 lost send would read 3 or 4 rather than 7.
 ```maxon
-type Counter
+service Counter
 	var count as Integer
 
 	static function create() returns Self
@@ -100,7 +100,7 @@ run stack and pdqsort's pivot machinery are both on the message's green thread.
 The sort is observed through an awaited reply: the lowest and highest elements summed, so an ordering that
 came back wrong at either end changes the exit code.
 ```maxon
-type Sorter
+service Sorter
 	var items as IntArray
 
 	static function create() returns Self
@@ -153,7 +153,7 @@ would refuse this, and would take every configuration constant in every service 
 ```maxon
 let stride = 7
 
-type Scaler
+service Scaler
 	var count as Integer
 
 	static function create() returns Self
@@ -189,7 +189,7 @@ once on different OS threads read one array, so the program ends with every roun
 ```maxon
 let roster = NameArray from ["member 0", "member 1", "member 2", "member 3"]
 
-type Churner
+service Churner
 	var served as Integer
 
 	static function create() returns Self
@@ -248,7 +248,7 @@ let names = NameArray from ["name 0", "name 1", "name 2"]
 
 let table = NameTable from [names, names]
 
-type Reader
+service Reader
 	var asked as Integer
 
 	static function create() returns Self
@@ -290,7 +290,7 @@ makes one, so a service starts in `main`, or in a function `main` calls.
 ```maxon
 let roster = NameArray from ["member 0", "member 1", "member 2", "member 3"]
 
-type Reader
+service Reader
 	var asked as Integer
 
 	static function create() returns Self
@@ -338,7 +338,7 @@ let labels = NameArray from ["a label held as image data"]
 
 let weight = 40
 
-type Printer
+service Printer
 	var printed as Integer
 
 	static function create() returns Self
@@ -383,7 +383,7 @@ type Label
 	static let standard = Label{text: "a label held as image data", weight: 40}
 end 'Label'
 
-type Printer
+service Printer
 	var printed as Integer
 
 	static function create() returns Self
@@ -419,7 +419,7 @@ typealias Integer = int(i64.min to i64.max)
 The `let` twin of the case above: a `static let` is written once before any green thread exists, so a
 message may read it.
 ```maxon
-type Counter
+service Counter
 	static let step = 6
 	var n as Integer
 

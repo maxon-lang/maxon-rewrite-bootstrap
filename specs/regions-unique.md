@@ -1782,11 +1782,12 @@ error E3102: <fragment>:19:10: use of moved value 'first': its ownership moved t
 ```
 
 <!-- test: a-let-rebind-of-a-reply-moves-it -->
+<!-- positions: moved -->
 A `Reply` is unique, so `let moved = pending` moves it out of `pending` and the later `pending.answer(4)` is a use of a moved value.
 ```maxon
 typealias Number = int(0 to 999)
 
-type Desk
+service Desk
 	var n as Number
 
 	static function create() returns Self
@@ -2533,7 +2534,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Shelf
+service Shelf
 	var token as Token
 
 	static function create(consumes token Token) returns Self
@@ -2577,7 +2578,7 @@ union Slot
 	have(t Token)
 end 'Slot'
 
-type Shelf
+service Shelf
 	var token as Token
 
 	static function create(consumes token Token) returns Self
@@ -2629,7 +2630,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Sink
+service Sink
 	var count as Tally
 
 	static function create() returns Self
@@ -2667,7 +2668,7 @@ type Token is noncopyable
 	end 'create'
 end 'Token'
 
-type Shelf
+service Shelf
 	var token as Token
 
 	static function create(consumes token Token) returns Self
@@ -3870,7 +3871,7 @@ type Conn
 	end 'create'
 end 'Conn'
 
-type Sink
+service Sink
 	var total as Integer
 
 	static function create() returns Self
@@ -3935,7 +3936,7 @@ type Conn
 	end 'create'
 end 'Conn'
 
-type Sink
+service Sink
 	var total as Integer
 
 	static function create() returns Self

@@ -43,7 +43,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -103,7 +103,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -162,7 +162,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -222,7 +222,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -281,7 +281,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -341,7 +341,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -401,7 +401,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -457,7 +457,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -514,7 +514,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -579,7 +579,7 @@ type Rd
 	end 'data'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -634,7 +634,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -690,7 +690,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var o as Rd
 	var k as Num
@@ -747,7 +747,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -804,7 +804,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -865,7 +865,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -923,7 +923,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -983,7 +983,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -1040,7 +1040,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -1097,7 +1097,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var r as Rd
 	var k as Num
 
@@ -1146,7 +1146,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1192,7 +1192,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1239,7 +1239,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1292,7 +1292,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1337,7 +1337,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1385,7 +1385,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1432,7 +1432,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1483,7 +1483,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1533,7 +1533,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1584,7 +1584,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1635,7 +1635,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1695,7 +1695,7 @@ type Rd
 	end 'create'
 end 'Rd'
 
-type Sv
+service Sv
 	var rd as Rd
 
 	static function create(consumes rd Rd) returns Self
@@ -1741,7 +1741,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1788,7 +1788,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -1835,7 +1835,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 	var k as Num
 
@@ -1884,7 +1884,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 	var k as Num
 
@@ -1932,7 +1932,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 	var k as Num
 
@@ -1980,7 +1980,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -2031,7 +2031,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -2083,7 +2083,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -2140,7 +2140,7 @@ type Bt
 	end 'giveTo'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -2186,7 +2186,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var r as Bt
 
 	static function create(consumes r Bt) returns Self
@@ -2246,7 +2246,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-type Hs
+service Hs
 	var ar as TkArray
 
 	static function create(consumes ar TkArray) returns Self
@@ -2295,7 +2295,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-type Hs
+service Hs
 	var u as UT
 
 	static function create(consumes u UT) returns Self
@@ -2347,7 +2347,7 @@ type Hold
 	end 'create'
 end 'Hold'
 
-type Hs
+service Hs
 	var ho as Hold
 
 	static function create(consumes ho Hold) returns Self
@@ -2391,7 +2391,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-type Hs
+service Hs
 	var tk as Tk
 
 	static function create(consumes tk Tk) returns Self
@@ -2434,7 +2434,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Hs
+service Hs
 	var i as Bt
 
 	static function create(consumes i Bt) returns Self
@@ -2478,7 +2478,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var n as Num
 	var r as Bt
 
@@ -2488,7 +2488,7 @@ type Sv
 	end 'create'
 end 'Sv'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -2537,7 +2537,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var n as Num
 	var r as Bt
 
@@ -2547,7 +2547,7 @@ type Sv
 	end 'create'
 end 'Sv'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -2596,7 +2596,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var n as Num
 	var r as Bt
 
@@ -2606,7 +2606,7 @@ type Sv
 	end 'create'
 end 'Sv'
 
-type Sk
+service Sk
 	var n as Num
 	var b as Bt
 
@@ -2655,7 +2655,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Acc
+service Acc
 	var bal as Num
 	var hist as BtArray
 
@@ -2711,7 +2711,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Acc
+service Acc
 	var bal as Num
 	var hist as BtArray
 
@@ -2768,7 +2768,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Acc
+service Acc
 	var bal as Num
 	var hist as BtArray
 
@@ -2822,7 +2822,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Acc
+service Acc
 	var bal as Num
 	var r as Bt
 
@@ -2869,7 +2869,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Acc
+service Acc
 	var bal as Num
 	var r as Bt
 
@@ -2918,7 +2918,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Acc
+service Acc
 	var bal as Num
 	var r as Bt
 
@@ -2967,7 +2967,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Acc
+service Acc
 	var bal as Num
 	var r as Bt
 
@@ -3015,7 +3015,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Acc
+service Acc
 	var bal as Num
 	var r as Bt
 	var q as Bt
@@ -3063,7 +3063,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var n as Num
 	var i as Bt
 
@@ -3072,7 +3072,7 @@ type Sv
 	end 'create'
 end 'Sv'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3125,7 +3125,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var n as Num
 	var i as Bt
 
@@ -3134,7 +3134,7 @@ type Sv
 	end 'create'
 end 'Sv'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3186,7 +3186,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Rc
+service Rc
 	var t as Bt
 
 	static function create(consumes t Bt) returns Self
@@ -3198,7 +3198,7 @@ type Rc
 	end 'put'
 end 'Rc'
 
-type Sv
+service Sv
 	var t as Bt
 	var k as Num
 
@@ -3244,7 +3244,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var k as Num
 	var r as Bt
 
@@ -3286,7 +3286,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var k as Num
 	var r as Bt
 
@@ -3329,7 +3329,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var k as Num
 	var r as Bt
 
@@ -3378,7 +3378,7 @@ type Bt
 	end 'create'
 end 'Bt'
 
-type Sv
+service Sv
 	var k as Num
 	var r as Bt
 
@@ -3431,7 +3431,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-type Rc
+service Rc
 	var t as Tk
 
 	static function create(consumes t Tk) returns Self
@@ -3444,7 +3444,7 @@ type Rc
 	end 'put'
 end 'Rc'
 
-type Sv
+service Sv
 	var t as Tk
 	var k as Num
 
@@ -3494,7 +3494,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3539,7 +3539,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3584,7 +3584,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3631,7 +3631,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3679,7 +3679,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3727,7 +3727,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3776,7 +3776,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3824,7 +3824,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3874,7 +3874,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3921,7 +3921,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3987,7 +3987,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type S
+service S
 	var k as Num
 	var b as Bx
 
@@ -4046,7 +4046,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type S
+service S
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -4118,7 +4118,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type S
+service S
 	var k as Num
 	var b as Bx
 
@@ -4182,7 +4182,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 	var keep as Sn
 
@@ -4251,7 +4251,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -4322,7 +4322,7 @@ type Cnt
 	end 'create'
 end 'Cnt'
 
-type S
+service S
 	var n as Num
 	var u as Ub
 	var c as Cnt
@@ -4385,7 +4385,7 @@ type Cnt
 	end 'create'
 end 'Cnt'
 
-type S
+service S
 	var n as Num
 	var u as Ub
 	var c as Cnt
@@ -4449,7 +4449,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -4518,7 +4518,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -4588,7 +4588,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -4659,7 +4659,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -4733,7 +4733,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -4803,7 +4803,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -4876,7 +4876,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -4944,7 +4944,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -5012,7 +5012,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -5080,7 +5080,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -5153,7 +5153,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -5230,7 +5230,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Kp
+service Kp
 	var b as Box
 	var n as Num
 
@@ -5295,7 +5295,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5392,7 +5392,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5489,7 +5489,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5586,7 +5586,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5686,7 +5686,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5785,7 +5785,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5884,7 +5884,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5896,7 +5896,7 @@ type Hq
 	end 'take'
 end 'Hq'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5947,7 +5947,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kp
+service Kp
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -5999,7 +5999,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kp
+service Kp
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6051,7 +6051,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6103,7 +6103,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6138,7 +6138,7 @@ The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compile
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-type Sa
+service Sa
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6184,7 +6184,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6236,7 +6236,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6296,7 +6296,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6359,7 +6359,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6423,7 +6423,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6488,7 +6488,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6556,7 +6556,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6619,7 +6619,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6686,7 +6686,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6745,7 +6745,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6805,7 +6805,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6864,7 +6864,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6922,7 +6922,7 @@ type Resp
 	end 'bump'
 end 'Resp'
 
-type Ck
+service Ck
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6963,7 +6963,7 @@ The model (`core-m3w-fa25`) refuses it by `R2-BLOCKWAIT`; the compiler refuses i
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-type Pl
+service Pl
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6979,7 +6979,7 @@ type Pl
 	end 'plain'
 end 'Pl'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7019,7 +7019,7 @@ typealias Num = int(i64.min to i64.max)
 
 typealias NumArray = Array with Num
 
-type Ar
+service Ar
 	var xs as NumArray
 	var n as Num
 
@@ -7058,7 +7058,7 @@ The model (`core-m3w-fa25`) refuses it by `R13-NESTED`; the compiler refuses it 
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
-type Q
+service Q
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -7074,7 +7074,7 @@ type Q
 	end 'poke'
 end 'Q'
 
-type Mw
+service Mw
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7137,7 +7137,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7197,7 +7197,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7253,7 +7253,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7310,7 +7310,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7382,7 +7382,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7467,7 +7467,7 @@ type Hp
 	end 'create'
 end 'Hp'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7544,7 +7544,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7631,7 +7631,7 @@ type Hp
 	end 'create'
 end 'Hp'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7712,7 +7712,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7775,7 +7775,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ka
+service Ka
 	var n as Num
 	var k as Bx
 	var l as Bx
@@ -7856,7 +7856,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Kx
+service Kx
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7935,7 +7935,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -8049,7 +8049,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -8158,7 +8158,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -8265,7 +8265,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -8374,7 +8374,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -8480,7 +8480,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -8589,7 +8589,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -8695,7 +8695,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -8803,7 +8803,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -8909,7 +8909,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -9019,7 +9019,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -9129,7 +9129,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -9238,7 +9238,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ab
+service Ab
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -9254,7 +9254,7 @@ type Ab
 	end 'poke'
 end 'Ab'
 
-type Bn
+service Bn
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -9341,7 +9341,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Ac
+service Ac
 	var n as Num
 	var plain as Bx
 
@@ -9440,7 +9440,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -9549,7 +9549,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -9657,7 +9657,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -9766,7 +9766,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -9875,7 +9875,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -9984,7 +9984,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -10093,7 +10093,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -10164,7 +10164,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 	var u as Ub
 
@@ -10229,7 +10229,7 @@ type Hd is noncopyable
 	end 'create'
 end 'Hd'
 
-type Sn
+service Sn
 	var n as Num
 	var u as UT
 
@@ -10304,7 +10304,7 @@ type Hd is noncopyable
 	end 'create'
 end 'Hd'
 
-type Sn
+service Sn
 	var n as Num
 	var u as UT
 
@@ -10380,7 +10380,7 @@ type Hd is noncopyable
 	end 'create'
 end 'Hd'
 
-type Sn
+service Sn
 	var n as Num
 	var u as UT
 
@@ -10455,7 +10455,7 @@ type Hd is noncopyable
 	end 'create'
 end 'Hd'
 
-type Sn
+service Sn
 	var n as Num
 	var u as UT
 
@@ -10530,7 +10530,7 @@ type Hd is noncopyable
 	end 'create'
 end 'Hd'
 
-type Sn
+service Sn
 	var n as Num
 	var u as UT
 
@@ -10605,7 +10605,7 @@ type Hd is noncopyable
 	end 'create'
 end 'Hd'
 
-type Sn
+service Sn
 	var n as Num
 	var u as UT
 
@@ -10710,7 +10710,7 @@ type Wo
 	end 'create'
 end 'Wo'
 
-type Hld
+service Hld
 	var n as Num
 	var plain as Bx
 	var item as Bx
@@ -10822,7 +10822,7 @@ type Wo
 	end 'create'
 end 'Wo'
 
-type Hld
+service Hld
 	var n as Num
 	var plain as Bx
 	var item as Bx
@@ -10937,7 +10937,7 @@ type Wo
 	end 'create'
 end 'Wo'
 
-type Hld
+service Hld
 	var n as Num
 	var plain as Bx
 	var item as Bx
@@ -11052,7 +11052,7 @@ type Wo
 	end 'create'
 end 'Wo'
 
-type Hld
+service Hld
 	var n as Num
 	var plain as Bx
 	var item as Bx
@@ -11164,7 +11164,7 @@ type Wo
 	end 'create'
 end 'Wo'
 
-type Hld
+service Hld
 	var n as Num
 	var plain as Bx
 	var item as Bx
@@ -11287,7 +11287,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11301,7 +11301,7 @@ type Sk
 	end 'takeW'
 end 'Sk'
 
-type Sw
+service Sw
 	var n as Num
 	var w as Wo
 	var h as Hq
@@ -11412,7 +11412,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11426,7 +11426,7 @@ type Sk
 	end 'takeW'
 end 'Sk'
 
-type Sw
+service Sw
 	var n as Num
 	var w as Wo
 	var h as Hq
@@ -11541,7 +11541,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11555,7 +11555,7 @@ type Sk
 	end 'takeW'
 end 'Sk'
 
-type Sw
+service Sw
 	var n as Num
 	var w as Wo
 	var h as Hq
@@ -11666,7 +11666,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11680,7 +11680,7 @@ type Sk
 	end 'takeW'
 end 'Sk'
 
-type Sw
+service Sw
 	var n as Num
 	var w as Wo
 	var h as Hq
@@ -11753,7 +11753,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Ac
+service Ac
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -11829,7 +11829,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -11921,7 +11921,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -12011,7 +12011,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Su
+service Su
 	var u as Ub
 	var n as Num
 
@@ -12074,7 +12074,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kw
+service Kw
 	var n as Num
 	var keep as Bx
 	var item as Bx
@@ -12166,7 +12166,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -12262,7 +12262,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -12363,7 +12363,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -12463,7 +12463,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -12561,7 +12561,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -12658,7 +12658,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -12755,7 +12755,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -12843,7 +12843,7 @@ type Wo6
 	end 'create'
 end 'Wo6'
 
-type Sw6
+service Sw6
 	var w as Wo6
 	var n as Num
 
@@ -12914,7 +12914,7 @@ type Ha is noncopyable
 	end 'create'
 end 'Ha'
 
-type Sv
+service Sv
 	var a as Ha
 	var k as Num
 
@@ -12976,7 +12976,7 @@ type Ht is noncopyable
 	end 'create'
 end 'Ht'
 
-type Sv
+service Sv
 	var a as Ht
 	var b as Ht
 	var k as Num
@@ -13057,7 +13057,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -13073,7 +13073,7 @@ type S
 	end 'go'
 end 'S'
 
-type Sy
+service Sy
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -13149,7 +13149,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -13165,7 +13165,7 @@ type S
 	end 'go'
 end 'S'
 
-type Sy
+service Sy
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -13210,7 +13210,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Zm4
+service Zm4
 	var b as Bx
 
 	static function create(consumes b Bx) returns Self
@@ -13270,7 +13270,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kz
+service Kz
 	var n as Num
 	var b as Bx
 
@@ -13367,7 +13367,7 @@ type Ko
 	end 'create'
 end 'Ko'
 
-type Sac
+service Sac
 	var keep as Bx
 	var n as Num
 
@@ -13435,7 +13435,7 @@ type Ko
 	end 'create'
 end 'Ko'
 
-type Sac
+service Sac
 	var keep as Bx
 	var n as Num
 
@@ -13502,7 +13502,7 @@ type Ko
 	end 'create'
 end 'Ko'
 
-type Sac
+service Sac
 	var keep as Bx
 	var n as Num
 
@@ -13574,7 +13574,7 @@ type Ko
 	end 'create'
 end 'Ko'
 
-type Sac
+service Sac
 	var keep as Bx
 	var n as Num
 
@@ -13660,7 +13660,7 @@ type Hq is noncopyable
 	end 'create'
 end 'Hq'
 
-type Sac
+service Sac
 	var keep as Bx
 	var n as Num
 
@@ -13743,7 +13743,7 @@ type Hq is noncopyable
 	end 'create'
 end 'Hq'
 
-type Sac
+service Sac
 	var keep as Bx
 	var n as Num
 
@@ -13805,7 +13805,7 @@ type Tq is noncopyable
 	end 'create'
 end 'Tq'
 
-type Sac
+service Sac
 	var keep as Bx
 	var n as Num
 

@@ -1098,7 +1098,7 @@ type Tok
 	end 'create'
 end 'Tok'
 
-type Sink
+service Sink
 	var seen = 0 as Count
 
 	static function create() returns Self
@@ -2119,7 +2119,7 @@ type Reading
 	end 'create'
 end 'Reading'
 
-type Meter
+service Meter
 	var total as Total
 
 	static function create() returns Self
@@ -2167,7 +2167,7 @@ type Readings
 	end 'create'
 end 'Readings'
 
-type Meter
+service Meter
 	var total as Total
 
 	static function create() returns Self

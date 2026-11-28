@@ -57,7 +57,7 @@ function step(acc Integer, depth Integer) returns Integer
 	return step((acc * 17 + depth) mod 1000003, depth: depth - 1)
 end 'step'
 
-type Spinner
+service Spinner
 	let released as ReleaseCell
 
 	static function create(released ReleaseCell) returns Self
@@ -77,7 +77,7 @@ type Spinner
 	end 'spin'
 end 'Spinner'
 
-type Bystander
+service Bystander
 	var n as Integer
 
 	static function create() returns Self
@@ -133,7 +133,7 @@ function down(n Integer, acc Integer) returns Integer
 	return down(n - 1, acc: (acc * 31 + n) mod 1000003)
 end 'down'
 
-type Recurser
+service Recurser
 	let released as ReleaseCell
 
 	static function create(released ReleaseCell) returns Self
@@ -154,7 +154,7 @@ type Recurser
 	end 'churn'
 end 'Recurser'
 
-type Bystander
+service Bystander
 	var n as Integer
 
 	static function create() returns Self
@@ -213,7 +213,7 @@ function step(acc Integer, depth Integer) returns Integer
 	return step((acc * 17 + depth) mod 1000003, depth: depth - 1)
 end 'step'
 
-type Spinner
+service Spinner
 	let released as ReleaseCell
 
 	static function create(released ReleaseCell) returns Self
@@ -233,7 +233,7 @@ type Spinner
 	end 'spin'
 end 'Spinner'
 
-type Bystander
+service Bystander
 	var n as Integer
 
 	static function create() returns Self
@@ -430,7 +430,7 @@ function mix(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g
 	return mix(h, b: a, c: b, d: c, e: d, f: e, g: f, h: g, p: w, q: p, r: q, s: r, t: s, u: t, v: u, w: v, depth: depth - 1)
 end 'mix'
 
-type Mixer
+service Mixer
 	var shift as Integer
 	var scale as Real
 
@@ -497,7 +497,7 @@ typealias ReleaseCell = SharedValue with bool
 
 let chunkSteps = 1000000
 
-type Spinner
+service Spinner
 	let released as ReleaseCell
 
 	static function create(released ReleaseCell) returns Self
@@ -521,7 +521,7 @@ type Spinner
 	end 'spin'
 end 'Spinner'
 
-type Bystander
+service Bystander
 	var n as Integer
 
 	static function create() returns Self
@@ -575,7 +575,7 @@ typealias ReleaseCell = SharedValue with bool
 
 let chunkSteps = 1000000
 
-type Spinner
+service Spinner
 	let released as ReleaseCell
 
 	static function create(released ReleaseCell) returns Self
@@ -599,7 +599,7 @@ type Spinner
 	end 'spin'
 end 'Spinner'
 
-type Bystander
+service Bystander
 	var n as Integer
 
 	static function create() returns Self
@@ -663,7 +663,7 @@ let rounds = 40
 
 let stepsPerRound = 2000000
 
-type Churner
+service Churner
 	var n as Integer
 
 	static function create() returns Self
@@ -791,7 +791,7 @@ function step(acc Integer, depth Integer) returns Integer
 	return step((acc * 17 + depth) mod 1000003, depth: depth - 1)
 end 'step'
 
-type Echo
+service Echo
 	var n as Integer
 
 	static function create() returns Self
@@ -869,7 +869,7 @@ function step(acc Integer, depth Integer) returns Integer
 	return step((acc * 17 + depth) mod 1000003, depth: depth - 1)
 end 'step'
 
-type Marker
+service Marker
 	var id as Integer
 
 	static function create(id Integer) returns Self
@@ -968,7 +968,7 @@ typealias ReplyPromiseArray = Array with ReplyPromise
 
 let spawnCount = 100000
 
-type Doubler
+service Doubler
 	var index as Integer
 
 	static function create(index Integer) returns Self
@@ -1017,7 +1017,7 @@ time (`subprocess-unsupported.md`).
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-type Echo
+service Echo
 	var n as Integer
 
 	static function create() returns Self

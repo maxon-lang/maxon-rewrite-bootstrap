@@ -3,7 +3,7 @@ interface Shape
 	function area() returns Count
 end 'Shape'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'

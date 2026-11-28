@@ -28,7 +28,7 @@ typealias Arguments = Array with String
 
 // A Runner runs one child in each message. Each child is run by a service of its own, and messages of different services
 // run at once, so the four children overlap.
-type Runner
+service Runner
 	var shell as String
 
 	static function create() returns Self

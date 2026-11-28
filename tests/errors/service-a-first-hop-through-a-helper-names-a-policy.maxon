@@ -1,7 +1,7 @@
 // A send in a function of the module that a posted kind's handler calls is a first hop too, as the wait inference walks.
 export typealias Amount = int(0 to 1000000)
 
-type Child
+service Child
 	var id as Amount
 
 	static function create(id Amount) returns Self
@@ -9,7 +9,7 @@ type Child
 	end 'create'
 end 'Child'
 
-type Log
+service Log
 	var last as Amount
 
 	static function create() returns Self
@@ -25,7 +25,7 @@ function tell(log Log.handle, id Amount)
 	try log.record(id) otherwise ignore
 end 'tell'
 
-type Sup
+service Sup
 	var log as Log.handle
 
 	static function create(consumes log Log.handle) returns Self

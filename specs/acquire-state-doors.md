@@ -31,7 +31,7 @@ type Cell
 	end 'me'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var r as Cell
 	export var i as Cell
 	export var total as Tally
@@ -96,7 +96,7 @@ type Cell
 	end 'me'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var r as Cell
 	export var i as Cell
 	export var total as Tally
@@ -162,7 +162,7 @@ type Cell
 	end 'me'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var r as Cell
 	export var i as Cell
 	export var total as Tally
@@ -224,7 +224,7 @@ type Cell
 	end 'me'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var r as Cell
 	export var i as Cell
 	export var total as Tally
@@ -412,7 +412,7 @@ type Cell
 	end 'bump'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -493,7 +493,7 @@ type Cell
 	end 'bump'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -578,7 +578,7 @@ type Cell
 	end 'bump'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -659,7 +659,7 @@ type Cell
 	end 'bump'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -686,7 +686,7 @@ function touch(l Ledger) returns Tally
 	return l.total
 end 'touch'
 
-type Keeper
+service Keeper
 	var kept as Ledger
 
 	static function create(consumes kept Ledger) returns Self
@@ -740,7 +740,7 @@ type Cell
 	end 'bump'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -824,7 +824,7 @@ type Cell
 	end 'bump'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -908,7 +908,7 @@ type Cell
 	end 'bump'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -989,7 +989,7 @@ type Cell
 	end 'bump'
 end 'Cell'
 
-type Ledger
+service Ledger
 	export var cell as Cell
 	export var total as Tally
 	export var spare as Cell
@@ -1056,7 +1056,7 @@ error E3197: <fragment>:66:3: cannot write 'held' through 'kept', which is read-
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Ledger
+service Ledger
 	export var total as Tally
 
 	static function create(total Tally) returns Self

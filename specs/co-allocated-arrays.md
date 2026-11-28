@@ -310,7 +310,7 @@ typealias Word = bits(64)
 
 typealias Cells = FixedArray with Word
 
-type Keeper
+service Keeper
 	var cells as Cells
 
 	static function create() returns Self
@@ -950,7 +950,7 @@ type Holder
 	end 'around'
 end 'Holder'
 
-type Reader
+service Reader
 	var reads as Word
 
 	static function create() returns Self

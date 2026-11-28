@@ -12,7 +12,7 @@ export typealias Amount = int(0 to 1000000)
 
 typealias Tickers = Array with Ticker
 
-type Pacer implements Ends
+service Pacer implements Ends
 	var tickers as Tickers
 	var ticks as Amount
 	var most as Amount

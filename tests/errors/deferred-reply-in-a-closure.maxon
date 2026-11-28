@@ -1,5 +1,5 @@
 // reply.later() is a statement of a message's own body: a closure in the message has no reply of its own to take.
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'

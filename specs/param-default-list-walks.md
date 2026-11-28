@@ -346,7 +346,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Small = int(0 to 5)
 
-type Meter
+service Meter
 	var n as Integer
 
 	static function create() returns Self
@@ -507,7 +507,7 @@ The message's first parameter is a defaulted `_`, so `p` is the second parameter
 ```maxon
 typealias Cells = Array with Integer
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -541,7 +541,7 @@ The same message with a handler that only reads `p`.
 ```maxon
 typealias Cells = Array with Integer
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -596,7 +596,7 @@ end 'Tag'
 
 typealias Cells = Array with Integer
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self

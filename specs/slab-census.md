@@ -1613,7 +1613,7 @@ function makePad(fill String, length Tally) returns String
 	return sb
 end 'makePad'
 
-type Churn
+service Churn
 	var pad as String
 	var padLength as Tally
 	var fillByte as Tally

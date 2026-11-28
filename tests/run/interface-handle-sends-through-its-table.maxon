@@ -25,7 +25,7 @@ interface Waiter
 	function wait(mutates self) returns Count throws ReplyStopped
 end 'Waiter'
 
-type Adder implements Sink
+service Adder implements Sink
 	var sum as Count
 
 	static function create() returns Self
@@ -41,7 +41,7 @@ type Adder implements Sink
 	end 'total'
 end 'Adder'
 
-type Doubler implements Sink
+service Doubler implements Sink
 	var sum as Count
 
 	static function create() returns Self
@@ -57,7 +57,7 @@ type Doubler implements Sink
 	end 'total'
 end 'Doubler'
 
-type Parker implements Waiter
+service Parker implements Waiter
 	var parked as Parked
 
 	static function create() returns Self

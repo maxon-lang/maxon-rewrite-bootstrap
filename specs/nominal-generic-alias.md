@@ -1696,7 +1696,7 @@ typealias Ys = Array with String
 
 typealias Count = int(0 to 100)
 
-type Sink
+service Sink
 	var seen as Count
 
 	static function create() returns Self

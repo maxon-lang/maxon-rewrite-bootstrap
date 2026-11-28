@@ -117,7 +117,7 @@ function fall(n Integer, a Real, b Real) returns Real
 	return next * 0.5 + a - b
 end 'fall'
 
-type Total
+service Total
 	var sum as Real
 
 	static function create() returns Self

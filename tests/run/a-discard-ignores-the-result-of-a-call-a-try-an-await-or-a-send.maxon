@@ -2,7 +2,7 @@
 //> 3
 //> 1
 //> 2
-type Calc
+service Calc
 	var n as Count
 
 	static function create() returns Self

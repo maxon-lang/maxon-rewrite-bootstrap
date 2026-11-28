@@ -17,7 +17,7 @@ let mostBytes = 256 as Count
 
 let timers = 100000 as Amount
 
-type Idle
+service Idle
 	var fires as Amount
 
 	static function create() returns Self

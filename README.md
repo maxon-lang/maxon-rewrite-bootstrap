@@ -143,6 +143,7 @@ programs as an artifact. The workflow reads the repository and writes nothing to
 | `minimaxon debug [--stop-timeout=<seconds>] <exe> [-- <args>...]` | debug it in a conversation, maxon's: the commands are read from standard input after maxon's prompt, `(maxon debug) `, and each is answered in maxon's text (see "Debug info") |
 | `minimaxon cache [trim\|clear]` | say where the build cache is and how many files and bytes it holds; `trim` deletes what a trim would (the files unused for five days) whether one is due or not, `clear` every file the cache wrote (see "Build cache") |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
+| `minimaxon rewrite --services <path>...` | write `service` for the `type` of each type that a `spawn` in the programs under the paths starts (see "Changing the language") |
 | `minimaxon ircount <file.ir> (op=NAME\|call=SYMBOL)...` | development only: print how many lines of an `--emit-ir` file are the operation NAME or a call of SYMBOL, as `op=bounds 3`; the counting of the corpus's IR expectations (see "Tests") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
@@ -5705,7 +5706,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   `spawn` of it appears (see "Services"). Its rules (`E3216`, `E4014`, `E3956`, `E3217`, `E3140`, `E3221`, the policies) are
   checked once, at its declaration, in its own module, where maxon checks them at a spawn, so a service that no module spawns
   is refused too. `service` is a reserved word, so the library's module that held the overload policies is `services` and
-  the conversion warns of a Maxon name `service`. `spawn` also still starts a `type`, as maxon does.
+  the conversion warns of a Maxon name `service`, and writes `service` for the `type` of each type that a converted program
+  spawns, by its name (the files of one run are all read for the spawns, and the code of a spec test is one program), a generic
+  type excepted, which a service cannot be yet.
+  `spawn` also still starts a `type`, as maxon does.
 - **A mailbox has no capacity.** A program writes `spawn T.create()` where maxon writes `spawn(capacity: n) T.create()`,
   sends with no `sendTimeout:`, and matches only `serviceStopped`, the one case of `SendError`, where maxon matches
   `mailboxFull` too: a send never fails or waits for room, and fails only once the service has stopped. The runtime slows
@@ -6685,6 +6689,16 @@ differs from Maxon" in the same change. A change to the syntax touches many prog
   left alone and listed if it contains the word. In a Markdown file it renames the code: inline code spans, and fenced
   blocks tagged `maxon` or not tagged; prose, and a span or block that does not lex (IR text, a command), are left
   alone, and the first such span holding the word is named.
+- **`minimaxon rewrite --services <path>...`** writes `service` for the `type` of each type that a `spawn` starts. It
+  checks every program under the paths as far as the checker goes (a directory of the corpus of tests is a program in
+  each `.maxon` file and a project in each directory of `modules`, any other directory one project, as `self`, `runtime`
+  and `stdlib` are), takes the type that owns the static factory of each `spawn` by what the checker resolved and not
+  by text, a qualified `lib.T` declared in another module included, and writes `service` at the `type` of its header, with
+  `export`, `is noncopyable` and `implements` left as they are. It takes all the roots in one run, so a type declared in
+  one root and spawned in another is found once. A type declared in a file outside the paths, and a generic one, is
+  reported and not edited, and so is a `spawn` that the checker did not reach (a program that stops at an error, a test of
+  a library tier, which the checker takes for a program), whose type is written by hand. It changes nothing in a type
+  that is a `service` already, so a second run is a no-op.
 - **`minimaxon fmt [--check] <path>...`** is the tool for a layout change (a rule about spaces, indentation, blank
   lines or comments): change the rule in the parser or the grammar, run `minimaxon fmt self runtime tests docs README.md`,
   then check. It rewrites every `.maxon` file under the paths, and the fenced blocks of `.md` files that are tagged

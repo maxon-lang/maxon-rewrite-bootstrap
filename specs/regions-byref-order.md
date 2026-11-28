@@ -6106,7 +6106,7 @@ A `view` of a cell-resident `var` keeps the record it read after the `var` is re
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var seen as Tally
 
 	static function create() returns Self
@@ -6152,7 +6152,7 @@ A `let` of a cell-resident `var` owns the record it read after the `var` is rebo
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var seen as Tally
 
 	static function create() returns Self
@@ -6715,7 +6715,7 @@ A message operand reads a cell-resident `var`, and a later operand hands the sam
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var seen as Tally
 
 	static function create() returns Self
@@ -6751,7 +6751,7 @@ The same statement with a callee that only reads the cell lends nothing, so the 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var seen as Tally
 
 	static function create() returns Self
@@ -6791,7 +6791,7 @@ A service factory operand takes a cell-resident `var` the same way a message doe
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var seen as Tally
 
 	static function create(text String, n Tally) returns Self
@@ -6826,7 +6826,7 @@ A factory operand that reads the cell and a later operand whose callee only read
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Store
+service Store
 	var seen as Tally
 
 	static function create(text String, n Tally) returns Self
@@ -7434,7 +7434,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Store
+service Store
 	var seen as Tally
 
 	static function create() returns Self

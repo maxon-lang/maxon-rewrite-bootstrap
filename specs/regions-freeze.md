@@ -273,7 +273,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -425,7 +425,7 @@ type Holder
 	end 'show'
 end 'Holder'
 
-type Reader
+service Reader
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -470,7 +470,7 @@ The `Holder` frozen here holds a `Plain`, but `open` converts a `Port` to `Shape
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -545,7 +545,7 @@ wasm32-wasi answers E3104 for the `spawn` and `TcpListener.bind` before any shar
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -643,7 +643,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias Step = function(Tally) returns Tally
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -803,7 +803,7 @@ end 'Holder'
 // TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias HolderCell = SharedValue with Holder
 
-type Idle
+service Idle
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1104,7 +1104,7 @@ type Stepper implements Shape
 	end 'area'
 end 'Stepper'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1176,7 +1176,7 @@ type Stepper
 	end 'create'
 end 'Stepper'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1228,7 +1228,7 @@ interface Shape
 	function area() returns Tally
 end 'Shape'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1380,7 +1380,7 @@ type Stepper
 	end 'create'
 end 'Stepper'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1468,7 +1468,7 @@ type Stepper
 	end 'create'
 end 'Stepper'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1568,7 +1568,7 @@ type Plain implements Shape
 	end 'area'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1638,7 +1638,7 @@ interface Sink
 	function total() returns Tally
 end 'Sink'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1728,7 +1728,7 @@ type Plain implements Shape
 	end 'area'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1874,7 +1874,7 @@ interface Sink
 	function total() returns Tally
 end 'Sink'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -1952,7 +1952,7 @@ type Stepper
 	end 'create'
 end 'Stepper'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2045,7 +2045,7 @@ type Plain implements Shape
 	end 'area'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2215,7 +2215,7 @@ type Plain
 	end 'create'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2322,7 +2322,7 @@ type Plain
 	end 'create'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2426,7 +2426,7 @@ type Plain
 	end 'create'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2530,7 +2530,7 @@ type Plain
 	end 'create'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2630,7 +2630,7 @@ type Plain
 	end 'create'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2736,7 +2736,7 @@ type Plain
 	end 'create'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2842,7 +2842,7 @@ type Plain
 	end 'create'
 end 'Plain'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -2937,7 +2937,7 @@ extension String implements Shape
 	end 'area'
 end 'String'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -3036,7 +3036,7 @@ end 'Tagged'
 
 typealias Entry = Tagged with (Plain, Tally)
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -3111,7 +3111,7 @@ end 'Froze'
 
 typealias PlainFroze = Froze with Plain
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -3246,7 +3246,7 @@ type H3
 	end 'create'
 end 'H3'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -3330,7 +3330,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self

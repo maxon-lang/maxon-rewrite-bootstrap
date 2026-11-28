@@ -17,7 +17,7 @@ export typealias Runs = Array with Promise with Amount
 
 let perWorker = 2000 as Amount
 
-type Worker implements Ends
+service Worker implements Ends
 	var held as Held
 	var seen as Amount
 	var cancelled as Amount

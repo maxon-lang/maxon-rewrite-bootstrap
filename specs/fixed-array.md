@@ -1736,7 +1736,7 @@ A `<Service>.handle` is a pointer to a cown box, so `Slots.create()` would publi
 ```maxon
 typealias Digit = int(0 to 9)
 
-type Worker
+service Worker
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1764,7 +1764,7 @@ Every slot starts as the one handle, so a send through any slot reaches the serv
 ```maxon
 typealias Digit = int(0 to 9)
 
-type Worker
+service Worker
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -3815,7 +3815,7 @@ type Cell
 	end 'describe'
 end 'Cell'
 
-type Svc
+service Svc
 	var held as Cell
 
 	static function create(consumes held Cell) returns Self

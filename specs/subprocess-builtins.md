@@ -3058,7 +3058,7 @@ function appendToken(out ByteArray, token String)
 	out.push(0)
 end 'appendToken'
 
-type FifoReader
+service FifoReader
 	var summary as String
 
 	static function create() returns Self
@@ -3139,7 +3139,7 @@ function appendToken(out ByteArray, token String)
 	out.push(0)
 end 'appendToken'
 
-type FifoReader
+service FifoReader
 	var summary as String
 
 	static function create() returns Self

@@ -2092,7 +2092,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias NonZero = int(1 to i64.max)
 
-type Divider
+service Divider
 	var last = 0 as Integer
 
 	static function create() returns Self

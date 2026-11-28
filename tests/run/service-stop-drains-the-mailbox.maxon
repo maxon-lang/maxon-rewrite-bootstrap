@@ -5,7 +5,7 @@
 //> replies: 1 2, stopped after: 2, later send: refused
 export typealias Amount = int(0 to 1000000)
 
-type Counter
+service Counter
 	var n as Amount
 
 	static function create() returns Self

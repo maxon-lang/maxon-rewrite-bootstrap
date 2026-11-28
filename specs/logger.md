@@ -322,7 +322,7 @@ level=INFO msg=infoFromB
 <!-- skip: not yet: Log is not designed yet (README, Services: not yet) -->
 The level is live: the next call on any thread obeys a change, whether `main` made it or a handler did.
 ```maxon
-type Tuner
+service Tuner
 	var tuned as Integer
 
 	static function create() returns Self
@@ -409,7 +409,7 @@ a=WARN b=WARN min=WARN
 Eight handlers each set a different group's level at once; every setter re-reads and retries until its
 change lands, so no override is lost.
 ```maxon
-type Setter
+service Setter
 	let group as String
 	let quiet as bool
 
@@ -560,7 +560,7 @@ level=DEBUG msg=fresh
 A handler logs through `Log` with no handle passed to it. Worker `a` is awaited before `b` starts, so `a`'s
 record is queued first.
 ```maxon
-type Worker
+service Worker
 	let name as String
 
 	static function create(name String) returns Self
@@ -604,7 +604,7 @@ A user handler implements `LogHandler`; once its sink is the default, records fr
 handler both reach it.
 ```maxon
 // TODO: not yet: Log is not designed yet (README, Services: not yet)
-type Collect implements LogHandler
+service Collect implements LogHandler
 	var count as Integer
 
 	static function create() returns Self
@@ -619,7 +619,7 @@ type Collect implements LogHandler
 	end 'handle'
 end 'Collect'
 
-type Worker
+service Worker
 	var runs as Integer
 
 	static function create() returns Self

@@ -1,6 +1,6 @@
 // What a function of another module may wait for is what its module's check published: a message that calls one that
 // awaits a reply would hold its service while it waits.
-type Asker
+service Asker
 	var got as lib.Amount
 
 	static function create() returns Self

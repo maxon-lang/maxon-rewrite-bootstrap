@@ -33,7 +33,7 @@ let sinkModulus = 1000 as Divisor
 // turn is the runtime's turnBehaviours: the interpreter's turn is shorter, so the bounds hold there with room.
 let turn = 64 as Count
 
-type Consumer
+service Consumer
 	var handled as Amount
 	var sink as Amount
 	// modulus is a field, so that each spin of take costs a division that the compiler cannot fold into a multiplication: the
@@ -58,7 +58,7 @@ type Consumer
 	end 'count'
 end 'Consumer'
 
-type Relay
+service Relay
 	var to as Consumer.handle
 
 	static function create(consumes to Consumer.handle) returns Self

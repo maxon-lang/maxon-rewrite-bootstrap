@@ -43,7 +43,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Ledger
+service Ledger
 	var total as Tally
 	var waiting as TallyReplyArray
 
@@ -90,7 +90,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Clerk
+service Clerk
 	var served as Tally
 
 	static function create() returns Self
@@ -103,7 +103,7 @@ type Clerk
 	end 'look'
 end 'Clerk'
 
-type Desk
+service Desk
 	let clerk as Clerk.handle
 
 	static function create(clerk Clerk.handle) returns Self
@@ -136,7 +136,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Clerk
+service Clerk
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -150,7 +150,7 @@ type Clerk
 	end 'look'
 end 'Clerk'
 
-type Desk
+service Desk
 	let clerk as Clerk.handle
 
 	static function create(clerk Clerk.handle) returns Self
@@ -184,7 +184,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Clerk
+service Clerk
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -200,7 +200,7 @@ type Clerk
 	end 'look'
 end 'Clerk'
 
-type Desk
+service Desk
 	let clerk as Clerk.handle
 
 	static function create(clerk Clerk.handle) returns Self
@@ -235,7 +235,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Sink
+service Sink
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -267,7 +267,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Parker
+service Parker
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -303,7 +303,7 @@ end 'main'
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Waker
+service Waker
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -335,11 +335,12 @@ end 'main'
 ```
 
 <!-- test: a-reply-answered-twice-is-refused -->
+<!-- positions: moved -->
 `answer` consumes the `Reply`, so the second call reads a moved value.
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Twice
+service Twice
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -369,7 +370,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Sink
+service Sink
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -402,7 +403,7 @@ function answerTwice(consumes waiting TallyReply)
 	waiting.answer(2)
 end 'answerTwice'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -440,7 +441,7 @@ function relay(consumes waiting TallyReply)
 	answerNow(waiting)
 end 'relay'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -485,7 +486,7 @@ function drain(consumes slot Slot)
 	end 'second'
 end 'drain'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -514,7 +515,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Sink
+service Sink
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -543,7 +544,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -578,7 +579,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -611,7 +612,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -644,7 +645,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -700,7 +701,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -732,7 +733,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -768,7 +769,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -805,7 +806,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -852,7 +853,7 @@ end 'Box'
 
 typealias ReplyBox = Box with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -889,7 +890,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -928,7 +929,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -968,7 +969,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	export var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -1009,7 +1010,7 @@ typealias TallyReply = Reply with Tally
 
 typealias TallyReplyArray = Array with TallyReply
 
-type Gate
+service Gate
 	var waiting as TallyReplyArray
 
 	static function create() returns Self
@@ -1044,7 +1045,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1096,7 +1097,7 @@ function keep(sink Sink) returns Tally
 	return sink.weight()
 end 'keep'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1142,7 +1143,7 @@ function wrap(pending TallyReply) returns Sink
 	return Slot.waiting(pending)
 end 'wrap'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1193,7 +1194,7 @@ type Shelf
 	end 'create'
 end 'Shelf'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1227,7 +1228,7 @@ function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1261,7 +1262,7 @@ function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
-type Sink
+service Sink
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1295,7 +1296,7 @@ function parkIn(consumes waiting TallyReply, mutates shelf TallyReplyArray)
 	shelf.push(waiting)
 end 'parkIn'
 
-type Gate
+service Gate
 	var shelf as TallyReplyArray
 
 	static function create() returns Self
@@ -1331,7 +1332,7 @@ function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1366,7 +1367,7 @@ function answerNow(consumes waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1403,7 +1404,7 @@ function answerNow(waiting TallyReply)
 	waiting.answer(3)
 end 'answerNow'
 
-type Gate
+service Gate
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1433,7 +1434,7 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyReply = Reply with Tally
 
-type Sink
+service Sink
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1443,7 +1444,7 @@ type Sink
 	end 'take'
 end 'Sink'
 
-type Gate
+service Gate
 	let sink as Sink.handle
 
 	static function create(sink Sink.handle) returns Self
@@ -1474,7 +1475,7 @@ No declaration in the program names `Reply`, yet `reply.later()` makes a unique 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Twice
+service Twice
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1499,11 +1500,12 @@ error E3102: <fragment>:16:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: error.a-reply-bound-to-a-second-name-is-refused-without-the-word-reply -->
+<!-- positions: moved -->
 `let other = pending` moves the unique `Reply`, so answering `pending` afterwards reads a moved value although no declaration in the program names `Reply`.
 ```maxon
 typealias Tally = int(0 to u64.max)
 
-type Twice
+service Twice
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -1548,7 +1550,7 @@ type Hold
 	end 'create'
 end 'Hold'
 
-type Gate
+service Gate
 	var served as Tally
 
 	static function create() returns Self

@@ -2,7 +2,7 @@ export typealias Amount = int(0 to 1000000)
 
 export typealias Step = function(Amount) returns Amount
 
-type Runner
+service Runner
 	var n as Amount
 
 	static function create() returns Self
@@ -19,4 +19,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3217 at 18:10
+// expect-error: E3217 at 12:18

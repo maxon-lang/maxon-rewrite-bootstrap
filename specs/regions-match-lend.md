@@ -1276,7 +1276,7 @@ union Holder
 	full(d Data)
 end 'Holder'
 
-type Keeper
+service Keeper
 	var kept as Data
 
 	static function create() returns Self
@@ -1994,7 +1994,7 @@ union Pack
 	full(b Box, label String)
 end 'Pack'
 
-type Opener
+service Opener
 	var opened as Count
 
 	static function create() returns Self
@@ -2255,7 +2255,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -2308,7 +2308,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -2361,7 +2361,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Keeper
+service Keeper
 	var u as Slot
 
 	static function create(x Slot) returns Self
@@ -2411,7 +2411,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -2468,7 +2468,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -2528,7 +2528,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -2580,7 +2580,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -2642,7 +2642,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -2697,7 +2697,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Keeper
+service Keeper
 	var u as Slot
 
 	static function create(x Slot) returns Self
@@ -2750,7 +2750,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Vault
+service Vault
 	var served as Count
 
 	static function create() returns Self
@@ -2857,7 +2857,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Keeper
+service Keeper
 	var u as Slot
 
 	static function create(consumes x Slot) returns Self
@@ -2915,7 +2915,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Vault
+service Vault
 	var served as Count
 
 	static function create() returns Self
@@ -3018,7 +3018,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Keeper
+service Keeper
 	var u as Slot
 
 	static function create(x Slot) returns Self
@@ -3072,7 +3072,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Vault
+service Vault
 	var served as Count
 
 	static function create() returns Self
@@ -3177,7 +3177,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -3242,7 +3242,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -3317,7 +3317,7 @@ type Crate
 	end 'create'
 end 'Crate'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -3392,7 +3392,7 @@ type Crate
 	end 'create'
 end 'Crate'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -3476,7 +3476,7 @@ type Shelf
 	end 'create'
 end 'Shelf'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -3551,7 +3551,7 @@ type Crate
 	end 'create'
 end 'Crate'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -3815,7 +3815,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -3870,7 +3870,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -3930,7 +3930,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -4005,7 +4005,7 @@ type Box
 	end 'create'
 end 'Box'
 
-type Keeper
+service Keeper
 	var n as Count
 
 	static function create(x Slot) returns Self
@@ -4063,7 +4063,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Vault
+service Vault
 	var a as Slots
 
 	static function create(x Slot) returns Self
@@ -4073,7 +4073,7 @@ type Vault
 	end 'create'
 end 'Vault'
 
-type Keeper
+service Keeper
 	var n as Count
 
 	static function create(x Slot) returns Self
@@ -4131,7 +4131,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Keeper
+service Keeper
 	var n as Count
 
 	static function create(x Slot) returns Self
@@ -4194,7 +4194,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Keeper
+service Keeper
 	var u as Slot
 
 	static function create(x Slot) returns Self
@@ -4252,7 +4252,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Keeper
+service Keeper
 	var u as Slot
 
 	static function create(x Slot) returns Self
@@ -4307,7 +4307,7 @@ type Holder
 	end 'create'
 end 'Holder'
 
-type Vault
+service Vault
 	var served as Count
 
 	static function create() returns Self
@@ -4484,7 +4484,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -4592,7 +4592,7 @@ union Slot
 	held(b Box)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -4690,7 +4690,7 @@ end 'Slot'
 
 typealias Slots = Array with Slot
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -4741,7 +4741,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Taker
+service Taker
 	var taken as Count
 
 	static function create() returns Self
@@ -4799,7 +4799,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Keeper
+service Keeper
 	var u as Slot
 
 	static function create(x Slot) returns Self
@@ -4852,7 +4852,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-type Vault
+service Vault
 	var taken as Count
 
 	static function create() returns Self

@@ -5,7 +5,7 @@
 //> last=1000 label=v1000 some=true
 export typealias Amount = int(0 to 1000000)
 
-type Gauge
+service Gauge
 	var last as Amount
 	var label as String
 	var handled as Amount

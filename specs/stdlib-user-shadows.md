@@ -1176,7 +1176,7 @@ end 'main'
 A program that declares its own `StringBuilder` spawns the library's `StringBuilder` as a service by writing
 `stdlib.StringBuilder`, the spelling a direct call and an `async` spawn accept.
 ```maxon
-type StringBuilder
+service StringBuilder
 	export var y as Count
 end 'StringBuilder'
 
@@ -1195,7 +1195,7 @@ end 'main'
 A program that declares its own `TextLogHandler` makes the library's `TextLogHandler` the default
 `LogHandler` by writing `stdlib.TextLogHandler`, and the record sent to it is written.
 ```maxon
-type TextLogHandler
+service TextLogHandler
 	export var y as Count
 end 'TextLogHandler'
 

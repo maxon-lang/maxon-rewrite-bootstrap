@@ -1,6 +1,6 @@
 export typealias Amount = int(0 to 1000000)
 
-type Peer
+service Peer
 	var n as Amount
 
 	static function create() returns Self
@@ -12,7 +12,7 @@ type Peer
 	end 'value'
 end 'Peer'
 
-type Asker
+service Asker
 	var got as Amount
 
 	static function create() returns Self

@@ -300,6 +300,8 @@ type programNames struct {
 	own []string
 	// ownLog are the types of logLibraryTypes that the program declares itself, which it keeps.
 	ownLog []string
+	// spawned are the types that the program spawns, which are declared with `service` (README, "Services").
+	spawned []string
 	// usesLibrarySubprocess is whether the program runs a child through Subprocess and so names the library's types.
 	usesLibrarySubprocess bool
 	// expectsError is whether the program is a spec test's that expects a compile error; errorLines are the lines of the
@@ -324,6 +326,7 @@ func programNamesOf(src string) programNames {
 		}
 	}
 	names.ownLog = ownLogTypes(lines)
+	names.spawned = spawnedTypesIn(lines)
 	words := wordsOf(src)
 	names.usesLibrarySubprocess = (slices.ContainsFunc(libraryOnlySubprocessTypes, func(word string) bool { return words[word] && !declaresType(lines, word) }) || buildsLibraryError.MatchString(src) && !declaresType(lines, "SubprocessError")) &&
 		!slices.ContainsFunc(builtinsOfTheBuiltInTypes, func(word string) bool { return words[word] }) &&

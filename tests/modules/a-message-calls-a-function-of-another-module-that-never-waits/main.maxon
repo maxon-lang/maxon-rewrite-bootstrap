@@ -1,5 +1,5 @@
 // A message may call a function of another module whose check published that it never waits on another party.
-type Doubler
+service Doubler
 	var n as lib.Amount
 
 	static function create() returns Self

@@ -39,7 +39,7 @@ const (
 )
 
 // blockWords are the words that start a declaration that has a body, which ends with `end 'name'`.
-var blockWords = []string{"function", "type", "enum", "union", "interface", "extension", "test"}
+var blockWords = []string{"function", "type", serviceKeyword, "enum", "union", "interface", "extension", "test"}
 
 // modifierWords precede the word that starts a declaration or a member.
 var modifierWords = []string{"public", "export", "static"}

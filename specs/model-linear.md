@@ -161,7 +161,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-type S
+service S
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -521,7 +521,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type S
+service S
 	var k as Num
 	var b as Bx
 
@@ -1981,7 +1981,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -2944,7 +2944,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -2997,7 +2997,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3050,7 +3050,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3104,7 +3104,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -3165,7 +3165,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Auth
+service Auth
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -4335,7 +4335,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -4436,7 +4436,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -4534,7 +4534,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -4628,7 +4628,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -4725,7 +4725,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -4815,7 +4815,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sv
+service Sv
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6125,7 +6125,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sfn
+service Sfn
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6168,7 +6168,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Sfn
+service Sfn
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6757,7 +6757,7 @@ type Fz
 	end 'g'
 end 'Fz'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -6806,7 +6806,7 @@ type Fz
 	end 'g'
 end 'Fz'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7005,7 +7005,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type H2
+service H2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7053,7 +7053,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type H2
+service H2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7101,7 +7101,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7151,7 +7151,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7200,7 +7200,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7256,7 +7256,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7312,7 +7312,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7368,7 +7368,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7424,7 +7424,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7491,7 +7491,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7546,7 +7546,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7600,7 +7600,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7649,7 +7649,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7661,7 +7661,7 @@ type Hq
 	end 'take'
 end 'Hq'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7709,7 +7709,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7721,7 +7721,7 @@ type Hq
 	end 'take'
 end 'Hq'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7774,7 +7774,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7786,7 +7786,7 @@ type Hq
 	end 'take'
 end 'Hq'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -7957,7 +7957,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Pk
+service Pk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -8006,7 +8006,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Pk
+service Pk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -8055,7 +8055,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Pk
+service Pk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -8422,7 +8422,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq5
+service Hq5
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -9035,7 +9035,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq5
+service Hq5
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -9080,7 +9080,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq6
+service Hq6
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -9215,7 +9215,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq9
+service Hq9
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -9797,7 +9797,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -9846,7 +9846,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -9900,7 +9900,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -9950,7 +9950,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -10001,7 +10001,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -10050,7 +10050,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -10107,7 +10107,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -10165,7 +10165,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -10214,7 +10214,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -10263,7 +10263,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -10394,7 +10394,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11199,7 +11199,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kq
+service Kq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11303,7 +11303,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kb
+service Kb
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11370,7 +11370,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kb
+service Kb
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11437,7 +11437,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kb
+service Kb
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11850,7 +11850,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq2
+service Hq2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -11901,7 +11901,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq2
+service Hq2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -12745,7 +12745,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq3
+service Hq3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -13482,7 +13482,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq4
+service Hq4
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -13539,7 +13539,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq4
+service Hq4
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -13605,7 +13605,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hu
+service Hu
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -15885,7 +15885,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -15963,7 +15963,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -16037,7 +16037,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -16111,7 +16111,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -16185,7 +16185,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -16587,7 +16587,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -16665,7 +16665,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -16749,7 +16749,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -16830,7 +16830,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Hq
+service Hq
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -17177,7 +17177,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-type Kf
+service Kf
 	var n as Num
 
 	static function create(consumes r Resp) returns Self
@@ -17927,7 +17927,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -19996,7 +19996,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Bk
+service Bk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -20238,7 +20238,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Kx
+service Kx
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -20304,7 +20304,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Kx
+service Kx
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -20428,7 +20428,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Kx
+service Kx
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -20495,7 +20495,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Kx
+service Kx
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -20562,7 +20562,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Kx
+service Kx
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -20640,7 +20640,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kx
+service Kx
 	var n as Num
 	var b as Bx
 
@@ -20716,7 +20716,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Kx
+service Kx
 	var n as Num
 	var b as Bx
 
@@ -20880,7 +20880,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -20992,7 +20992,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -21103,7 +21103,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Wo
 	var plain as Bx
@@ -21251,7 +21251,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type K
+service K
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -21337,7 +21337,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type K
+service K
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -21823,7 +21823,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type K
+service K
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -21997,7 +21997,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Cap1
+service Cap1
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -22141,7 +22141,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Cap1
+service Cap1
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -22388,7 +22388,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -22489,7 +22489,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -22590,7 +22590,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -22692,7 +22692,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -22793,7 +22793,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -22894,7 +22894,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -22991,7 +22991,7 @@ type Hq
 	end 'create'
 end 'Hq'
 
-type Bm
+service Bm
 	var n as Num
 	var item as Bx
 	var plain as Bx
@@ -24611,7 +24611,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Kb
+service Kb
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -25823,7 +25823,7 @@ type Wo
 	end 'create'
 end 'Wo'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -25835,7 +25835,7 @@ type Sk
 	end 'takeW'
 end 'Sk'
 
-type Bm
+service Bm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -25937,7 +25937,7 @@ type Wo
 	end 'create'
 end 'Wo'
 
-type Sk
+service Sk
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -25949,7 +25949,7 @@ type Sk
 	end 'takeW'
 end 'Sk'
 
-type Bm
+service Bm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -26250,7 +26250,7 @@ type Rs
 	end 'fin'
 end 'Rs'
 
-type Sm2
+service Sm2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -26363,7 +26363,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -26621,7 +26621,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -26714,7 +26714,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -27391,7 +27391,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sq
+service Sq
 	var n as Num
 
 	static function create(consumes m Mp) returns Self
@@ -27475,7 +27475,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sq2
+service Sq2
 	var n as Num
 
 	static function create(m Mp) returns Self
@@ -27559,7 +27559,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sq
+service Sq
 	var n as Num
 
 	static function create(consumes m Mp) returns Self
@@ -27644,7 +27644,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -27737,7 +27737,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -27829,7 +27829,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -28063,7 +28063,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -28338,7 +28338,7 @@ type RpL
 	end 'fin'
 end 'RpL'
 
-type Sr
+service Sr
 	var n as Num
 	var keep as Bx
 
@@ -28401,7 +28401,7 @@ type Rf
 	end 'peek'
 end 'Rf'
 
-type SRf
+service SRf
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -28460,7 +28460,7 @@ type Rg
 	end 'peek'
 end 'Rg'
 
-type SRg
+service SRg
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -28524,7 +28524,7 @@ type Rf
 	end 'tk'
 end 'Rf'
 
-type SRf
+service SRf
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -29170,7 +29170,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Zr
+service Zr
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -29242,7 +29242,7 @@ type Fz
 	end 'g'
 end 'Fz'
 
-type Zr2
+service Zr2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -29293,7 +29293,7 @@ type Fz
 	end 'g'
 end 'Fz'
 
-type Zr2
+service Zr2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -29339,7 +29339,7 @@ type Fz
 	end 'g'
 end 'Fz'
 
-type Zr2
+service Zr2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -29448,7 +29448,7 @@ type Fz
 	end 'w'
 end 'Fz'
 
-type Zr2
+service Zr2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -29509,7 +29509,7 @@ type Fz
 	end 'w'
 end 'Fz'
 
-type Zr2
+service Zr2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -29756,7 +29756,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Zr
+service Zr
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -29887,7 +29887,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Zr
+service Zr
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -29953,7 +29953,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Zs
+service Zs
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -30092,7 +30092,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Zr
+service Zr
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -30173,7 +30173,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm2
+service Sm2
 	var n as Num
 	var keep as Bx
 
@@ -30262,7 +30262,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm2
+service Sm2
 	var n as Num
 	var keep as Bx
 
@@ -30351,7 +30351,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm
+service Sm
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -30437,7 +30437,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm2
+service Sm2
 	var n as Num
 	var keep as Bx
 
@@ -30523,7 +30523,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -30611,7 +30611,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm2
+service Sm2
 	var n as Num
 	var keep as Bx
 
@@ -30699,7 +30699,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm2
+service Sm2
 	var n as Num
 	var keep as Bx
 
@@ -31361,7 +31361,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -31703,7 +31703,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -31792,7 +31792,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm2
+service Sm2
 	var n as Num
 	var keep as Bx
 
@@ -31809,7 +31809,7 @@ type Sm2
 	end 'take'
 end 'Sm2'
 
-type Sm3
+service Sm3
 	var n as Num
 	var k as Sm2.handle
 
@@ -31897,7 +31897,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -31979,7 +31979,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -32069,7 +32069,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -32152,7 +32152,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -32218,7 +32218,7 @@ type RpL
 	end 'fin'
 end 'RpL'
 
-type Sr2
+service Sr2
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -32296,7 +32296,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sf3
+service Sf3
 	var n as Num
 
 	static function create(m Mp) returns Self
@@ -32372,7 +32372,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -32453,7 +32453,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm2
+service Sm2
 	var n as Num
 	var keep as Bx
 
@@ -32538,7 +32538,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -32625,7 +32625,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm3
+service Sm3
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -32710,7 +32710,7 @@ type Bx
 	end 'create'
 end 'Bx'
 
-type Sm2
+service Sm2
 	var n as Num
 	var keep as Bx
 
@@ -32775,7 +32775,7 @@ type RpL
 	end 'fin'
 end 'RpL'
 
-type Sr
+service Sr
 	var n as Num
 	var keep as Bx
 
@@ -32838,7 +32838,7 @@ type RpL
 	end 'fin'
 end 'RpL'
 
-type Sr
+service Sr
 	var n as Num
 	var keep as Bx
 
@@ -32904,7 +32904,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type Kx
+service Kx
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -32972,7 +32972,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -33235,7 +33235,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -33301,7 +33301,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -33368,7 +33368,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -33438,7 +33438,7 @@ type Rq
 	end 'peek'
 end 'Rq'
 
-type Sx
+service Sx
 	var n as Num
 
 	static function create(n Num) returns Self
@@ -33841,7 +33841,7 @@ type Rq
 	end 'peek'
 end 'Rq'
 
-type SqL
+service SqL
 	var k as Num
 
 	static function create(k Num) returns Self
@@ -34004,7 +34004,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-type S
+service S
 	var n as Num
 
 	static function create(n Num) returns Self

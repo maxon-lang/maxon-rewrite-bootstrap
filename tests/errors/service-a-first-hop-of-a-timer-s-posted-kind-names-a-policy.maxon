@@ -1,7 +1,7 @@
 // A kind a timer posts is fed by a source that cannot be slowed, so a kind its handler sends must name a policy.
 export typealias Amount = int(0 to 1000000)
 
-type Log
+service Log
 	var last as Amount
 
 	static function create() returns Self
@@ -13,7 +13,7 @@ type Log
 	end 'record'
 end 'Log'
 
-type Conn
+service Conn
 	var log as Log.handle
 
 	static function create(consumes log Log.handle) returns Self

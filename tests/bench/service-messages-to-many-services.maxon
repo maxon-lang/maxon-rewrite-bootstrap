@@ -10,7 +10,7 @@ let services = 1000 as Count
 
 let rounds = 1000 as Count
 
-type Counter
+service Counter
 	var sum as Word
 
 	static function create() returns Self

@@ -148,7 +148,7 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "convert: %v\n", err)
 			return exitUsage
 		}
-		res := convertFile(specs, "<stdin>", string(data))
+		res := convertFile(specs, "<stdin>", string(data), nil)
 		if res.Err != nil {
 			fmt.Fprintf(stderr, "convert: %v\n", res.Err)
 			return exitUsage
@@ -218,10 +218,25 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 
+	// A type may be spawned in another file of the run than the one that declares it. A spec test's program is one test's
+	// code, which its own conversion reads.
+	var spawned []string
+	if !specs {
+		for _, job := range jobs {
+			if data, err := os.ReadFile(job.srcPath); err == nil {
+				for _, name := range spawnedTypesOf(string(data)) {
+					if !slices.Contains(spawned, name) {
+						spawned = append(spawned, name)
+					}
+				}
+			}
+		}
+	}
+
 	formatter.collect(func() {
 		for _, job := range jobs {
 			if data, err := os.ReadFile(job.srcPath); err == nil {
-				convertFile(specs, job.srcPath, string(data))
+				convertFile(specs, job.srcPath, string(data), spawned)
 			}
 		}
 	})
@@ -239,7 +254,7 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "convert: %v\n", err)
 			return exitUsage
 		}
-		res := convertFile(specs, job.srcPath, string(data))
+		res := convertFile(specs, job.srcPath, string(data), spawned)
 		if res.Err != nil {
 			fmt.Fprintf(stderr, "convert: %v\n", res.Err)
 			return exitUsage
@@ -333,7 +348,7 @@ type fileResult struct {
 	Err error
 }
 
-func convertFile(specs bool, name, text string) fileResult {
+func convertFile(specs bool, name, text string, spawned []string) fileResult {
 	if specs {
 		res := ConvertSpec(name, text)
 		return fileResult{Text: res.Text, Warnings: res.Warnings, Changed: res.Changed, Tests: res.Tests}
@@ -342,7 +357,7 @@ func convertFile(specs bool, name, text string) fileResult {
 	if err != nil {
 		return fileResult{Err: err}
 	}
-	res := Convert(name, source, sourceFile)
+	res := convertProgram(name, source, sourceFile, programNames{spawned: spawned})
 	return fileResult{Text: res.Text, Warnings: res.Warnings, Changed: res.Text != text}
 }
 

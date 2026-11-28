@@ -693,7 +693,7 @@ type Cfg
 	end 'create'
 end 'Cfg'
 
-type Sink
+service Sink
 	var total as Count
 
 	static function create() returns Self
@@ -776,7 +776,7 @@ type Bag
 	end 'create'
 end 'Bag'
 
-type Sink
+service Sink
 	static function create() returns Self
 		return Self{}
 	end 'create'
@@ -811,7 +811,7 @@ type Point
 	end 'create'
 end 'Point'
 
-type Sink
+service Sink
 	static function create() returns Self
 		return Self{}
 	end 'create'

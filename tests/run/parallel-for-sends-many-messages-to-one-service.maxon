@@ -5,7 +5,7 @@
 //> total 5050
 typealias Num = int(0 to 1000000)
 
-type Tally
+service Tally
 	var sum as Num
 
 	static function create() returns Self

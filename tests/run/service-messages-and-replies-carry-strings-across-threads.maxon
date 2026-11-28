@@ -22,7 +22,7 @@ let rounds = 400 as Count
 // replyEvery is how many rounds a feeder sends between the rounds whose replies it awaits.
 let replyEvery = 10 as Count
 
-type Keeper
+service Keeper
 	var kept as Count
 	var empty as Count
 	var bytes as Count

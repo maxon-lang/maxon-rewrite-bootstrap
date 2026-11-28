@@ -53,7 +53,7 @@ function written(name String, head String, padding String) returns String
 end 'written'
 
 // A Writer writes and runs files and counts the runs that did not end as the file says, keeping how the first one ended.
-type Writer
+service Writer
 	var failed as bool
 	var first as String
 

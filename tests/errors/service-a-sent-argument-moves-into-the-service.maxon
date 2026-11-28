@@ -1,6 +1,6 @@
 export typealias Amount = int(0 to 1000000)
 
-type Store
+service Store
 	var last as String
 
 	static function create() returns Self

@@ -2155,7 +2155,7 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-type Keeper
+service Keeper
 	var held as Count
 
 	static function create() returns Self
@@ -2430,7 +2430,7 @@ union Drain
 	unreadable(reason String)
 end 'Drain'
 
-type Collector
+service Collector
 	var served = 0 as Count
 
 	static function create() returns Self
@@ -2591,7 +2591,7 @@ type Shelf
 	end 'holding'
 end 'Shelf'
 
-type Collector
+service Collector
 	var served = 0 as Count
 
 	static function create() returns Self
@@ -3082,7 +3082,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -3146,7 +3146,7 @@ type Shelf
 	end 'holding'
 end 'Shelf'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -3202,7 +3202,7 @@ type Payload
 	end 'create'
 end 'Payload'
 
-type Store
+service Store
 	var seen as Integer
 
 	static function create() returns Self
@@ -4714,7 +4714,7 @@ type Shelf
 	end 'holding'
 end 'Shelf'
 
-type Keeper
+service Keeper
 	var held as Count
 
 	static function create() returns Self
@@ -9372,7 +9372,7 @@ type Hd
 	end 'create'
 end 'Hd'
 
-type S
+service S
 	var served as Code
 
 	static function create() returns Self

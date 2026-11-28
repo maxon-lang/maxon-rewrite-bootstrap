@@ -641,7 +641,7 @@ end 'Pool'
 
 typealias HolderPool = Pool with Holder
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -780,7 +780,7 @@ end 'Pool'
 
 typealias HolderPool = Pool with Holder
 
-type Door
+service Door
 	var seen as Tally
 
 	static function create() returns Self
@@ -4001,7 +4001,7 @@ A service handle reaches its service by message, so it is sendable as it stands.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-type Counter
+service Counter
 	var seen as Tally
 
 	static function create() returns Self
@@ -4116,7 +4116,7 @@ typealias Tally = int(0 to 1024)
 
 typealias Step = function(Tally) returns Tally
 
-type Stepper
+service Stepper
 	var step as Step
 
 	static function create() returns Self
@@ -4704,7 +4704,7 @@ service runs.
 ```maxon
 typealias Tally = int(0 to 1024)
 
-type Counter
+service Counter
 	var seen as Tally
 
 	static function create() returns Self

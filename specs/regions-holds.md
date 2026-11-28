@@ -131,7 +131,7 @@ type Shelf
 	end 'create'
 end 'Shelf'
 
-type Sink
+service Sink
 	var seen as Tally
 
 	static function create() returns Self
@@ -179,7 +179,7 @@ type Shelf
 	end 'create'
 end 'Shelf'
 
-type Holder
+service Holder
 	var label as String
 	var tag as Tally
 

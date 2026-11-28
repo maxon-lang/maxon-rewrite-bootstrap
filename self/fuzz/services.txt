@@ -132,7 +132,7 @@ interface Walker
 	function settle(mutates self)
 end 'Walker'
 
-type Node implements StopsNow, Walker
+service Node implements StopsNow, Walker
 	var handled as Amount
 	var sampler as EveryOther
 	var fair as PerClientFair with Node.Message

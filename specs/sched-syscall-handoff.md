@@ -137,7 +137,7 @@ let readerCount = 8
 // Ten bytes, so the aggregate is 80 and one lost round-trip is visible as 70 rather than as a rounding.
 let payload = "0123456789"
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create(id Integer) returns Self
@@ -158,7 +158,7 @@ type Reader
 	end 'roundTrip'
 end 'Reader'
 
-type Sentinel
+service Sentinel
 	var n as Integer
 
 	static function create() returns Self
@@ -234,7 +234,7 @@ typealias ReplyPromiseArray = Array with ReplyPromise
 
 let runnerCount = 8
 
-type Runner
+service Runner
 	var id as Integer
 
 	static function create(id Integer) returns Self
@@ -257,7 +257,7 @@ type Runner
 	end 'child'
 end 'Runner'
 
-type Sentinel
+service Sentinel
 	var n as Integer
 
 	static function create() returns Self
@@ -353,7 +353,7 @@ end 'textOf'
 
 typealias Integer = int(i64.min to i64.max)
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self
@@ -372,7 +372,7 @@ type Reader
 	end 'read'
 end 'Reader'
 
-type Sentinel
+service Sentinel
 	var n as Integer
 
 	static function create() returns Self
@@ -434,7 +434,7 @@ end 'textOf'
 
 typealias Integer = int(i64.min to i64.max)
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self
@@ -453,7 +453,7 @@ type Reader
 	end 'read'
 end 'Reader'
 
-type Sentinel
+service Sentinel
 	var n as Integer
 
 	static function create() returns Self
@@ -518,7 +518,7 @@ end 'textOf'
 
 typealias Integer = int(i64.min to i64.max)
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self
@@ -537,7 +537,7 @@ type Reader
 	end 'read'
 end 'Reader'
 
-type Sentinel
+service Sentinel
 	var n as Integer
 
 	static function create() returns Self
@@ -674,7 +674,7 @@ function exitedOnItsOwn(child StreamingSubprocess) returns bool
 	return true
 end 'exitedOnItsOwn'
 
-type Waiter
+service Waiter
 	var id as Integer
 
 	static function create() returns Self
@@ -695,7 +695,7 @@ type Waiter
 	end 'outlast'
 end 'Waiter'
 
-type Sentinel
+service Sentinel
 	var n as Integer
 
 	static function create() returns Self
@@ -767,7 +767,7 @@ typealias Integer = int(i64.min to i64.max)
 // TODO: language difference: maxon's SharedValue, a mutable cell that every thread reads and writes, is dropped: a setting that changes lives in one service and changing it is a message, and a reader that needs it on a hot path keeps its own copy, refreshed by a message (README, Where it differs from Maxon: there is no SharedValue)
 typealias FlagCell = SharedValue with bool
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self
@@ -785,7 +785,7 @@ type Reader
 	end 'read'
 end 'Reader'
 
-type Sentinel
+service Sentinel
 	var n as Integer
 
 	static function create() returns Self
@@ -797,7 +797,7 @@ type Sentinel
 	end 'ping'
 end 'Sentinel'
 
-type Spinner
+service Spinner
 	let started as FlagCell
 	let released as FlagCell
 
@@ -815,7 +815,7 @@ type Spinner
 	end 'spin'
 end 'Spinner'
 
-type Probe
+service Probe
 	var n as Integer
 
 	static function create() returns Self
@@ -890,7 +890,7 @@ end 'textOf'
 
 typealias Integer = int(i64.min to i64.max)
 
-type Sentinel
+service Sentinel
 	var n as Integer
 
 	static function create() returns Self
@@ -951,7 +951,7 @@ function textOf(read LineOrEnd) returns String
 	end 'read'
 end 'textOf'
 
-type Reader
+service Reader
 	var id as Integer
 
 	static function create() returns Self
@@ -966,7 +966,7 @@ type Reader
 	end 'read'
 end 'Reader'
 
-type Worker
+service Worker
 	var id as Integer
 
 	static function create() returns Self

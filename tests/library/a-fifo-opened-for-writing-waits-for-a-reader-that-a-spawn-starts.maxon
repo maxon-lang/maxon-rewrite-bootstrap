@@ -12,7 +12,7 @@ typealias Arguments = Array with String
 let watchMillis = 5000 as Milliseconds
 
 // A Writer writes to a FIFO through an open file, and says how it went.
-type Writer
+service Writer
 	var ended as String
 
 	static function create() returns Self
@@ -42,7 +42,7 @@ type Writer
 end 'Writer'
 
 // A Watchdog ends the program when it is still running after watchMillis.
-type Watchdog
+service Watchdog
 	var unused as Count
 
 	static function create() returns Self

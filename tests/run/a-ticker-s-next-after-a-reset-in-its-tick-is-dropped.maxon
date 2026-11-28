@@ -21,7 +21,7 @@ let droppedTag = 1 as Amount
 
 let resetTag = 2 as Amount
 
-type Pacer implements Ends
+service Pacer implements Ends
 	var tickers as Tickers
 	var round as Amount
 	var resetAt as InstantMs

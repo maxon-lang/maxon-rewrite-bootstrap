@@ -1,5 +1,5 @@
 // An account is a service of this module: another module spawns it and sends it messages through its handles.
-export type Account
+export service Account
 	var balance as Count
 
 	export static function open(balance Count) returns Account

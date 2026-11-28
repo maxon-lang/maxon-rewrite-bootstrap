@@ -12,7 +12,7 @@ interface Sub extends Pinger
 	function tag() returns Count
 end 'Sub'
 
-type A implements Sub
+service A implements Sub
 	let n as Count
 
 	static function create() returns Self
