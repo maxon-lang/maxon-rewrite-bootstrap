@@ -483,7 +483,7 @@ function finishCompile(ctx frozen with Context, mutates station ProjectStation, 
 		return
 	end 'compiledTests'
 	if code == 0 and ctx.compile.options.runsTests 'tests'
-		Process.setExitCode(runTestExecutable(ctx.compile.output, tests: testsOf(known).count(), under: ctx.compile.options.testsUnder))
+		Process.setExitCode(runTestExecutable(ctx.compile.output, tests: testsOf(known).count(), under: ctx.compile.options.testsUnder, includesManual: ctx.compile.options.includesManual))
 		return
 	end 'tests'
 	if not ctx.compile.options.countAllocations and not ctx.compile.options.runsTests 'atOnce'

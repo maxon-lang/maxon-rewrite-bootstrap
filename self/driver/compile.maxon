@@ -37,7 +37,7 @@ end 'buildPath'
 // tests first reads the files of tests of the modules it tests, and makes no program, whose main it does not look for.
 function startDiscovered(consumes p ast.Project, consumes memory project.SourceFiles, first Count, output String, options Options, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList, consumes trace Trace) returns ExitCode
 	var held = p
-	if options.runsTests and project.addTestFiles(held, first: first, under: options.testsUnder) == 0 'noTests'
+	if options.runsTests and project.addTestFiles(held, first: first, under: options.testsUnder, includesManual: options.includesManual or options.compilesTestsOnly) == 0 'noTests'
 		printError("test: no module under {options.testsUnder} has a file of tests (.maxtest)\n")
 		return diagnosticsExitCode
 	end 'noTests'

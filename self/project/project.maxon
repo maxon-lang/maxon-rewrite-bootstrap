@@ -38,6 +38,12 @@ export function endsWithMaxtest(name String) returns bool
 	return endsWithText(name, suffix: ".maxtest")
 end 'endsWithMaxtest'
 
+// isManualTestFile is whether a file name ends in `.manual.maxtest`: a file of tests that is run by hand, which a run of tests
+// leaves out, and names, unless it is given --manual (README, "Tests").
+export function isManualTestFile(name String) returns bool
+	return endsWithText(name, suffix: ".manual.maxtest")
+end 'isManualTestFile'
+
 export function sortStrings(mutates xs ast.StringList)
 	let n = xs.count()
 	for i in 1 upto n 'ins'
@@ -1109,14 +1115,15 @@ function holdsSource(dir String) returns bool
 	return files.count() > 0
 end 'holdsSource'
 
-// testFilesIn are the files of tests that the directory dir holds, in order.
-function testFilesIn(dir String) returns ast.StringList
+// testFilesIn are the files of tests that the directory dir holds, in order, those that are run by hand only when
+// includesManual.
+function testFilesIn(dir String, includesManual bool) returns ast.StringList
 	var found = ast.StringList.create(0)
 	let dirPath = try FilePath.from(dir) otherwise return found
 	let listed = try Directory.list(dirPath) otherwise FilePathList.create(0)
 	for i in 0 upto listed.count() 'each'
 		let name = lastComponent(listed[i].toString()).clone()
-		if endsWithMaxtest(name) 'test'
+		if endsWithMaxtest(name) and (includesManual or not isManualTestFile(name)) 'test'
 			found.push(joinPath(dir, name: name))
 		end 'test'
 	end 'each'
@@ -1131,7 +1138,7 @@ export function holdsModuleTests(path String) returns bool
 end 'holdsModuleTests'
 
 function testsBelow(dir String) returns bool
-	if testFilesIn(dir).count() > 0 'here'
+	if testFilesIn(dir, includesManual: true).count() > 0 'here'
 		return true
 	end 'here'
 	var files = ast.StringList.create(0)
@@ -1158,14 +1165,32 @@ export function projectRootOf(dir String) returns String
 	return root
 end 'projectRootOf'
 
+// manualTestFilesUnder are the files of tests that are run by hand in the directory dir and in the directories below it, in order.
+export function manualTestFilesUnder(dir String) returns ast.StringList
+	var found = ast.StringList.create(0)
+	for file in testFilesIn(dir, includesManual: true) 'files'
+		if isManualTestFile(file) 'manual'
+			found.push(file.clone())
+		end 'manual'
+	end 'files'
+	var files = ast.StringList.create(0)
+	var projectFiles = ast.StringList.create(0)
+	var dirs = ast.StringList.create(0)
+	_ = listDirectory(dir, memory: SourceFiles.create(0), files: files, projectFiles: projectFiles, dirs: dirs)
+	for below in dirs 'below'
+		found.append(manualTestFilesUnder(joinPath(dir, name: below)))
+	end 'below'
+	return found
+end 'manualTestFilesUnder'
+
 // addTestFiles adds to each module of p from first on whose directory is under (or is under) its files of tests, after its
-// source files, which a compile of tests reads; it gives how many it added.
-export function addTestFiles(mutates p ast.Project, first Count, under String) returns Count
+// source files, which a compile of tests reads, those that are run by hand only when includesManual; it gives how many it added.
+export function addTestFiles(mutates p ast.Project, first Count, under String, includesManual bool) returns Count
 	var added = 0 as Count
 	for m in first upto p.modules.count() 'modules'
 		let dir = p.modules[m].dir.clone()
 		if sameText(dir, b: under) or belowDirectory(dir, dir: under) 'tested'
-			added = try added + addModuleTestFiles(p, m: m) otherwise panic("project: more files of tests than memory")
+			added = try added + addModuleTestFiles(p, m: m, includesManual: includesManual) otherwise panic("project: more files of tests than memory")
 		end 'tested'
 	end 'modules'
 	return added
@@ -1175,12 +1200,12 @@ end 'addTestFiles'
 // project with its tests reads.
 export function addEveryTestFile(mutates p ast.Project, first Count)
 	for m in first upto p.modules.count() 'modules'
-		_ = addModuleTestFiles(p, m: m)
+		_ = addModuleTestFiles(p, m: m, includesManual: true)
 	end 'modules'
 end 'addEveryTestFile'
 
-function addModuleTestFiles(mutates p ast.Project, m Count) returns Count
-	let tests = testFilesIn(p.modules[m].dir)
+function addModuleTestFiles(mutates p ast.Project, m Count, includesManual bool) returns Count
+	let tests = testFilesIn(p.modules[m].dir, includesManual: includesManual)
 	p.modules[m].filePaths.append(tests)
 	return tests.count()
 end 'addModuleTestFiles'

@@ -8,7 +8,7 @@ let selfDirectory = "self"
 // moduleTests compiles and runs the tests of the modules under the directory at path, in the project around it, with what the
 // command line gave; compilesOnly makes their executable for the target and runs nothing, so that a target the host does
 // not run is compiled for. Their executable runs only on the host, so a run for another target must only compile.
-function moduleTests(path String, options Options, compilesOnly bool) returns ExitCode
+function moduleTests(path String, options Options, compilesOnly bool, includesManual bool) returns ExitCode
 	if not compilesOnly and options.target.name() != hostTarget().name() 'foreign'
 		printError("test: the tests of modules run on {hostTarget().name()} only: {compileOnlyFlag} compiles them for {options.target.name()}\n")
 		return usageExitCode
@@ -18,24 +18,29 @@ function moduleTests(path String, options Options, compilesOnly bool) returns Ex
 	tests.runsTests = true
 	tests.testsUnder = dir.clone()
 	tests.compilesTestsOnly = compilesOnly
+	tests.includesManual = includesManual
 	return buildPath(project.projectRootOf(dir), output: testExecutable(dir, target: options.target), options: tests)
 end 'moduleTests'
 
 // selftestCommandName is the command that tests the compiler's own modules.
 let selftestCommandName = "selftest"
 
-// selftestCommand is `selftest [--compile-only]`: the tests of the compiler's own modules (moduleTests of self).
+// selftestCommand is `selftest [--compile-only] [--manual]`: the tests of the compiler's own modules (moduleTests of self). A file
+// of tests that is run by hand (project.isManualTestFile) is left out, and named in the summary, unless --manual.
 function selftestCommand(rest CommandNames, given Options) returns ExitCode
 	var compilesOnly = false
+	var includesManual = false
 	for arg in rest 'arguments'
 		if arg == compileOnlyFlag 'compileOnly'
 			compilesOnly = true
-		end 'compileOnly' else if arg != selftestCommandName 'unknown'
-			printError("selftest: unknown argument '{arg}' (it takes {compileOnlyFlag})\n")
+		end 'compileOnly' else if arg == manualFlag 'manual'
+			includesManual = true
+		end 'manual' else if arg != selftestCommandName 'unknown'
+			printError("selftest: unknown argument '{arg}' (it takes {compileOnlyFlag} and {manualFlag})\n")
 			return usageExitCode
 		end 'unknown'
 	end 'arguments'
-	return moduleTests(selfDirectory, options: given, compilesOnly: compilesOnly)
+	return moduleTests(selfDirectory, options: given, compilesOnly: compilesOnly, includesManual: includesManual)
 end 'selftestCommand'
 
 // testExecutable is where a compile of the tests under dir writes its executable: in the temporary directory, named after
@@ -54,8 +59,9 @@ function compiledTestExecutable(path String, tests Count, under String, target a
 end 'compiledTestExecutable'
 
 // runTestExecutable runs the executable of tests at path, which a compile of the tests under dir made, passes on what it
-// wrote, and gives its exit code: 0 when every one of its tests ran without a panic.
-function runTestExecutable(path String, tests Count, under String) returns ExitCode
+// wrote, and gives its exit code: 0 when every one of its tests ran without a panic. A run that leaves out the files of tests
+// that are run by hand names them.
+function runTestExecutable(path String, tests Count, under String, includesManual bool) returns ExitCode
 	let exe = try FilePath.from(path) otherwise panic("driver: the executable of tests has no path")
 	let out = try Subprocess.run(Executable.path(exe.clone()), arguments: CommandNames.create(0)) otherwise panic("driver: cannot run {path}")
 	print(out.stdout)
@@ -65,6 +71,23 @@ function runTestExecutable(path String, tests Count, under String) returns ExitC
 		printError("FAIL: the tests of {under} (exit code {out.exitCode()})\n")
 		return out.exitCode()
 	end 'failed'
-	print("ok: {tests} tests of {under}\n")
+	print("ok: {tests} tests of {under}{manualLeftOut(under, includesManual: includesManual)}\n")
 	return 0
 end 'runTestExecutable'
+
+// manualLeftOut is what the summary of a run of tests under dir says of the files of tests that are run by hand and that the
+// run left out, or nothing when it left none.
+function manualLeftOut(dir String, includesManual bool) returns String
+	if includesManual 'included'
+		return ""
+	end 'included'
+	let files = project.manualTestFilesUnder(dir)
+	if files.count() == 0 'none'
+		return ""
+	end 'none'
+	var names = ast.StringList.create(0)
+	for file in files 'each'
+		names.push(file.sliceBytes(try dir.byteLength() + 1 otherwise 0, endPos: file.byteLength()).clone())
+	end 'each'
+	return ", {files.count()} manual files, left out: {joinWith(names, separator: ", ")}"
+end 'manualLeftOut'
