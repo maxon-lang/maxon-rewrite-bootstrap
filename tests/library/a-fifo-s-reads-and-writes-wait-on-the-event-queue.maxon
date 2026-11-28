@@ -9,7 +9,8 @@
 // pid alone, so how it ended cannot be asked, and a handler may not run a child to look, E3221: the gate's sampler records the
 // pid's `ps` line and who holds the FIFO open once a FIFO is 4 s old);
 // the copy is waited for 4 s at most. Paths left by an earlier run whose pid this one has are removed first, mkfifo's exit is
-// checked, and each path is checked to be a FIFO before a shell opens it. A read, write or /dev/null call that fails panics
+// checked, and each path is checked to be a FIFO before a shell opens it. Each child is started beside a guard that ends it
+// and removes the FIFOs once the program has ended, so a run the watchdog ended leaves nothing behind. A read, write or /dev/null call that fails panics
 // with the error's name, on standard error, which the runner shows where it hides standard output.
 // unsupported-targets: x64-windows
 // native-only
@@ -59,6 +60,14 @@ function detached(script String) returns Pid
 	configuration.arguments = shellArguments(script)
 	return try configuration.runDetached() otherwise 0
 end 'detached'
+
+// guard starts a shell that, once this program has ended, by its return or a panic, ends a child it started (a detached
+// child leads a session of its own: the shell kills its process group, the child's own children too) and removes the
+// paths, so that a run the watchdog ended leaves no child waiting on a FIFO, nor the FIFOs. The watchdog's handler may not
+// start it (E3221), so it is started beside each child.
+function guard(child Pid, paths String) returns Pid
+	return detached("while kill -0 {Process.id()} 2>/dev/null; do sleep 0.2; done; kill -9 -- -{child} 2>/dev/null; rm -f {paths}")
+end 'guard'
 
 function failureName(e __ManagedFileError) returns String
 	return match e 'kind'
@@ -144,6 +153,7 @@ function steps(dog Watchdog.handle, mutates step Timer, inbound String, outbound
 		print("the writer did not start\n")
 		return 2
 	end 'writer'
+	_ = guard(writer, paths: "'{inbound}' '{outbound}' '{copy}'")
 	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and read of the inbound FIFO, the writer's ping", child: writer, path: inbound.clone())))
 	var buffer = try Bytes.create(16, elementSize: 1) otherwise return 3
 	let reads = try readFifo(inbound, buffer: buffer) otherwise (e) 'unread'
@@ -155,6 +165,7 @@ function steps(dog Watchdog.handle, mutates step Timer, inbound String, outbound
 		print("the reader did not start\n")
 		return 5
 	end 'reader'
+	_ = guard(reader, paths: "'{copy}'")
 	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and write of the outbound FIFO, its reader", child: reader, path: outbound.clone())))
 	let wrote = try writeFifo(outbound) otherwise (e) 'unwritten'
 		panic("the write of the outbound FIFO failed: {failureName(e)}")
