@@ -2,10 +2,13 @@
 // next(m). The ticks are on a grid, the first tick plus a whole number of periods, worked out when next is called: each
 // tick comes at or after the first grid point past the moment its next(m) was called, never before it and never at once
 // for being late, whatever the wake's own lateness, which this test does not bound (a manual test holds the 50th tick
-// within a few ms of 500 when the timers or the event wait change). The grid starts when the ticker is made, at or after
-// the test's start, and the clock reads whole milliseconds, so a tick read at t ms after a next(m) read at c is on the grid
-// when t >= c rounded up to a multiple of the period, and none is early when the k-th comes at or after k periods. A period
-// of 0 ticks at once each time it is armed. Each ticker is cancelled at its last tick, and nothing is left.
+// within a few ms of 500 when the timers or the event wait change). The grid starts when the ticker is made, which the
+// test does not see: it is between the readings of the clock before and after notifyEvery (made, in whole milliseconds
+// after the start), however long the making takes on a loaded or emulated machine. So a tick is off the grid only if it is
+// for every origin in that interval: read at t after a next(m) read at c, it is off when t is before the first point at or
+// past c of every grid whose origin is in [0, made] (gridBound). None is early when the k-th comes at or after k periods,
+// which holds for any of those origins. A period of 0 ticks at once each time it is armed. Each ticker is cancelled at its
+// last tick, and nothing is left.
 // native-only
 //> 50 ticks of 10 ms: none early, each on the first grid point after its next, none at once
 //> 100 ticks of 0 ms: none early
@@ -22,10 +25,11 @@ type Pacer implements Ends
 	var ticks as Amount
 	var early as Amount
 	var calledAt as DurationMs
+	var made as DurationMs
 	var offGrid as Amount
 
 	static function create() returns Self
-		return Self{tickers: Tickers.create(0), start: Clock.nowMs(), period: 0, work: 0, most: 0, ticks: 0, early: 0, calledAt: 0, offGrid: 0}
+		return Self{tickers: Tickers.create(0), start: Clock.nowMs(), period: 0, work: 0, most: 0, ticks: 0, early: 0, calledAt: 0, made: 0, offGrid: 0}
 	end 'create'
 
 	export function begin(mutates self, every DurationMs, busy DurationMs, count Amount) returns Amount
@@ -38,6 +42,7 @@ type Pacer implements Ends
 		self.offGrid = 0
 		self.start = Clock.nowMs()
 		self.tickers.push(Ticker.notifyEvery(every, message: self.handle.post(Pacer.Message.tick)))
+		self.made = Clock.elapsedMs(self.start)
 		return count
 	end 'begin'
 
@@ -48,7 +53,7 @@ type Pacer implements Ends
 		if at < due 'early'
 			self.early = try self.early + 1 otherwise self.early
 		end 'early'
-		if self.ticks > 1 and at < onGrid(self.calledAt, period: self.period) 'off'
+		if self.ticks > 1 and at < gridBound(self.calledAt, made: self.made, period: self.period) 'off'
 			self.offGrid = try self.offGrid + 1 otherwise self.offGrid
 		end 'off'
 		var t = try self.tickers.pop() otherwise panic("a tick with no ticker")
@@ -106,14 +111,19 @@ function offGridOf(p Pacer.handle) returns Amount
 	return await pending
 end 'offGridOf'
 
-// onGrid is the first reading a tick may have after a next(m) read at c: c rounded up to a multiple of the period.
-function onGrid(c DurationMs, period DurationMs) returns DurationMs
+// gridBound is the first reading a tick may have after a next(m) read at c, over every grid whose origin is between the
+// readings 0 and made: c itself when some such origin puts a point at c (c mod period within made), and else the next point
+// of the grid that starts at 0, c rounded up to a multiple of the period. With made 0 it is c rounded up.
+function gridBound(c DurationMs, made DurationMs, period DurationMs) returns DurationMs
 	if period == 0 'once'
 		return c
 	end 'once'
-	let up = try c + period - 1 otherwise c
-	return try up - up mod period otherwise c
-end 'onGrid'
+	let past = c mod period
+	if past <= made 'reachable'
+		return c
+	end 'reachable'
+	return try c + period - past otherwise c
+end 'gridBound'
 
 function main() returns ExitCode
 	let p = spawn Pacer.create()
