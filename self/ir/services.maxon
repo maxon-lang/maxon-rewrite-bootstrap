@@ -1188,6 +1188,11 @@ function lowerServiceTimerRearm(mutates l Lowerer, p ast.Project, ms ast.ModuleS
 	return konst(l, value: 0 as Word)
 end 'lowerServiceTimerRearm'
 
+function lowerServiceTimerNext(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtTimerNext, args: args)
+	return konst(l, value: 0 as Word)
+end 'lowerServiceTimerNext'
+
 function lowerServiceTimerReset(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtTimerReset, kind: IrKind.kindScalar, args: args)
 end 'lowerServiceTimerReset'

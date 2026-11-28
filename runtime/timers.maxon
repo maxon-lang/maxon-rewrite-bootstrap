@@ -345,7 +345,9 @@ let timerLockOffset = 0 as Count
 // timerWhenOffset is when the timer is due, which a reset to later moves past the when its slot says (timerKeyedOffset).
 let timerWhenOffset = 8 as Count
 
-// timerPeriodOffset is the period of a periodic timer, in nanoseconds, or 0 for a timer that fires once.
+// timerPeriodOffset is the period of a periodic timer (service.Ticker), in nanoseconds, or 0 for a timer that fires once. A
+// periodic timer fires once for each arm, as any timer does, and its handler arms it for the next tick (timerNext), which is
+// on its grid: its last tick, in timerWhenOffset while it is not armed, plus a whole number of periods.
 let timerPeriodOffset = 16 as Count
 
 // timerRecordOffset is the posted record the timer is armed with, while it is on the heap; or the record of its last fire,
@@ -388,7 +390,8 @@ function unlockTimer(timer Count)
 	spinUnlock(timer, offset: timerLockOffset)
 end 'unlockTimer'
 
-// timerNew is a timer, armed with a posted record to fire in a number of milliseconds (service.Timer.notifyAfter).
+// timerNew is a timer, armed with a posted record to fire in a number of milliseconds (service.Timer.notifyAfter), or with a
+// period in milliseconds, its first tick a period from now (service.Ticker.notifyEvery).
 function timerNew(ms Count, period Count, record Count) returns Count
 	let timer = alloc(timerBytes)
 	__Raw.storeWord(timer, offset: timerHoldsOffset, value: 1)
@@ -396,43 +399,89 @@ function timerNew(ms Count, period Count, record Count) returns Count
 	return timer
 end 'timerNew'
 
-// timerRearm arms a timer anew with a posted record to fire in a number of milliseconds, in whatever state it is: the record
-// it was armed with and one whose fire is queued are dropped.
+// timerRearm arms a timer anew with a posted record to fire in a number of milliseconds, in whatever state it is, with a period
+// in milliseconds, 0 for one fire: the record it was armed with and one whose fire is queued are dropped.
 function timerRearm(timer Count, ms Count, period Count, record Count)
 	let context = __Raw.threadContext()
+	timerArm(context, timer: timer, record: record, due: timerDue(context, ms: ms), period: sleepNanos(period), onGrid: false)
+end 'timerRearm'
+
+// timerNext arms a periodic timer with a posted record for its next tick (service.Ticker.next): the first of its last tick
+// plus a whole number of periods that is past now, Go's when + period*(1 + late/period) worked out at the arm, so the ticks
+// do not drift and the ticks missed while the handler was late are skipped, never burst, nor one fired at once. A ticker
+// holds one record at most: one that a rearm (service.Ticker.reset) armed while its last tick's handler ran keeps the
+// record it was armed with, still armed or fired and queued, and the record given here is dropped.
+function timerNext(timer Count, record Count)
+	let context = __Raw.threadContext()
+	timerArm(context, timer: timer, record: record, due: nanotime(context), period: 0, onGrid: true)
+end 'timerNext'
+
+// timerGrid is the next tick of a periodic timer whose last tick was at last: the first of last plus a whole number of periods
+// that is past now, or now for a period of 0.
+function timerGrid(last Count, period Count, now Count) returns Count
+	if period == 0 'once'
+		return now
+	end 'once'
+	let late = __Raw.wrappingSub(now, right: last) if now > last else 0
+	let skipped = __Raw.wrappingSub(late, right: late mod period)
+	return try last + skipped + period otherwise panic("a timer past the end of the clock")
+end 'timerGrid'
+
+// The invariant of a ticker: it has at most one message outstanding (armed, or fired and queued and not started), and a
+// reset's message replaces whatever was; so a rearm drops what the timer holds, and an arm on the grid (timerNext) that finds
+// a record held drops its own.
+// timerArm arms a timer with a posted record, in whatever state it is: at due with a period, the record it was armed with
+// dropped, as is a fire queued and not started; or, on its grid, at its next tick past due, now, with the period it has,
+// where a timer that holds a record, armed or fired and queued, keeps it and the record given is dropped. The dropped
+// record counted among the live ones and was counted among the timer's holds, as any record that names it, so it is queued cancelled and
+// lets go of the timer as it starts.
+function timerArm(context Count, timer Count, record Count, due Count, period Count, onGrid bool)
 	let scheduler = __Raw.loadWord(context, offset: contextSchedulerOffset)
 	setPostedMark(record, bit: postedOnTimer)
 	__Raw.storeWord(record, offset: postedTimerOffset(), value: timer)
 	armedListAdd(__Raw.loadWord(record, offset: cownOffset(1, index: 0)), record: record)
-	let due = timerDue(context, ms: ms)
 	lockTimers(scheduler)
 	lockTimer(timer)
-	timerDropInFlight(timer)
-	let old = timerArmed(timer)
-	__Raw.storeWord(timer, offset: timerRecordOffset, value: record)
 	__Raw.storeWord(timer, offset: timerHoldsOffset, value: __Raw.wrappingAdd(__Raw.loadWord(timer, offset: timerHoldsOffset), right: 1))
-	__Raw.storeWord(timer, offset: timerPeriodOffset, value: period)
-	__Raw.storeWord(timer, offset: timerWhenOffset, value: due)
-	__Raw.storeWord(timer, offset: timerKeyedOffset, value: due)
-	let entry = __Raw.wrappingAdd(timer, right: timerEntryTag)
-	if old != noRecord 'armed'
-		setPostedMark(old, bit: postedCancelled)
-		timerRekey(scheduler, at: __Raw.loadWord(timer, offset: timerIndexOffset), due: due, entry: entry)
-	end 'armed' else 'idle'
-		timerPush(scheduler, due: due, entry: entry)
-	end 'idle'
-	let earliest = __Raw.loadWord(scheduler, offset: schedTimerNextOffset) == due
+	let old = timerArmed(timer)
+	var dropped = noRecord
+	var at = due
+	var earliest = false
+	if onGrid and __Raw.loadWord(timer, offset: timerRecordOffset) != noRecord 'pending'
+		dropped = record
+	end 'pending' else 'keyed'
+		timerDropInFlight(timer)
+		__Raw.storeWord(timer, offset: timerRecordOffset, value: record)
+		let entry = __Raw.wrappingAdd(timer, right: timerEntryTag)
+		if onGrid 'grid'
+			at = timerGrid(__Raw.loadWord(timer, offset: timerWhenOffset), period: __Raw.loadWord(timer, offset: timerPeriodOffset), now: due)
+		end 'grid' else 'period'
+			__Raw.storeWord(timer, offset: timerPeriodOffset, value: period)
+		end 'period'
+		__Raw.storeWord(timer, offset: timerWhenOffset, value: at)
+		__Raw.storeWord(timer, offset: timerKeyedOffset, value: at)
+		if old != noRecord 'armed'
+			dropped = old
+			timerRekey(scheduler, at: __Raw.loadWord(timer, offset: timerIndexOffset), due: at, entry: entry)
+		end 'armed' else 'idle'
+			timerPush(scheduler, due: at, entry: entry)
+		end 'idle'
+		earliest = __Raw.loadWord(scheduler, offset: schedTimerNextOffset) == at
+	end 'keyed'
+	if dropped != noRecord 'cancel'
+		setPostedMark(dropped, bit: postedCancelled)
+	end 'cancel'
 	unlockTimer(timer)
 	unlockTimers(scheduler)
 	stepLive(context, change: 1)
-	if old != noRecord 'dropped'
+	if dropped != noRecord 'dropped'
 		stepLive(context, change: stepDown)
-		postedQueue(old)
+		postedQueue(dropped)
 	end 'dropped'
 	if earliest 'earliest'
-		wakeEventQueue(scheduler, at: due)
+		wakeEventQueue(scheduler, at: at)
 	end 'earliest'
-end 'timerRearm'
+end 'timerArm'
 
 // timerReset moves the fire of an armed timer to a number of milliseconds from now, and says whether it did: false where the
 // timer is spent, its message handled or queued, which is then dropped. A reset to later takes the timer's lock alone.

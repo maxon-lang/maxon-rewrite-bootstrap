@@ -1,0 +1,127 @@
+// A ticker holds one armed message at most. The handler of a tick resets the ticker, 4 ms into it, which arms the ticker on
+// a new grid that starts at the reset with the reset's message, and then calls next(m) as a handler does: the
+// ticker is armed already, so m is dropped, never handled, and the reset's message posts a period after the reset, not on
+// the old grid, which would be 6 ms after it; the tick after that is two periods after the reset. Twenty rounds of it, and
+// the ticker is cancelled at the end, with nothing left.
+// native-only
+//> 20 resets in a tick's handler: every next after one dropped, every reset's tick at least 10 ms after it, the next at least 20
+export typealias Amount = int(0 to 1000000)
+
+typealias Tickers = Array with Ticker
+
+let period = 10 as DurationMs
+
+let twoPeriods = 20 as DurationMs
+
+let rounds = 20 as Amount
+
+// The tags of a tick: one of the grid, the message of a next after a reset, which must be dropped, and the reset's.
+let gridTag = 0 as Amount
+
+let droppedTag = 1 as Amount
+
+let resetTag = 2 as Amount
+
+type Pacer implements Ends
+	var tickers as Tickers
+	var round as Amount
+	var resetAt as InstantMs
+	var seenReset as bool
+	var violations as Amount
+	var finished as bool
+
+	static function create() returns Self
+		return Self{tickers: Tickers.create(0), round: 0, resetAt: Clock.nowMs(), seenReset: false, violations: 0, finished: false}
+	end 'create'
+
+	function violated(mutates self, what String)
+		if self.violations < 5 'say'
+			print("round {self.round}: {what}\n")
+		end 'say'
+		self.violations = try self.violations + 1 otherwise self.violations
+	end 'violated'
+
+	export function begin(mutates self) returns Amount
+		self.tickers.push(Ticker.notifyEvery(period, message: self.handle.post(Pacer.Message.tick(gridTag))))
+		return 0
+	end 'begin'
+
+	export function tick(mutates self, tag Amount)
+		if tag == droppedTag 'dropped'
+			self.violated("the message of a next after a reset was handled")
+			return
+		end 'dropped'
+		var t = try self.tickers.pop() otherwise panic("a tick with no ticker")
+		if tag == resetTag 'reset'
+			if Clock.elapsedMs(self.resetAt) < period 'earlyReset'
+				self.violated("the reset's tick came before a period after the reset")
+			end 'earlyReset'
+			self.seenReset = true
+			t.next(self.handle.post(Pacer.Message.tick(gridTag)))
+			self.tickers.push(t)
+			return
+		end 'reset'
+		if self.round > 0 'after'
+			if not self.seenReset 'missed'
+				self.violated("a tick of the grid came before the reset's tick")
+			end 'missed'
+			if Clock.elapsedMs(self.resetAt) < twoPeriods 'earlyAfter'
+				self.violated("the tick after the reset's came before two periods after the reset")
+			end 'earlyAfter'
+		end 'after'
+		if self.round == rounds 'last'
+			t.cancel()
+			self.finished = true
+			return
+		end 'last'
+		self.round = try self.round + 1 otherwise self.round
+		self.seenReset = false
+		sleep(4)
+		self.resetAt = Clock.nowMs()
+		t.reset(period, message: self.handle.post(Pacer.Message.tick(resetTag)))
+		t.next(self.handle.post(Pacer.Message.tick(droppedTag)))
+		self.tickers.push(t)
+	end 'tick'
+
+	export function isDone() returns bool
+		return self.finished
+	end 'isDone'
+
+	export function report() returns Amount
+		return self.violations
+	end 'report'
+
+	function finish(consumes self)
+		var ts = self.tickers
+		while ts.count() > 0 'cancel'
+			let t = ts.pop()
+			t.cancel()
+		end 'cancel'
+		ts.dropEmpty()
+	end 'finish'
+end 'Pacer'
+
+function main() returns ExitCode
+	let p = spawn Pacer.create()
+	let done = p.stopped()
+	let begun = try p.begin() otherwise panic("a send to a service that runs")
+	_ = await begun
+	while true 'wait'
+		let pending = try p.isDone() otherwise panic("a send to a service that runs")
+		if await pending 'done'
+			break
+		end 'done'
+		sleep(5)
+	end 'wait'
+	sleep(30)
+	let reported = try p.report() otherwise panic("a send to a service that runs")
+	let violations = await reported
+	if violations == 0 'clean'
+		print("{rounds} resets in a tick's handler: every next after one dropped, every reset's tick at least 10 ms after it, the next at least 20\n")
+	end 'clean' else 'violated'
+		print("{violations} violations in {rounds} resets in a tick's handler\n")
+	end 'violated'
+	p.shutdown()
+	await done
+	return 0
+end 'main'

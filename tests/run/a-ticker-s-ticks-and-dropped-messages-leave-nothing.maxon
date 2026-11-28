@@ -1,0 +1,108 @@
+// A ticker at a period of 0 ticks 2000 times, each tick's handler arming the next; every tenth handler but the last resets
+// the ticker first, at a period of 0, so the next(m) after it finds the ticker holding the reset's message, armed or its tick
+// queued already, and m is dropped, never handled, the reset's tick going on. The live boxes
+// of the process after the cancel are what they were before the ticker was made, give or take a few, where a box left
+// for each tick or each dropped message would be thousands, and the program ends with nothing left.
+// native-only
+//> 2000 ticks, 199 messages dropped by a next after a reset: none handled, no box left for them
+export typealias Amount = int(0 to 1000000)
+
+typealias Tickers = Array with Ticker
+
+let most = 2000 as Amount
+
+// slack is the live boxes that may differ besides the ticker's, such as a mailbox's room.
+let slack = 16 as HeapCount
+
+type Pacer implements Ends
+	var tickers as Tickers
+	var ticks as Amount
+	var dropped as Amount
+	var handledDropped as Amount
+
+	static function create() returns Self
+		return Self{tickers: Tickers.create(0), ticks: 0, dropped: 0, handledDropped: 0}
+	end 'create'
+
+	export function begin(mutates self) returns Amount
+		self.tickers.push(Ticker.notifyEvery(0, message: self.handle.post(Pacer.Message.tick(false))))
+		return 0
+	end 'begin'
+
+	export function tick(mutates self, unwanted bool)
+		if unwanted 'dropped'
+			self.handledDropped = try self.handledDropped + 1 otherwise self.handledDropped
+			return
+		end 'dropped'
+		self.ticks = try self.ticks + 1 otherwise self.ticks
+		var t = try self.tickers.pop() otherwise panic("a tick with no ticker")
+		if self.ticks == most 'last'
+			t.cancel()
+			return
+		end 'last'
+		if self.ticks mod 10 == 0 'reset'
+			t.reset(0, message: self.handle.post(Pacer.Message.tick(false)))
+			t.next(self.handle.post(Pacer.Message.tick(true)))
+			self.dropped = try self.dropped + 1 otherwise self.dropped
+		end 'reset' else 'next'
+			t.next(self.handle.post(Pacer.Message.tick(false)))
+		end 'next'
+		self.tickers.push(t)
+	end 'tick'
+
+	export function isDone() returns bool
+		return self.ticks == most
+	end 'isDone'
+
+	export function droppedCount() returns Amount
+		return self.dropped
+	end 'droppedCount'
+
+	export function handledDroppedCount() returns Amount
+		return self.handledDropped
+	end 'handledDroppedCount'
+
+	function finish(consumes self)
+		var ts = self.tickers
+		while ts.count() > 0 'cancel'
+			let t = ts.pop()
+			t.cancel()
+		end 'cancel'
+		ts.dropEmpty()
+	end 'finish'
+end 'Pacer'
+
+function liveBoxes() returns HeapCount
+	let now = HeapStats.process()
+	return try now.allocations - now.frees otherwise 0
+end 'liveBoxes'
+
+function main() returns ExitCode
+	let p = spawn Pacer.create()
+	let done = p.stopped()
+	let before = liveBoxes()
+	let begun = try p.begin() otherwise panic("a send to a service that runs")
+	_ = await begun
+	while true 'wait'
+		let pending = try p.isDone() otherwise panic("a send to a service that runs")
+		if await pending 'done'
+			break
+		end 'done'
+		sleep(2)
+	end 'wait'
+	sleep(20)
+	let droppedReply = try p.droppedCount() otherwise panic("a send to a service that runs")
+	let dropped = await droppedReply
+	let handledReply = try p.handledDroppedCount() otherwise panic("a send to a service that runs")
+	let handled = await handledReply
+	let after = liveBoxes()
+	let grown = try after - before otherwise 0
+	if handled == 0 and grown <= slack 'clean'
+		print("{most} ticks, {dropped} messages dropped by a next after a reset: none handled, no box left for them\n")
+	end 'clean' else 'leak'
+		print("{most} ticks, {dropped} dropped, {handled} of them handled, {grown} boxes more live than before\n")
+	end 'leak'
+	p.shutdown()
+	await done
+	return 0
+end 'main'

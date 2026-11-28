@@ -1,0 +1,108 @@
+// The handler of a 10 ms ticker's first tick ends 35 ms after the tick, so the ticks of 20, 30 and 40 ms pass while it runs:
+// its next(m) arms the first tick of the grid past now, the one of 50 ms, so exactly 3 ticks are skipped and none is
+// fired at once for being late, as Go's Ticker would fire the one its channel kept. The tick after it, handled at once, is
+// the next of the grid, 60 ms. The ticker is cancelled at its third tick, and nothing is left.
+// native-only
+//> a 35 ms handler of a 10 ms ticker skipped 3 ticks: the next came at grid tick 5, none at once, then tick 6
+export typealias Amount = int(0 to 1000000)
+
+typealias Tickers = Array with Ticker
+
+// period is the ticker's, and lateBy how long after its tick the first tick's handler ends.
+let period = 10 as DurationMs
+
+let lateBy = 35 as DurationMs
+
+type Pacer implements Ends
+	var tickers as Tickers
+	var start as InstantMs
+	var ticks as Amount
+	var second as DurationMs
+	var third as DurationMs
+
+	static function create() returns Self
+		return Self{tickers: Tickers.create(0), start: Clock.nowMs(), ticks: 0, second: 0, third: 0}
+	end 'create'
+
+	export function begin(mutates self) returns Amount
+		self.start = Clock.nowMs()
+		self.tickers.push(Ticker.notifyEvery(period, message: self.handle.post(Pacer.Message.tick)))
+		return 0
+	end 'begin'
+
+	export function tick(mutates self)
+		let at = Clock.elapsedMs(self.start)
+		self.ticks = try self.ticks + 1 otherwise self.ticks
+		var t = try self.tickers.pop() otherwise panic("a tick with no ticker")
+		if self.ticks == 1 'late'
+			let until = period + lateBy
+			if at < until 'sleep'
+				sleep((until - at) as Milliseconds)
+			end 'sleep'
+		end 'late'
+		if self.ticks == 2 'second'
+			self.second = at
+		end 'second'
+		if self.ticks == 3 'third'
+			self.third = at
+			t.cancel()
+			return
+		end 'third'
+		t.next(self.handle.post(Pacer.Message.tick))
+		self.tickers.push(t)
+	end 'tick'
+
+	export function isDone() returns bool
+		return self.ticks >= 3
+	end 'isDone'
+
+	export function at(which Amount) returns DurationMs
+		return self.second if which == 2 else self.third
+	end 'at'
+
+	function finish(consumes self)
+		var ts = self.tickers
+		while ts.count() > 0 'cancel'
+			let t = ts.pop()
+			t.cancel()
+		end 'cancel'
+		ts.dropEmpty()
+	end 'finish'
+end 'Pacer'
+
+function atOf(p Pacer.handle, which Amount) returns DurationMs
+	let pending = try p.at(which) otherwise panic("a send to a service that runs")
+	return await pending
+end 'atOf'
+
+// gridTick is the tick of the grid that a tick handled at ms after the start is, its wake rounded to the nearest.
+function gridTick(ms DurationMs) returns DurationMs
+	return (try ms + period / 2 otherwise ms) / period
+end 'gridTick'
+
+function main() returns ExitCode
+	let p = spawn Pacer.create()
+	let done = p.stopped()
+	let begun = try p.begin() otherwise panic("a send to a service that runs")
+	_ = await begun
+	while true 'wait'
+		let pending = try p.isDone() otherwise panic("a send to a service that runs")
+		if await pending 'done'
+			break
+		end 'done'
+		sleep(5)
+	end 'wait'
+	let second = atOf(p, which: 2)
+	let third = atOf(p, which: 3)
+	let secondTick = gridTick(second)
+	let thirdTick = gridTick(third)
+	let skipped = try secondTick - 2 otherwise 0
+	if second >= 50 and skipped == 3 and thirdTick == 6 'skipped'
+		print("a 35 ms handler of a 10 ms ticker skipped {skipped} ticks: the next came at grid tick {secondTick}, none at once, then tick {thirdTick}\n")
+	end 'skipped' else 'wrong'
+		print("a 35 ms handler of a 10 ms ticker: the next tick at {second} ms (grid tick {secondTick}), then {third} ms (grid tick {thirdTick})\n")
+	end 'wrong'
+	p.shutdown()
+	await done
+	return 0
+end 'main'

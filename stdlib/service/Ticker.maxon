@@ -1,0 +1,42 @@
+/// A timer that posts a message to a service on every tick of a period: `Ticker.notifyEvery(10, message:
+/// self.handle.post(Poll.Message.tick))` posts the message one period from now, and the handler of each tick arms the next
+/// with a fresh message, `self.ticker.next(self.handle.post(Poll.Message.tick))`, as a socket's readiness is armed anew.
+/// The ticks are on a grid, the first tick plus a whole number of periods, so they do not drift. The next tick is worked out
+/// when `next` is called: the first tick of the grid that is past now, so the ticks missed while a handler was late are
+/// skipped, and none is fired at once for being late (a 35 ms handler of a 10 ms ticker skips 3 ticks). Go's Ticker instead
+/// keeps one late tick in its channel, which fires at once after a late handler; a ticker here holds no tick that no handler
+/// asked for. A ticker holds one message at most: `reset(period, message:)` arms it on a new grid, and a `next(m)` called
+/// while it holds the reset's message, after a reset in the handler of a tick, armed or its tick queued already, drops `m`,
+/// never handled, and the reset's message posts on the new grid. An armed ticker keeps its service and the program alive, and the end of the service takes the arm back.
+/// A value of it is ended by `cancel()`, never dropped (E3919): a service's state that holds one implements `Ends`, and its
+/// `finish` cancels it.
+/// @category Services
+public type Ticker
+	let record as Count
+
+	/// A ticker that posts `message` to its service one `period` of milliseconds from now, or about 146 years for more; a period
+	/// of 0 ticks at once each time it is armed.
+	public static function notifyEvery(period clock.DurationMs, consumes message PostedMessage) returns Ticker
+		return Ticker{record: __Builtins.timerNew(period as Count, period as Count, message.registered())}
+	end 'notifyEvery'
+
+	/// Arm the ticker to post `message` at its next tick: the first of its last tick plus a whole number of periods that is past
+	/// now, so a handler that is late by more than a period skips the ticks it missed, and none fires at once. A ticker holds
+	/// one message at most: one that a `reset` in this tick's handler armed, still armed or its tick queued already, keeps the
+	/// reset's message and tick, and `message` is dropped, never handled.
+	public function next(mutates self, consumes message PostedMessage)
+		__Builtins.timerNext(record, message.registered())
+	end 'next'
+
+	/// Make the period `period` milliseconds and arm the ticker to post `message` on a new grid that starts now, its first tick
+	/// one period from now, in whatever state it is: a message it was armed with and one whose tick is queued are dropped,
+	/// never handled.
+	public function reset(mutates self, period clock.DurationMs, consumes message PostedMessage)
+		__Builtins.timerRearm(record, period as Count, period as Count, message.registered())
+	end 'reset'
+
+	/// Stop the ticker and free it: a message it was armed with and one whose tick is queued are dropped, never handled.
+	public function cancel(destructs self)
+		__Builtins.timerCancel(record)
+	end 'cancel'
+end 'Ticker'

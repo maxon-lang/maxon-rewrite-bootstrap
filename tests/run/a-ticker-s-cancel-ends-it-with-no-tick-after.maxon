@@ -1,0 +1,123 @@
+// A ticker's cancel() ends it at once: cancelled in the handler of its third tick, it ticks no more; cancelled by another
+// message of its service while it ticks at a period of 0, armed or with a tick queued and not started, the queued tick is
+// dropped, never handled, and none comes after. A ticker the state still holds at the end is cancelled by its finish, and
+// nothing is left.
+// native-only
+//> cancelled in its third tick's handler: 3 ticks, none after
+//> cancelled by another message while it ticks at 0 ms: no tick after
+//> a ticker left armed is cancelled by the finish
+export typealias Amount = int(0 to 1000000)
+
+typealias Tickers = Array with Ticker
+
+type Pacer implements Ends
+	var tickers as Tickers
+	var ticks as Amount
+	var most as Amount
+	var atHalt as Amount
+	var after as Amount
+
+	static function create() returns Self
+		return Self{tickers: Tickers.create(0), ticks: 0, most: 0, atHalt: 0, after: 0}
+	end 'create'
+
+	export function begin(mutates self, every DurationMs, count Amount) returns Amount
+		self.ticks = 0
+		self.most = count
+		self.atHalt = 0
+		self.after = 0
+		self.tickers.push(Ticker.notifyEvery(every, message: self.handle.post(Pacer.Message.tick)))
+		return count
+	end 'begin'
+
+	export function tick(mutates self)
+		self.ticks = try self.ticks + 1 otherwise self.ticks
+		if self.tickers.count() == 0 'cancelled'
+			self.after = try self.after + 1 otherwise self.after
+			return
+		end 'cancelled'
+		var t = self.tickers.pop()
+		if self.ticks == self.most 'last'
+			t.cancel()
+			return
+		end 'last'
+		t.next(self.handle.post(Pacer.Message.tick))
+		self.tickers.push(t)
+	end 'tick'
+
+	// halt cancels the ticker from a message that is not its tick.
+	export function halt(mutates self) returns Amount
+		let t = try self.tickers.pop() otherwise panic("a halt with no ticker")
+		t.cancel()
+		self.atHalt = self.ticks
+		return self.ticks
+	end 'halt'
+
+	export function ticksSoFar() returns Amount
+		return self.ticks
+	end 'ticksSoFar'
+
+	export function ticksAfter() returns Amount
+		return self.after
+	end 'ticksAfter'
+
+	function finish(consumes self)
+		var ts = self.tickers
+		var left = 0 as Amount
+		while ts.count() > 0 'cancel'
+			let t = ts.pop()
+			t.cancel()
+			left = try left + 1 otherwise left
+		end 'cancel'
+		ts.dropEmpty()
+		if left == 1 'one'
+			print("a ticker left armed is cancelled by the finish\n")
+		end 'one'
+	end 'finish'
+end 'Pacer'
+
+function ticksOf(p Pacer.handle) returns Amount
+	let pending = try p.ticksSoFar() otherwise panic("a send to a service that runs")
+	return await pending
+end 'ticksOf'
+
+function afterOf(p Pacer.handle) returns Amount
+	let pending = try p.ticksAfter() otherwise panic("a send to a service that runs")
+	return await pending
+end 'afterOf'
+
+function main() returns ExitCode
+	let p = spawn Pacer.create()
+	let done = p.stopped()
+	let begun = try p.begin(5, count: 3) otherwise panic("a send to a service that runs")
+	_ = await begun
+	while ticksOf(p) < 3 'wait'
+		sleep(5)
+	end 'wait'
+	sleep(50)
+	let ticked = ticksOf(p)
+	if ticked == 3 and afterOf(p) == 0 'clean'
+		print("cancelled in its third tick's handler: 3 ticks, none after\n")
+	end 'clean' else 'after'
+		print("cancelled in its third tick's handler: {ticked} ticks\n")
+	end 'after'
+	let spinning = try p.begin(0, count: 1000000) otherwise panic("a send to a service that runs")
+	_ = await spinning
+	while ticksOf(p) < 100 'spin'
+		sleep(1)
+	end 'spin'
+	let halted = try p.halt() otherwise panic("a send to a service that runs")
+	let atHalt = await halted
+	sleep(50)
+	let ticks = ticksOf(p)
+	if ticks == atHalt and afterOf(p) == 0 'quiet'
+		print("cancelled by another message while it ticks at 0 ms: no tick after\n")
+	end 'quiet' else 'late'
+		print("cancelled by another message while it ticks at 0 ms: {ticks} ticks, {atHalt} at the cancel\n")
+	end 'late'
+	let parked = try p.begin(3600000, count: 1) otherwise panic("a send to a service that runs")
+	_ = await parked
+	p.shutdown()
+	await done
+	return 0
+end 'main'

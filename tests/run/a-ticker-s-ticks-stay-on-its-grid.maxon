@@ -1,0 +1,126 @@
+// Ticker.notifyEvery(10, message: h.post(m)) posts m every 10 ms, the handler of each tick arming the next with
+// next(m). The ticks are on a grid, the first tick plus a whole number of periods, worked out when next is called, so a
+// handler that takes 4 ms of each 10 does not push the ticks back: the 50th tick comes 500 ms after the ticker was made, where
+// a ticker armed a period after each handler would come at 700 ms, and none comes early. A period of 0 ticks at once each
+// time it is armed. Each ticker is cancelled at its last tick, and nothing is left.
+// native-only
+//> 50 ticks of 10 ms: none early, the 50th within 500 to 559 ms of the start: the grid holds
+//> 100 ticks of 0 ms: none early
+export typealias Amount = int(0 to 1000000)
+
+typealias Tickers = Array with Ticker
+
+type Pacer implements Ends
+	var tickers as Tickers
+	var start as InstantMs
+	var period as DurationMs
+	var work as DurationMs
+	var most as Amount
+	var ticks as Amount
+	var early as Amount
+	var lastAt as DurationMs
+
+	static function create() returns Self
+		return Self{tickers: Tickers.create(0), start: Clock.nowMs(), period: 0, work: 0, most: 0, ticks: 0, early: 0, lastAt: 0}
+	end 'create'
+
+	export function begin(mutates self, every DurationMs, busy DurationMs, count Amount) returns Amount
+		self.period = every
+		self.work = busy
+		self.most = count
+		self.ticks = 0
+		self.early = 0
+		self.lastAt = 0
+		self.start = Clock.nowMs()
+		self.tickers.push(Ticker.notifyEvery(every, message: self.handle.post(Pacer.Message.tick)))
+		return count
+	end 'begin'
+
+	export function tick(mutates self)
+		let at = Clock.elapsedMs(self.start)
+		self.ticks = try self.ticks + 1 otherwise self.ticks
+		let due = try self.period * (self.ticks as DurationMs) otherwise 0
+		if at < due 'early'
+			self.early = try self.early + 1 otherwise self.early
+		end 'early'
+		self.lastAt = at
+		var t = try self.tickers.pop() otherwise panic("a tick with no ticker")
+		if self.ticks == self.most 'last'
+			t.cancel()
+			return
+		end 'last'
+		if self.work > 0 'work'
+			sleep(self.work as Milliseconds)
+		end 'work'
+		t.next(self.handle.post(Pacer.Message.tick))
+		self.tickers.push(t)
+	end 'tick'
+
+	export function isDone() returns bool
+		return self.ticks == self.most
+	end 'isDone'
+
+	export function earlyTicks() returns Amount
+		return self.early
+	end 'earlyTicks'
+
+	export function lastTickAt() returns DurationMs
+		return self.lastAt
+	end 'lastTickAt'
+
+	function finish(consumes self)
+		var ts = self.tickers
+		while ts.count() > 0 'cancel'
+			let t = ts.pop()
+			t.cancel()
+		end 'cancel'
+		ts.dropEmpty()
+	end 'finish'
+end 'Pacer'
+
+function awaitDone(p Pacer.handle)
+	while true 'wait'
+		let pending = try p.isDone() otherwise panic("a send to a service that runs")
+		if await pending 'done'
+			return
+		end 'done'
+		sleep(5)
+	end 'wait'
+end 'awaitDone'
+
+function earlyOf(p Pacer.handle) returns Amount
+	let pending = try p.earlyTicks() otherwise panic("a send to a service that runs")
+	return await pending
+end 'earlyOf'
+
+function lastOf(p Pacer.handle) returns DurationMs
+	let pending = try p.lastTickAt() otherwise panic("a send to a service that runs")
+	return await pending
+end 'lastOf'
+
+function main() returns ExitCode
+	let p = spawn Pacer.create()
+	let done = p.stopped()
+	let begun = try p.begin(10, busy: 4, count: 50) otherwise panic("a send to a service that runs")
+	_ = await begun
+	awaitDone(p)
+	let early = earlyOf(p)
+	let last = lastOf(p)
+	if early == 0 and last >= 500 and last < 560 'grid'
+		print("50 ticks of 10 ms: none early, the 50th within 500 to 559 ms of the start: the grid holds\n")
+	end 'grid' else 'drift'
+		print("50 ticks of 10 ms: {early} early, the 50th at {last} ms\n")
+	end 'drift'
+	let again = try p.begin(0, busy: 0, count: 100) otherwise panic("a send to a service that runs")
+	_ = await again
+	awaitDone(p)
+	let zeroEarly = earlyOf(p)
+	if zeroEarly == 0 'none'
+		print("100 ticks of 0 ms: none early\n")
+	end 'none' else 'some'
+		print("100 ticks of 0 ms: {zeroEarly} early\n")
+	end 'some'
+	p.shutdown()
+	await done
+	return 0
+end 'main'

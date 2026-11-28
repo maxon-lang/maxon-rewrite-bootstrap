@@ -5233,6 +5233,22 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   and Reset do, so a handler never sees a fire older than the last reset. A `Timer` is linear, as a `PostedMessage` is
   (`E3919`), so a state that holds one implements `Ends` and its `finish` cancels it; an armed timer is live and keeps its
   service and the program alive, and the end of the service takes the arm back, its message never handled.
+  **A ticker posts a message on every tick of a period** (`stdlib/service/Ticker.maxon`, `timerNext` in `runtime/timers.maxon`):
+  `let t = Ticker.notifyEvery(10, message: self.handle.post(Poll.Message.tick))` posts its message one period from now, and
+  the handler of each tick arms the next with a fresh message, `self.ticker.next(self.handle.post(Poll.Message.tick))`,
+  as a socket's readiness is armed anew, so a ticker holds one posted record at a time, as a timer does. The ticks are on a
+  grid, the first tick plus a whole number of periods, so they do not drift, and the next tick is worked out when `next` is
+  called: the first of the grid past now (`timerGrid`, the last tick plus `late - late mod period` plus a period). A handler
+  of a 10 ms ticker that takes 35 ms skips exactly 3 ticks, and its next tick comes on the grid, not at once. Go's
+  `time.Ticker` differs: its channel buffers one tick, which a late reader takes at once, then the grid goes on. A ticker
+  here has no channel to hold a tick in, and a tick that no handler asked for would be a message the service handles late
+  only to learn it is late; the handler that wants to catch up reads the clock. `t.reset(period, message: m)` makes the
+  period `period` and arms the ticker on a new grid that starts now, its first tick a period from now, in any state, as a
+  timer's rearm does: its armed message and a tick queued and not started are dropped. **A ticker has at most one message
+  outstanding, and a reset's message replaces whatever was:** a `next(m)` on a ticker that holds a message already, armed
+  or with its tick queued and not started, as it does after a reset in the handler of a tick, drops `m`, never handled, and
+  the reset's message is the one handled. A period of 0 ticks at once each time it is armed.
+  `t.cancel()` ends it, and a `Ticker` is linear, as a `Timer` is (`E3919`).
   The **error of an await** is the handler's own unless the reply may fail with more: for a message whose policy sheds it
   (`busy`) or of a type that implements StopsNow (`serviceStopped`), the compiler makes an enum, named
   `Worker.work.Error` in messages, of the handler's cases, then `busy`, then `serviceStopped` (one the handler already throws

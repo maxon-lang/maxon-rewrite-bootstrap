@@ -923,6 +923,10 @@ function entryTimerRearm(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltPosted(vm, what: "a timer")
 end 'entryTimerRearm'
 
+function entryTimerNext(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw haltPosted(vm, what: "a timer")
+end 'entryTimerNext'
+
 function entryTimerReset(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	throw haltPosted(vm, what: "a timer")
 end 'entryTimerReset'

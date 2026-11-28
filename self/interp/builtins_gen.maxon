@@ -379,6 +379,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryTimerRearm(vm, f: f, x: x)
 		return
 	end 'rtTimerRearm'
+	if symbol == ir.Rt.rtTimerNext 'rtTimerNext'
+		try entryTimerNext(vm, f: f, x: x)
+		return
+	end 'rtTimerNext'
 	if symbol == ir.Rt.rtTimerReset 'rtTimerReset'
 		try entryTimerReset(vm, f: f, x: x)
 		return
