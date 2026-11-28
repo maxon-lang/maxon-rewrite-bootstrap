@@ -1,0 +1,105 @@
+// The two tiers of the seeded hash fold spans of every length class as maxon's do: the software fold (a few bytes, a half
+// word, a word, a pair, a stride of three pairs and what is left after it) and the AES rounds (a tail of at most 16 bytes,
+// two, four and eight lanes, and the long class's octets), under one seed. The values are maxon's, under MAXON_HASH_TIER
+// software and aes. A String of 1 to 15 bytes, which the AES tier folds from its two words, folds as the span of its bytes.
+//> software 0 2903639648808299679
+//> software 1 15299854545381281532
+//> software 3 17651810559095129502
+//> software 4 12664182338031673024
+//> software 7 9539343477266515130
+//> software 8 15420722200603929861
+//> software 15 8123461622193575052
+//> software 16 16653663220231839501
+//> software 17 10473793055772558786
+//> software 31 12888682513911047742
+//> software 32 5645775430776387080
+//> software 33 9997001624318235839
+//> software 47 1567327606483448184
+//> software 48 11810827506579897483
+//> software 49 14051948118509452206
+//> software 64 3437971449587318213
+//> software 65 13353364400958709818
+//> software 97 11838801164153290
+//> software 100 17513720085797285898
+//> software 127 14973505820060044585
+//> software 128 11877641964704001708
+//> software 129 12560813298728472267
+//> software 200 1249231123809670367
+//> software 256 6633846721151651683
+//> software 257 10172739218180101257
+//> software 300 579878191417730280
+//> aes 0 11700165374567106355
+//> aes 1 15966883133698827155
+//> aes 3 12315740719061407109
+//> aes 4 8528587813711832663
+//> aes 7 5079829811880152429
+//> aes 8 313520882030891889
+//> aes 15 5823434269271567107
+//> aes 16 12099094680247512453
+//> aes 17 548893402487698008
+//> aes 31 13826802008403454789
+//> aes 32 4815797303722649352
+//> aes 33 6584194065965838057
+//> aes 47 12011909611896358153
+//> aes 48 4929815148771649936
+//> aes 49 12169807107860655678
+//> aes 64 18322424284564773358
+//> aes 65 8427101546668069387
+//> aes 97 6830228386788645813
+//> aes 100 13530647518991342242
+//> aes 127 12306515258877018896
+//> aes 128 10600171249780159608
+//> aes 129 14894114724311153682
+//> aes 200 14791513607544082662
+//> aes 256 2598837625249187260
+//> aes 257 12814189621110139854
+//> aes 300 8071685610383569093
+//> short strings fold as their spans
+
+typealias Lengths = Array with Count
+
+let testSeed = 0x0123456789abcdef as Count
+
+function main() returns ExitCode
+	let lengths = Lengths from [0, 1, 3, 4, 7, 8, 15, 16, 17, 31, 32, 33, 47, 48, 49, 64, 65, 97, 100, 127, 128, 129, 200, 256, 257, 300]
+	let bytes = alloc(300)
+	var byte = 11 as Count
+	for i in 0 upto 300 'fill'
+		__Raw.storeByte(bytes, offset: i, value: (byte and 0xFF) as Byte)
+		byte = __Raw.wrappingAdd(byte and 0xFF, right: 37)
+	end 'fill'
+	for tier in 0 upto 2 'tiers'
+		for n in lengths 'each'
+			if tier == 0 'software'
+				print("software {n} {hashSpan(bytes as HashInput, count: n, seed: testSeed as HashWord) as Count}\n")
+			end 'software' else 'aes'
+				print("aes {n} {aesHashSpan(bytes, count: n, seed: testSeed)}\n")
+			end 'aes'
+		end 'each'
+	end 'tiers'
+	var same = true
+	for n in 1 upto 16 'short'
+		var rest = 0 as Count
+		if n > wordBytes 'rest'
+			rest = __Raw.loadWord(bytes, offset: wordBytes) and testMask(n - wordBytes)
+		end 'rest'
+		var first = __Raw.loadWord(bytes, offset: 0)
+		if n < wordBytes 'part'
+			first = first and testMask(n)
+		end 'part'
+		if aesHashShort(first, rest: rest, count: n, seed: testSeed) != aesHashSpan(bytes, count: n, seed: testSeed) 'differs'
+			same = false
+		end 'differs'
+	end 'short'
+	if same 'same'
+		print("short strings fold as their spans\n")
+	end 'same'
+	free(bytes)
+	return 0
+end 'main'
+
+// testMask is the mask of the low bytes of a word, fewer than 8 of them.
+function testMask(bytes Count) returns Count
+	let bits = (bytes as AesBits) * 8
+	return (((1 as AesBits) shl bits) - 1) as Count
+end 'testMask'

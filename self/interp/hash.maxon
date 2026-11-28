@@ -25,8 +25,11 @@ let hashSeedShownBytes = 31 as Count
 
 let hashSeedRefusalExitCode = 1 as ir.Word
 
-// makeHash makes the run's hash state at its first hash that needs the seed: a pin that is not a secret ends the run as
-// it ends a compiled program.
+let hashTierVariable = "MAXON_HASH_TIER"
+
+// makeHash makes the run's hash state at its first hash: a pin that is not a secret ends the run as it ends a compiled
+// program, and so does a MAXON_HASH_TIER that names no tier or the AES tier, which the interpreter cannot run: its one tier
+// is the software fold.
 function makeHash(mutates vm Vm) throws Halt
 	if vm.hash.made 'made'
 		return
@@ -46,6 +49,19 @@ function makeHash(mutates vm Vm) throws Halt
 	end 'pinned' else 'drawn'
 		vm.hash.secret = vm.hash.rng.uint64() as HashWord
 	end 'drawn'
+	let tier = try Process.environmentVariable(hashTierVariable) otherwise ""
+	if tier.byteLength() > 0 and tier != "software" 'refused'
+		var shown = tier.byteLength()
+		if shown > hashSeedShownBytes 'long'
+			shown = hashSeedShownBytes
+		end 'long'
+		var why = " is not a hash tier: expected aes or software\n"
+		if tier == "aes" 'unavailable'
+			why = " is not available on this host: its best hash tier is software\n"
+		end 'unavailable'
+		vm.stderr.append("MAXON_HASH_TIER={tier.sliceBytes(0, endPos: shown)}{why}".toByteArray())
+		throw exitWith(vm, code: hashSeedRefusalExitCode)
+	end 'refused'
 	vm.hash.seed = hashEmptyFold(vm.hash.secret)
 	vm.hash.made = true
 end 'makeHash'
@@ -125,6 +141,7 @@ function entryHashBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let count = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
 	let seed = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 3)) as HashWord
+	try makeHash(vm)
 	let length = vm.h.buffers[vm.h.oData[b]].count()
 	if at > length or count > length - at 'outside'
 		throw trap(vm, message: "a hashed span reaches past the end of its array")
@@ -138,6 +155,7 @@ function entryHashStringBytes(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws
 	let at = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 1))
 	let count = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
 	let seed = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 3)) as HashWord
+	try makeHash(vm)
 	let bytes = vm.h.texts[vm.h.oData[s]].toByteArray()
 	let length = bytes.count()
 	if at > length or count > length - at 'outside'

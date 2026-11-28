@@ -12,6 +12,11 @@ let featureAes = 2 as Count
 
 let featureSha = 4 as Count
 
+// The word keeps the process's hash tier too, once a hash has looked (hash.maxon): that it is known, and that it is AES's.
+let featureHashChosen = 8 as Count
+
+let featureHashAes = 16 as Count
+
 #if arch(x64)
 	// cpuid's leaf 1 says in ecx (its register 2, written as a literal, which the lowering reads from the call) whether
 	// AES-NI, PCLMULQDQ, SSSE3 and SSE4.1 are there, and leaf 7 in ebx (its register 1) whether SHA is.

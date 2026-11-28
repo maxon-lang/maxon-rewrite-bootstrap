@@ -299,7 +299,9 @@ var layouts = []layoutConst{
 		"where the hash state holds 1 when MAXON_HASH_SEED pinned the secret."},
 	{"hashDrawsOffset", 3, false, toRuntime,
 		"where the hash state holds how many seeds __Builtins.drawHashSeed has drawn in a pinned process, stepped atomically."},
-	{"hashStateBytes", 4, false, toRuntime,
+	{"hashTierOffset", 4, false, toRuntime,
+		"where the hash state holds the process's hash tier: 0 the software fold, 1 the AES rounds."},
+	{"hashStateBytes", 5, false, toRuntime,
 		"the size of the hash state."},
 
 	// A switch record: the registers of a stack that is not running, which rt.stackSwitch saves when it leaves the stack
