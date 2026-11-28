@@ -1,0 +1,24 @@
+// Where a `frozen with Shape` is expected, freeze's operand is checked against Shape, so a value whose type does not
+// implement Shape is refused at the operand (E3005), as it is at a parameter of type Shape.
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+type Rock
+	let weight as Count
+
+	static function of(weight Count) returns Self
+		return Self{weight: weight}
+	end 'of'
+end 'Rock'
+
+function areaOf(shape frozen with Shape) returns Count
+	return shape.area()
+end 'areaOf'
+
+function main() returns ExitCode
+	print("{areaOf(freeze(Rock.of(2)))}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005

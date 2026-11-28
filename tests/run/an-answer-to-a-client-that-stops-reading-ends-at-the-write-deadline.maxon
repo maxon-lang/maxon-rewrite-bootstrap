@@ -51,7 +51,7 @@ function main() returns ExitCode
 	let port = server.port()
 	var config = ServerConfig.create()
 	config.writeDeadlineMs = 100
-	let serving = server.serve(freeze(Big.create() as HttpHandler), config: config)
+	let serving = server.serve(freeze(Big.create()), config: config)
 	var slow = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
 	try slow.setReadDeadline(5000) otherwise ignore
 	_ = try slow.send("GET /big HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n") otherwise 0

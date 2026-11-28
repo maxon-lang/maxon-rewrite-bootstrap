@@ -60,7 +60,7 @@ function main() returns ExitCode
 	let port = server.port()
 	var config = ServerConfig.create()
 	config.maxBodyBytes = 8
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: config)
+	let serving = server.serve(freeze(Echo.create()), config: config)
 	print("at the cap: {answerTo(port, request: "POST /up HTTP/1.1\r\nHost: a\r\nConnection: close\r\nContent-Length: 8\r\n\r\n01234567")}\n")
 	print("past the cap: {answerTo(port, request: "POST /up HTTP/1.1\r\nHost: a\r\nContent-Length: 9\r\n\r\n")}\n")
 	serving.stop(1000)

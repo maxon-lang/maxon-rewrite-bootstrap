@@ -901,8 +901,10 @@ function typeArgumentsOfOtherModule(mutates c Checker, p ast.Project, mutates ms
 	return true
 end 'typeArgumentsOfOtherModule'
 
+// expectedFor is the type a call verified later expects of the argument for slot: its parameter's, where the call gives no more
+// arguments than the callee has parameters, some of them left to their defaults.
 function expectedFor(specs ast.ParamSpecList, slot Count, given Count) returns ast.TypeID
-	if slot < specs.count() and given == specs.count() 'fits'
+	if slot < specs.count() and given <= specs.count() 'fits'
 		return specs[slot].ty
 	end 'fits'
 	return ast.noType
@@ -916,18 +918,41 @@ function receiverCount(p ast.Project, ms ast.ModuleState, f ast.FuncID) returns 
 	return 0
 end 'receiverCount'
 
+// expectedFrozenContents is what the frozen value the context expects holds, or none where it expects no frozen value.
+function expectedFrozenContents(c Checker, p ast.Project, ms ast.ModuleState) returns ast.TypeID
+	if c.expect == ast.noType or ast.typeKind(ms.types, reads: p.types, t: c.expect) != ast.TypeKind.builtinFrozen 'none'
+		return ast.noType
+	end 'none'
+	if ast.typeEntry(ms.types, reads: p.types, t: c.expect).typeArgs.count() == 0 'open'
+		return ast.noType
+	end 'open'
+	return ast.typeEntry(ms.types, reads: p.types, t: c.expect).typeArgs[0]
+end 'expectedFrozenContents'
+
 // callGeneric types a call whose callee has type parameters. given are the arguments of the instance the callee is called
 // on, which were checked against their bounds where the instance was written; without them they are inferred.
 function callGeneric(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, kind ast.CallKind, target ast.FuncID, hasGiven bool, given ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
 	let callee = funcSymbol(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: target)
 	let generics = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).generics)
 	let declared = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).params.clone()
+	let intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic
+	var instanced = hasGiven
 	var args = given.clone()
+	if not hasGiven and intrinsic == ast.Intrinsic.intrFreeze 'expected'
+		// The type the context expects reaches through freeze to its operand, which is checked against the frozen value's
+		// contents: a value is boxed into the interface that a `frozen with I` holds, as a parameter of type I boxes it.
+		let wanted = expectedFrozenContents(c, p: p, ms: ms)
+		if wanted != ast.noType 'frozen'
+			instanced = true
+			args = ast.TypeIDList.create(0)
+			args.push(wanted)
+		end 'frozen'
+	end 'expected'
 	var specs = declared.clone()
 	var ordered = ast.NodeIDList.create(0)
 	let mark = errs.count()
-	if hasGiven 'instance'
-		specs = applySpecs(p, ms: ms, specs: declared, params: generics, args: given)
+	if instanced 'instance'
+		specs = applySpecs(p, ms: ms, specs: declared, params: generics, args: args)
 		ordered = orderArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: receiverCount(p, ms: ms, f: target), errs: errs)
 		if failedSince(errs, mark: mark) 'badOrder'
 			return ast.noType
@@ -946,7 +971,6 @@ function callGeneric(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 			return ast.noType
 		end 'badArgs'
 	end 'inferred'
-	let intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).intrinsic
 	let isFree = intrinsic != ast.Intrinsic.intrNone and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).ownerTy == ast.noType
 	if isFree 'checkFirst'
 		checkIntrinsicArgs(c, p: p, ms: ms, call: call, target: target, ordered: ordered, errs: errs)
@@ -955,7 +979,7 @@ function callGeneric(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		end 'badIntrinsic'
 	end 'checkFirst'
 	let off = offsetOf(c, p: p, ms: ms, node: call)
-	if not hasGiven 'infer'
+	if not instanced 'infer'
 		let result = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).retTy
 		// A static of a generic type called through the type's bare name names no instance of it, which maxon refuses under a
 		// code of its own; a generic function that its call does not fix is the inference's refusal.

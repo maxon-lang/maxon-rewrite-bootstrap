@@ -1,0 +1,37 @@
+// The type the context expects reaches through freeze to its operand: where a `frozen with Shape` is expected (a parameter, an
+// assignment, a return), freeze boxes a Square into a Shape, as a parameter of type Shape would box it, with no `as`.
+//> 4
+//> 9
+//> 16
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+type Square implements Shape
+	let side as Count
+
+	static function of(side Count) returns Self
+		return Self{side: side}
+	end 'of'
+
+	function area() returns Count
+		return try self.side * self.side otherwise 0
+	end 'area'
+end 'Square'
+
+function areaOf(shape frozen with Shape) returns Count
+	return shape.area()
+end 'areaOf'
+
+function made(side Count) returns frozen with Shape
+	return freeze(Square.of(side))
+end 'made'
+
+function main() returns ExitCode
+	print("{areaOf(freeze(Square.of(2)))}\n")
+	var held as frozen with Shape
+	held = freeze(Square.of(3))
+	print("{areaOf(held)}\n")
+	print("{areaOf(made(4))}\n")
+	return 0
+end 'main'

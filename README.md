@@ -6695,7 +6695,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   closes. The connection states each answer's length and its `Connection` field, as its keep-alive says. An answer that
   cannot be sent as it is (a body on a status that has none, a reason, a field or a content type that would end its line) is
   not sent, and the connection closes, where maxon's throws `invalidResponse`. The handler is shared frozen by every
-  connection (`server.serve(freeze(Hello.create() as HttpHandler))`), one count per connection, and is read only; a
+  connection (`server.serve(freeze(Hello.create()))`), one count per connection, and is read only; a
   connection calls it in its own message, which `HttpHandler`'s `requires service` allows, so a handler waits on no service
   and names a policy for each kind it sends (`E3210`, `E3957`).
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).

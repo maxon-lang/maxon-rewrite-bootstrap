@@ -64,7 +64,7 @@ function main() returns ExitCode
 	config.maxHeadBytes = 80
 	config.maxRequestLineBytes = 40
 	config.maxHeaderCount = 3
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: config)
+	let serving = server.serve(freeze(Echo.create()), config: config)
 	print("within the caps: {answerTo(port, request: "GET /ok HTTP/1.1\r\nHost: a\r\nConnection: close\r\nX-A: 1\r\n\r\n")}\n")
 	print("a long head: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\r\nX-Long: 0123456789012345678901234567890123456789012345678901234567890123456789\r\n\r\n")}\n")
 	print("a long request line: {answerTo(port, request: "GET /0123456789012345678901234567890123456789 HTTP/1.1\r\nHost: a\r\n\r\n")}\n")

@@ -64,7 +64,7 @@ function main() returns ExitCode
 	var config = ServerConfig.create()
 	config.headDeadlineMs = 100
 	config.bodyDeadlineMs = 100
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: config)
+	let serving = server.serve(freeze(Echo.create()), config: config)
 	print("a stalled head: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\r\n")}\n")
 	print("a stalled body: {answerTo(port, request: "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 10\r\n\r\n")}\n")
 	var silent = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")

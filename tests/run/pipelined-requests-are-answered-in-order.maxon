@@ -134,7 +134,7 @@ end 'methodName'
 function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
 	let port = server.port()
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: ServerConfig.create())
+	let serving = server.serve(freeze(Echo.create()), config: ServerConfig.create())
 	var answers = connected(port)
 	answers.send("GET /a HTTP/1.1\r\nHost: a\r\n\r\nPOST /b HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\n\r\nxyzGET /c HTTP/1.1\r\nHost: a\r\n\r\n")
 	for i in 1 upto 4 'three'

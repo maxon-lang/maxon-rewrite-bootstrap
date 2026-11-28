@@ -13,7 +13,7 @@ end 'Twice'
 
 function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
-	let serving = server.serve(freeze(Twice.create() as HttpHandler))
+	let serving = server.serve(freeze(Twice.create()))
 	serving.stop(0)
 	return 0
 end 'main'

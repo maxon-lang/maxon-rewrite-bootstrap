@@ -135,7 +135,7 @@ function main() returns ExitCode
 	var config = ServerConfig.create()
 	config.maxBodyBytes = 16
 	config.lingerMs = 2000
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: config)
+	let serving = server.serve(freeze(Echo.create()), config: config)
 	var answers = connected(port)
 	var body = "0123456789abcdef"
 	while body.byteLength() < 65536 'grow'

@@ -52,7 +52,7 @@ end 'methodName'
 function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
 	let port = server.port()
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: ServerConfig.create())
+	let serving = server.serve(freeze(Echo.create()), config: ServerConfig.create())
 	var requests = ""
 	var expected = ""
 	for i in 0 upto Requests 'each'

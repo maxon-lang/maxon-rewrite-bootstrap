@@ -63,7 +63,7 @@ function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
 	let port = server.port()
 	var config = ServerConfig.create()
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: config)
+	let serving = server.serve(freeze(Echo.create()), config: config)
 	print("TRACE: {answerTo(port, request: "TRACE / HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
 	print("chunked: {answerTo(port, request: "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n")}\n")
 	print("HTTP/2.0: {answerTo(port, request: "GET / HTTP/2.0\r\nHost: a\r\n\r\n")}\n")

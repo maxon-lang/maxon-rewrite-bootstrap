@@ -72,7 +72,7 @@ function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
 	let port = server.port()
 	var config = ServerConfig.create()
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: config)
+	let serving = server.serve(freeze(Echo.create()), config: config)
 	print("a bare LF: {answerTo(port, request: "GET / HTTP/1.1\nHost: a\r\n\r\n")}\n")
 	print("a bare CR in a field: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\rb\r\n\r\n")}\n")
 	print("obs-fold: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\r\nX-A: one\r\n two\r\n\r\n")}\n")

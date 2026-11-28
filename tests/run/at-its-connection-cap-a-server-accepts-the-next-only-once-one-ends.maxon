@@ -65,7 +65,7 @@ function main() returns ExitCode
 	let port = server.port()
 	var config = ServerConfig.create()
 	config.maxConnections = ConnectionCap.atMost(1)
-	let serving = server.serve(freeze(Echo.create() as HttpHandler), config: config)
+	let serving = server.serve(freeze(Echo.create()), config: config)
 	var first = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
 	_ = try first.send("GET /one HTTP/1.1\r\nHost: a\r\nConnection: close\r\n") otherwise 0
 	var second = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")

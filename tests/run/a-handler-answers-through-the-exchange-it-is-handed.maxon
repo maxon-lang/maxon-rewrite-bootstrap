@@ -95,7 +95,7 @@ function main() returns ExitCode
 	let tally = spawn Tally.create()
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
 	let port = server.port()
-	let serving = server.serve(freeze(Site.create("hi", tally: tally) as HttpHandler))
+	let serving = server.serve(freeze(Site.create("hi", tally: tally)))
 	print("/hello: {answerTo(port, request: "GET /hello HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
 	print("/fields: {answerTo(port, request: "GET /fields HTTP/1.1\r\nHost: a\r\nX-Request: 3\r\nConnection: close\r\n\r\n")}\n")
 	print("/echo: {answerTo(port, request: "POST /echo HTTP/1.1\r\nHost: a\r\nContent-Length: 5\r\nConnection: close\r\n\r\nabcde")}\n")
