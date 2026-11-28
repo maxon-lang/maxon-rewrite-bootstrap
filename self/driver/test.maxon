@@ -984,7 +984,7 @@ function runInterpreted(compiled CompiledProgram, expect Expectation) returns Te
 			return TestResult.failed("the interpreter does not model what the program uses{atSeed}: {trimSpace(out.stderr)}")
 		end 'unmodelled'
 		if code != expect.exit 'exit'
-			return TestResult.failed("the interpreter exited {exitCodeText(code)}, expected {exitCodeText(expect.exit)}{atSeed}; stderr: {trimSpace(out.stderr)}")
+			return TestResult.failed("the interpreter exited {exitCodeText(code)}, expected {exitCodeText(expect.exit)}{atSeed}; stderr: {trimSpace(out.stderr)}{stdoutNote(out.stdout)}")
 		end 'exit'
 		if out.stdout != expect.stdout 'stdout'
 			return TestResult.failed("the interpreter's stdout differs{atSeed}\n--- expected\n{expect.stdout}--- actual\n{out.stdout}")
@@ -1152,6 +1152,43 @@ function runNative(exe String, expect Expectation, runner TargetRunner, workers 
 	end 'run'
 end 'runNative'
 
+// stdoutTailLines and stdoutTailBytes bound how much of a failed program's standard output its report shows.
+let stdoutTailLines = 20 as Count
+
+let stdoutTailBytes = 2000 as Count
+
+// stdoutTail is the end of a failed program's standard output for its report: its last stdoutTailLines lines and at most
+// stdoutTailBytes bytes, cut at a character's first byte, with "..." before it where more came first, or "" for none.
+function stdoutTail(text String) returns String
+	let stop = text.byteLength()
+	var at = stop
+	var lines = 0 as Count
+	while at > 0 'back'
+		let c = text.byteAt(at - 1)
+		if c == newlineByte and at < stop 'line'
+			lines = try lines + 1 otherwise lines
+			if lines == stdoutTailLines 'enough'
+				break 'back'
+			end 'enough'
+		end 'line'
+		if (try stop - at otherwise 0) >= stdoutTailBytes and not isContinuationByte(text.byteAt(at)) 'full'
+			break 'back'
+		end 'full'
+		at = at - 1
+	end 'back'
+	let tail = trimSpace(text.sliceBytes(at, endPos: stop))
+	if tail.byteLength() == 0 'empty'
+		return ""
+	end 'empty'
+	return "{"..." if at > 0 else ""}{tail}"
+end 'stdoutTail'
+
+// stdoutNote is what an exit's report adds of the program's standard output: its tail, or nothing where it wrote none.
+function stdoutNote(text String) returns String
+	let tail = stdoutTail(text)
+	return "" if tail.byteLength() == 0 else "; stdout, its end:\n{tail}"
+end 'stdoutNote'
+
 function checkNativeOutput(out CollectedOutput, exe String, expect Expectation) returns TestResult
 	let actual = withoutCarriageReturns(out.stdout, loneToo: false)
 	let code = out.exitCode()
@@ -1160,7 +1197,7 @@ function checkNativeOutput(out CollectedOutput, exe String, expect Expectation) 
 		if expect.memoryLimitMB > 0 'limited'
 			limit = " (the program may have used more than its {expect.memoryLimitMB} MB, which fails an allocation and crashes it)"
 		end 'limited'
-		return TestResult.failed("exit {exitCodeText(code)}, expected {exitCodeText(expect.exit)}{limit}; stderr: {trimSpace(out.stderr)}")
+		return TestResult.failed("exit {exitCodeText(code)}, expected {exitCodeText(expect.exit)}{limit}; stderr: {trimSpace(out.stderr)}{stdoutNote(out.stdout)}")
 	end 'exit'
 	if actual != expect.stdout 'stdout'
 		return TestResult.failed("stdout differs\n--- expected\n{expect.stdout}--- actual\n{actual}")

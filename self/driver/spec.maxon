@@ -1618,9 +1618,9 @@ function checkSpecOutput(test SpecTest, text String, out CollectedOutput) return
 		let want = parsed.unwrap()
 		if want != (code as Count) 'differs'
 			if code >= signBit 'crash'
-				return TestResult.failed("crash: exit {exitCodeText(code)}, expected {want}; stderr: {oneLine(trimSpace(out.stderr), limit: detailLimit)}")
+				return TestResult.failed("crash: exit {exitCodeText(code)}, expected {want}; stderr: {oneLine(trimSpace(out.stderr), limit: detailLimit)}; stdout: {oneLine(stdoutTail(out.stdout), limit: detailLimit)}")
 			end 'crash'
-			return TestResult.failed("wrong exit code: {exitCodeText(code)}, expected {want}; stderr: {oneLine(trimSpace(out.stderr), limit: detailLimit)}")
+			return TestResult.failed("wrong exit code: {exitCodeText(code)}, expected {want}; stderr: {oneLine(trimSpace(out.stderr), limit: detailLimit)}; stdout: {oneLine(stdoutTail(out.stdout), limit: detailLimit)}")
 		end 'differs'
 	end 'pinned'
 	let stdoutResult = checkStream(test, text: text, base: stdoutFence, actual: withoutCarriageReturns(out.stdout, loneToo: false))
