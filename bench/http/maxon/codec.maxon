@@ -1,0 +1,113 @@
+// The HTTP codec benchmark's maxon half (bench/http/codec.maxon has the lanes), in maxon's dialect; bench/http/run.sh builds it with MAXON, maxon-bin's compiler, from a scratch directory: maxon's own library, compiled by maxon's
+// compiler, on the same requests and responses.
+let headEnd = "\r\n\r\n"
+let headCap = 16384 as LineCap
+let bodyBytes = 65536
+
+type MemorySource implements ByteSource
+	var bytes as ByteArray
+	var given as bool
+
+	static function over(bytes ByteArray) returns MemorySource
+		return MemorySource{bytes: bytes, given: false}
+	end 'over'
+
+	function readSome(most ReadCapacity) returns isolated ByteArray throws StreamError
+		if given 'ended'
+			return ByteArray.create(0)
+		end 'ended'
+		given = true
+		return bytes.clone()
+	end 'readSome'
+end 'MemorySource'
+
+typealias MemoryReader = StreamReader with MemorySource
+
+function getRequest() returns String
+	return "GET /api/v1/items?id=42&sort=desc HTTP/1.1\r\nHost: example.com\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.9\r\nAccept-Encoding: gzip, deflate, br\r\nConnection: keep-alive\r\nCache-Control: no-cache\r\nPragma: no-cache\r\nCookie: session=7f3c9a1e5b2d4c8f; theme=dark; lang=en\r\nReferer: https://example.com/catalog/items\r\nX-Request-Id: 2f1e0d3c-4b5a-6978-8796-a5b4c3d2e1f0\r\nUpgrade-Insecure-Requests: 1\r\n\r\n"
+end 'getRequest'
+
+function filler(bytes Count) returns String
+	var body = ""
+	while body.byteLength() < bytes 'fill'
+		body = "{body}0123456789abcdef"
+	end 'fill'
+	return body
+end 'filler'
+
+function postRequest(body String) returns String
+	return "POST /api/v1/upload HTTP/1.1\r\nHost: example.com\r\nUser-Agent: bench/1.0\r\nContent-Type: application/octet-stream\r\nContent-Length: {body.byteLength()}\r\n\r\n{body}"
+end 'postRequest'
+
+function parsed(raw ByteArray, withBody bool) returns Count
+	let reader = MemoryReader.over(MemorySource.over(raw.clone()))
+	let line = try reader.readUntil(headEnd, cap: headCap) otherwise panic("bench: the request is read from memory")
+	let head = match line 'head'
+		line(text) gives text
+		ended or
+		pastTheCap panic("bench: the request has a head")
+	end 'head'
+	let request = try httpParseRequestHead(head, scheme: HttpUrlScheme.http) otherwise panic("bench: the request parses")
+	let headers = match request 'target'
+		resource(_, _, headers) gives headers
+		wholeServer(headers) gives headers
+	end 'target'
+	var found = headers.headers.count()
+	if withBody 'body'
+		let declared = try httpDeclaredBodyLength(headers, cap: 1048576) otherwise panic("bench: the length parses")
+		let body = try reader.readBytes(declared) otherwise panic("bench: the body is read")
+		found = found + String.from(body).byteLength()
+	end 'body'
+	return found
+end 'parsed'
+
+function written(body String) returns Count
+	let headers = HttpHeaders.create()
+	headers.set("content-type", value: "text/plain")
+	headers.set("cache-control", value: "no-store")
+	headers.set("server", value: "bench")
+	headers.set("x-request-id", value: "2f1e0d3c-4b5a-6978-8796-a5b4c3d2e1f0")
+	let response = HttpResponse.create(StatusCode.ok, reasonPhrase: reasonPhraseOf(StatusCode.ok), responseHeaders: headers, responseBody: body)
+	let head = try httpBuildResponseHead(response) otherwise panic("bench: the response is sendable")
+	let wire = "{head}{response.body()}"
+	return wire.byteLength()
+end 'written'
+
+function lane(name String, rounds Count, started InstantNanos, sum Count)
+	let took = Clock.nowNanos() - started
+	let nanos = took as Count
+	let each = try (nanos / rounds) otherwise 0
+	print("result {name} {each} ns  (sum {sum})\n")
+end 'lane'
+
+function main() returns ExitCode
+	let rounds = try CommandLine.readOptionalIntArgument(1, otherwise: 100000) otherwise panic("bench: a count of rounds")
+	let get = getRequest().toByteArray()
+	let large = filler(bodyBytes)
+	let post = postRequest(large).toByteArray()
+	var sum = 0 as Count
+	var started = Clock.nowNanos()
+	for _ in 0 upto rounds 'get'
+		sum = sum + parsed(get, withBody: false)
+	end 'get'
+	lane("parse-get", rounds: rounds, started: started, sum: sum)
+	sum = 0
+	started = Clock.nowNanos()
+	for _ in 0 upto rounds 'post'
+		sum = sum + parsed(post, withBody: true)
+	end 'post'
+	lane("parse-post-64k", rounds: rounds, started: started, sum: sum)
+	sum = 0
+	started = Clock.nowNanos()
+	for _ in 0 upto rounds 'small'
+		sum = sum + written("hello world\n")
+	end 'small'
+	lane("write-small", rounds: rounds, started: started, sum: sum)
+	sum = 0
+	started = Clock.nowNanos()
+	for _ in 0 upto rounds 'large'
+		sum = sum + written(large)
+	end 'large'
+	lane("write-64k", rounds: rounds, started: started, sum: sum)
+	return 0
+end 'main'

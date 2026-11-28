@@ -147,3 +147,37 @@ service's queue empties, and a service whose handlers re-arm timers that are alr
 fast as it drains, so its queue never empties. With one service of n 1 ms one-shots that re-arm themselves, main's send of
 an ordinary message after 200 ms returns in 2 ms at n = 16384 and never at n = 24576 or 32768, at 1 or 4 processors; a
 `sleep` in main still returns on time.
+
+## http: the HTTP codec
+
+What the library's HTTP codec, converted from maxon's (stdlib/http, `helpers/http/httpHelpers.maxon`), costs to read a request
+and to write a response, against maxon's compiler on the same source and Go's net/http.
+
+- `bench/http/codec.maxon <rounds>` runs four lanes, each `rounds` times, and prints `result <lane> <ns a request>`:
+  - **parse-get**: a GET with a dozen headers, read from memory by a `StreamReader` to the head's empty line and parsed by
+    `httpParseRequestHead` (method, target, URL, headers);
+  - **parse-post-64k**: a POST of a 64 KiB body, its head read and parsed so, its Content-Length read by `httpDeclaredBodyLength`
+    and its body read whole;
+  - **write-small**: a 200 with four headers and a 12-byte body, its head built by `httpBuildResponseHead` and joined to the body;
+  - **write-64k**: the same with a 64 KiB body.
+- `bench/http/maxon/codec.maxon` is the same program in maxon's dialect, over maxon's own library, built by maxon's compiler (its
+  maxon-bin build, `MAXON`); `run.sh` copies it to a directory of its own under `TMPDIR` and builds it there, so nothing runs
+  inside maxon's tree.
+- `bench/http/gobench` (Go, `go build` only) is the baseline: `http.ReadRequest` on a `bufio.Reader` over the request's bytes,
+  the POST's body read by `io.ReadAll`, and `http.Response.Write` into a buffer.
+- `bench/http/run.sh` builds the three and runs each; `ROUNDS` sets the requests a lane times (100000 by default).
+
+Measured on an Apple M3 (arm64 macOS), `ROUNDS=20000 bench/http/run.sh`, maxon's compiler `maxon dev (e1209d7b3 2026-11-17)`,
+ns a request:
+
+| lane | minimaxon | maxon | Go |
+|---|---|---|---|
+| parse-get | 18668 | 51241 | 2084 |
+| parse-post-64k | 150511 | 164443 | 10658 |
+| write-small | 1126 | 3026 | 819 |
+| write-64k | 18620 | 28912 | 12372 |
+
+minimaxon runs maxon's codec 1.1 to 2.7 times faster than maxon's compiler does. Both are far from Go's parser: the codec splits
+the head into an array of lines and each line into its name and value, copies each piece, lowers each name, and folds each
+into a Map; Go scans the bytes once and interns the common header names. The end-to-end loopback figure waits for the server's
+`serve`.
