@@ -119,14 +119,17 @@ type SharedData
 	// owned are, for a closure, whether it owns each value it captured, which freeing it frees, or only borrows it.
 	var owned as BoolList
 	// gate is a service's mailbox, as the runtime's gate is: the messages sent and not started, with serviceClosed added once
-	// the service is shut down. behind, muted, turn, senders and most are its backpressure (strands.maxon): whether it is
-	// behind, whether a message of it is kept muted, how many of its messages ran since its queue was last empty, the senders
-	// slowed on it, in order, and the most messages a slowed send found queued with its own.
+	// the service is shut down. behind, muted, turn, senders, marks, handled and most are its backpressure (strands.maxon):
+	// whether it is behind, whether a message of it is kept muted, how many of its messages ran since its queue was last
+	// empty, the senders slowed on it, in order, the mark of each, how many of its messages have started, and the most
+	// messages a slowed send found queued with its own.
 	var gate as Count
 	var behind as bool
 	var muted as bool
 	var turn as Count
 	var senders as CountList
+	var marks as CountList
+	var handled as Count
 	var most as Count
 	// listedOn is the service this one is listed on, 0 for none, and kept the behaviour of its message kept while it is muted.
 	var listedOn as Count
@@ -142,7 +145,7 @@ type SharedData
 	var watchers as CountList
 
 	static function new() returns SharedData
-		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), most: 0, listedOn: 0, kept: 0, pending: CountList.create(0), sheds: false, stoppedNow: false, watchers: CountList.create(0)}
+		return SharedData{count: 1, holders: CountList.create(0), queue: CountList.create(0), running: 0, ending: 0, cell: 0, owned: BoolList.create(0), gate: 0, behind: false, muted: false, turn: 0, senders: CountList.create(0), marks: CountList.create(0), handled: 0, most: 0, listedOn: 0, kept: 0, pending: CountList.create(0), sheds: false, stoppedNow: false, watchers: CountList.create(0)}
 	end 'new'
 end 'SharedData'
 

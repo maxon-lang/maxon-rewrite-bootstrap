@@ -18,57 +18,110 @@
 //   place with against turnBehaviours decides it: a send to a service that is not behind costs what a send cost before.
 //   The length rule bounds the queue in messages, whatever the speeds; the turn rule slows senders sooner where the
 //   service runs whole turns without catching up.
-// - A slowed sender waits until the receiver catches up, which is when a turn empties its queue, not when it falls back
-//   under a turn's worth: a sender that alone outruns a receiver is slowed once per turn's worth it hands on, never on
-//   every message.
+// - A slowed sender waits until the receiver has started the messages counted ahead of it as it was slowed, its mark, or
+//   catches up, which is when a turn empties its queue; not until the receiver falls back under a turn's worth, so a
+//   sender that alone outruns a receiver is slowed once per backlog it finds, never on every message. A mark is the count
+//   of the receiver's started messages plus the gate's places that are queued or on their way and the posted messages
+//   queued (slowedMark), taken under the lock of the receiver's list, and a start that brings the started count to the
+//   oldest mark lets go, in the order they were slowed, the senders whose marks it has passed (startCounted,
+//   takeProgress). So a service that never gets ahead of its own posted messages (timers re-armed in their handlers
+//   faster than it handles them, readiness) still lets a sender go once it has worked through what was ahead of it, where
+//   an empty queue never comes. The receiver stays behind until its queue empties, so underLoad, the overload policies and
+//   sheds see it behind for as long, and its senders are slowed at each send. A receiver that is listed on another lets
+//   its own senders go only by catching up or by its own mute, as it drains on (the bounds below), and a listed service's
+//   send to the receiver it is listed on moves its mark to that send's (markAgain), so it is let go only once the
+//   receiver has started every message it sent while listed.
 // - A service that sends to one that is behind is listed on it and muted at the end of a handler: the behaviour's release
 //   is kept, so the service holds its cown and runs no next message, nothing waits inside a handler, and no green thread
 //   is held, only the behaviour's record (behaviourRelease). A task, a green thread that runs no message (main, a
-//   coroutine, a `when` that is no message of a service), parks at the send instead.
+//   coroutine, a `when` that is no message of a service), parks at the send instead, even where nothing is counted ahead
+//   of it, so that a listed receiver's task waits for its mute and cannot refill a drain one message at a time.
 // - A listed service that is behind itself, or has senders waiting on it, drains on until it holds no message, and is
 //   muted then (drainsOn): it is not stopped while it is overloaded (ponyc mutes a sender only if it is not overloaded
 //   itself), but its own senders are slowed, so what it passes on is what it holds, and it cannot pass on a refill.
-// - A service that catches up unmutes its senders in the order they were muted, a turn's worth at a time onto the global
+// - A service that lets its senders go unmutes them in the order they were muted, a turn's worth at a time onto the global
 //   run queue, the last of each batch carrying the rest, so a fan-in is not woken all at once to overload it again
 //   (ponyc #2980). There is no operation that applies pressure by hand, whose cycles deadlocked ponyc (#3382).
 //
-// The bound, in messages, is of the places a service's gate counts. A service catches up, letting its senders go, only
-// when its queue empties, and its length makes it behind, so it drains on and is muted (the progress argument) only then
-// too. A slowed task parks inside its send with its place counted and its message not yet queued, so when the queue
-// empties the count may still hold the place of a task parked on the service. One task alone holds at most that one,
-// which a turn covers: let go, it queues its message and sends unslowed until the count is turnBehaviours, and its next
-// send is slowed and parks it, so it adds its parked message, and one more each time a mute lets it go. A service never
-// holds a place unqueued, and adds the messages of its handlers from its first slowed send to its mute, which is that
-// one handler or, if it drains on, that one and those it holds, whose own senders are slowed in turn, and one handler
-// more each time such a mute lets it go. So main and a slow consumer: turnBehaviours + 1; main, a relay and the
-// consumer: turnBehaviours + 2 at the relay and 2 * turnBehaviours + 4 at the consumer, whose only sender is a service;
-// a chain adds a stage's bound at each stage. Several tasks and a slow service that only they send to:
-// max(turnBehaviours, tasks) + tasks. A task holds at most one place unqueued, the one it parks with or was let go with
-// and has not queued yet, and the catch-up acts only on a queue it finds empty under its lock (caughtUpIfSlowing), so
-// the count when it lets the senders go is at most one place per task. From then until the queue next empties, every
-// send that finds the larger of turnBehaviours and that count is slowed, and each task makes at most one slowed send:
-// it parks on the list that the next catch-up takes, and one that parked before is let go once, from the list it was on
-// or the rest an unmute carries. A chunk of a parallel loop runs on a task of its own, so its parts count as tasks. A
-// service is listed on one receiver at a time, so a second receiver that is behind
-// gets that service's next handler after each unmute by the first, and its bound counts on how often the first catches
-// up. A cycle whose handlers send more than they take grows, which no bound in messages could stop without stopping the
-// program. A kind of a coalescing policy adds one message to each bound, its pending word's, which its sends queue without
-// being slowed; a kind whose policy refuses or discards adds none.
+// The bound, in messages, is of the places a service's gate counts, its sent messages; its queue holds besides the posted
+// messages outstanding, which take no place in the gate and are never slowed, and which their owners bound: one for each
+// armed timer or ticker, each socket's arm and each watch of a stop. The posted ones only move marks later. The arguments
+// below are of the sent ones; T is turnBehaviours.
+//
+// What a release of a slowed sender leaves (property L): a sender queues each message before its next send, a task's
+// slowed one once it is let go and a service's at once, so the messages it sent before the slowed one were queued when it
+// took the lock to be listed, and the ones queued then are the first of those its mark counts to start. So a sender let
+// go by its mark, or by an empty queue, has every message it sent before the slowed one started. A sender let go by its
+// receiver's own mute (muteService) or stop at once has no such promise.
+//
+// Tasks only, to a service that sends to none, so is never muted: max(T, tasks) + tasks. Let s be the last time a send
+// went on unparked: unslowed, which finds fewer than T and no flag, or slowed and found caught up, which is fewer than T
+// and no flag under the lock, so the count at s is at most T. Every send after s parks its
+// task, and by L a task let go from the park of its slowed message r has every message before r started, so of those it
+// sent after s at most two have not started, r and the next it parks with, and if two have not, none of its places
+// counted at s is left. And when some task holds two, every place counted at s that has not started was still on its
+// way when that task parked, the queued ones having started before it was let go: a task's place unqueued, at most one a
+// task. So either every task holds at most one place sent after s, and the count is at most T + tasks, or every task
+// holds at most two in all, 2 * tasks.
+//
+// A message on its way to the queue as its sender's mark is passed, which posted messages queued after the mark may have
+// overtaken, is inside each bound below with no term of its own: L is of the sender's own earlier messages, which were
+// queued before its mark was taken, and the bounds count each sender's one place on its way already. Here it is a task's
+// place unqueued, of the at most one a task.
+//
+// A relay, which one task alone sends to: T + 2. With s as above, the count at s is at most T, and each of the task's
+// sends r1 ... rb after s parks it; let e(j) be the release of the park of rj. Where some e(j) before e(b) is one with L,
+// and e(q) the last of them, every message before rq has started, the releases e(q+1) ... e(b-1) are the relay's mutes,
+// and between two of its mutes the relay runs a handler of a message started after e(q): at most 3 of rq ... rb have
+// not started. Where none is, at least b - 2 of the messages counted at s or sent after it started after e(1), so at
+// most T + 2 have not. The one task's place on its way is one of rq ... rb, or of those counted at s.
+//
+// The consumer that such a relay alone sends to, one message a handler: max(3 * T, 2 * T + 2), where the relay's turns
+// run whole. The consumer sends to none, so is never muted, and lets the relay go only by its mark, which markAgain keeps
+// at the relay's last send while listed, or by an empty queue: L for each send but that last. So with s the last time the
+// relay sent unlisted (at most T counted then), a release of the relay after s leaves at most that last message of the
+// consumer unstarted, on its way (overtaken by posted messages, or an empty queue found before it was queued), and from s
+// the count grows, and from such a release it grows from 1, by the relay's sends from its first listed send to its mute,
+// E, one a handler: that handler and, if it drains on, what it holds. 1 is at most T, so the message on its way needs no
+// term. Its task is not let go by the relay's progress while the relay is listed. If the task is
+// parked as the first listed handler ends, it stays parked until the mute, and E is at most 1 + T + 1, the relay's T + 2
+// less the place parked. If it is not, the drain goes on past a handler only while the relay holds T or is behind; held
+// at T it lets the task send unslowed after each start, once a handler, until the turn rule makes the relay behind,
+// within T handlers counting the first, and then parks it: E is at most 1 + (T - 1) + T. So the consumer holds at most
+// T + 2 * T, or 2 * T + 2 where T < 2: 192 natively, which the native test of the shape holds it to. The 2 * T + 4
+// stated before (132) took the task to be slowed throughout a drain, which a drain kept on by the relay's length alone
+// does not give, under the rule of an empty queue as under marks; for the interpreter's turns of 1 to 4 what is proved is
+// within 2 * T + 4, which its oracle holds the consumer to. The turn rule makes the relay behind within T handlers only
+// where its turns run whole, as the interpreter's always do: natively a turn that ends early (preempted, or a strand)
+// marks nothing behind, so a relay whose handlers outlast the slice is not bounded by this argument.
+//
+// A chain adds a stage's bound at each stage. A chunk of a parallel loop runs on a task of its own, so its parts count as
+// tasks. A service is listed on one receiver at a time, so a second receiver that is behind gets that service's next
+// handler after each unmute by the first, and its bound counts on how often the first lets it go. A cycle whose handlers
+// send more than they take grows, which no bound in messages could stop without stopping the program. A kind of a
+// coalescing policy adds one message to each bound, its pending word's, which its sends queue without being slowed; a kind
+// whose policy refuses or discards adds none.
 //
 // Why muting never stops the program, with no service, task or behaviour that can run (the progress argument): a sender
-// is listed on a receiver under the receiver's lock while the receiver slows senders, and the receiver's catching up
-// takes its whole list under that lock, so every entry is unmuted once its receiver catches up. A receiver that is not
-// muted runs and catches up, since a handler never waits on another service. So a muted sender could wait for ever only
-// in a cycle of muted services, each listed on the next for good. A service is muted under its own lock, which lets go
-// every sender listed on it so far (muteService), so whoever stays listed on a muted service was listed after its mute,
-// and was itself muted later still, when its handler ended. Around a cycle each mute would come after the next one's:
-// none closes, whatever the rule that made the receivers behind. Tasks wait on no one but a receiver. A muted behaviour
-// stays counted among the live ones, so the program does not end before it has run.
+// is listed on a receiver under the receiver's lock while the receiver slows senders, with a mark that counts only
+// messages queued or on their way to the queue that wait on nobody (slowedMark leaves out the places of parked tasks),
+// so a receiver that runs reaches every mark; and its catching up takes its whole list under that lock. A receiver
+// listed on another lets its senders go when it catches up or is muted, and while it drains on it runs. So every entry
+// is unmuted once its receiver has run through what was ahead of it, caught up or been muted. A receiver that
+// is not muted runs, since a handler never waits on another service. So a muted sender could wait for ever only in a
+// cycle of muted services, each listed on the next for good. A service is muted under its own lock, which lets go every
+// sender listed on it so far (muteService), so whoever stays listed on a muted service was listed after its mute, and was
+// itself muted later still, when its handler ended. Around a cycle each mute would come after the next one's: none
+// closes, whatever the rule that made the receivers behind. Tasks wait on no one but a receiver. A muted behaviour stays
+// counted among the live ones, so the program does not end before it has run.
 
 // The gate's flags, above every count of messages: serviceClosed once the service is shut down, serviceBehind while a
 // turn ended at turnBehaviours with messages queued, serviceMuted while a message of the service waits, its release kept,
 // for a service it sent to, and serviceStoppedNow, with serviceClosed, once stopNow ended it. serviceQueued masks the count
-// below them.
+// of places, in the low half; serviceParked, between the two, counts those of them that are the places of slowed tasks that
+// have not queued their messages yet, a serviceParkedUnit each, which a slowed task's own compare-exchange of the gate adds
+// with its place (serviceReserve) and the lock holder that lets it go takes off (ringTaken, takeProgress). serviceSlowing
+// masks the flags and the count, which is what is compared with turnBehaviours.
 let serviceClosed = 0x4000000000000000 as Count
 
 let serviceBehind = 0x2000000000000000 as Count
@@ -77,7 +130,16 @@ let serviceMuted = 0x1000000000000000 as Count
 
 let serviceStoppedNow = 0x0800000000000000 as Count
 
-let serviceQueued = 0x07ffffffffffffff as Count
+let serviceQueued = 0x00000000ffffffff as Count
+
+let serviceParked = 0x07ffffff00000000 as Count
+
+let serviceParkedUnit = 0x0000000100000000 as Count
+
+let serviceSlowing = 0x78000000ffffffff as Count
+
+// noMark is a service's serviceReleaseAtOffset while no sender is slowed on it: no count of starts reaches it.
+let noMark = 0xffffffffffffffff as Count
 
 // The words rt.service.reserve gives: a place taken, or the case of SendError plus 1 (sendServiceStopped of the
 // built-ins).
@@ -118,29 +180,49 @@ function serviceCreate(state Count) returns Count
 	__Raw.storeWord(service, offset: cownEndingOffset, value: 0)
 	__Raw.storeWord(service, offset: cownValueOffset, value: state)
 	__Raw.storeWord(service, offset: serviceGateOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceHandledOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceReleaseAtOffset, value: noMark)
 	__Raw.storeWord(service, offset: serviceMutedOffset, value: noSender)
 	__Raw.storeWord(service, offset: serviceMostOffset, value: 0)
 	__Raw.storeWord(service, offset: serviceLinkOffset, value: noSender)
 	__Raw.storeWord(service, offset: serviceWaitOffset, value: waitNone)
 	__Raw.storeWord(service, offset: serviceArmedOffset, value: 0)
+	__Raw.storeWord(service, offset: servicePostedOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceMarkOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceOnOffset, value: noService)
 	return service
 end 'serviceCreate'
 
 // serviceReserve takes a place in the mailbox for a message, by a compare-exchange of the gate, unless the service is shut
 // down. The gate is read once, as an acquire, and then by each compare-exchange that fails, so a send takes one locked
-// operation on the gate when no other send races it. The word it took the place with slows the sender when it is
-// turnBehaviours or more: a flag below serviceClosed, or that many messages queued before this one.
+// operation on the gate when no other send races it. The word it took the place with slows the sender when its flags and
+// count are turnBehaviours or more: a flag below serviceClosed, or that many messages queued before this one. A slowed
+// task, which parks with its place taken and its message not queued, adds a serviceParkedUnit in the same exchange, so
+// that whoever reads the gate sees the place and that it is not queued at once (slowedMark).
 function serviceReserve(handle Count) returns Count
 	var gate = __Raw.loadAcquire(handle, offset: serviceGateOffset)
+	var parks = false
+	var asked = false
 	while true 'gate'
 		if gate >= serviceClosed 'closed'
 			return sendStopped
 		end 'closed'
-		let seen = __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: 1))
+		let slowed = (gate and serviceSlowing) >= turnBehaviours
+		var desired = __Raw.wrappingAdd(gate, right: 1)
+		if slowed 'slowed'
+			if not asked 'ask'
+				parks = sendParks()
+				asked = true
+			end 'ask'
+			if parks 'parks'
+				desired = __Raw.wrappingAdd(desired, right: serviceParkedUnit)
+			end 'parks'
+		end 'slowed'
+		let seen = __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: desired)
 		if seen == gate 'taken'
-			if gate >= turnBehaviours 'behind'
+			if slowed 'behind'
 				noteQueued(handle, queued: __Raw.wrappingAdd(gate and serviceQueued, right: 1))
-				senderSlowed(handle)
+				senderSlowed(handle, parks: parks)
 			end 'behind'
 			return sendAccepted
 		end 'taken'
@@ -172,11 +254,16 @@ function serviceCreatePending(state Count, words Count) returns Count
 	__Raw.storeWord(service, offset: cownEndingOffset, value: 0)
 	__Raw.storeWord(service, offset: cownValueOffset, value: state)
 	__Raw.storeWord(service, offset: serviceGateOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceHandledOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceReleaseAtOffset, value: noMark)
 	__Raw.storeWord(service, offset: serviceMutedOffset, value: noSender)
 	__Raw.storeWord(service, offset: serviceMostOffset, value: 0)
 	__Raw.storeWord(service, offset: serviceLinkOffset, value: noSender)
 	__Raw.storeWord(service, offset: serviceWaitOffset, value: waitNone)
 	__Raw.storeWord(service, offset: serviceArmedOffset, value: 0)
+	__Raw.storeWord(service, offset: servicePostedOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceMarkOffset, value: 0)
+	__Raw.storeWord(service, offset: serviceOnOffset, value: noService)
 	var i = 0 as Count
 	while i < words 'words'
 		__Raw.storeWord(service, offset: pendingOffset(i), value: 0)
@@ -196,7 +283,7 @@ function serviceTryReserve(handle Count) returns Count
 		if gate >= serviceClosed 'closed'
 			return sendStopped
 		end 'closed'
-		if gate >= turnBehaviours 'behind'
+		if (gate and serviceSlowing) >= turnBehaviours 'behind'
 			return sendBehind
 		end 'behind'
 		let seen = __Raw.compareExchange(handle, offset: serviceGateOffset, expected: gate, desired: __Raw.wrappingAdd(gate, right: 1))
@@ -263,7 +350,7 @@ function serviceUnderLoad() returns bool
 		return false
 	end 'task'
 	let gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
-	return gate < serviceClosed and gate >= turnBehaviours
+	return gate < serviceClosed and (gate and serviceSlowing) >= turnBehaviours
 end 'serviceUnderLoad'
 
 // Shedding (README, "Overload policies"). Every behaviour of a service whose type has kinds of a SheddingPolicy holds a mark
@@ -452,12 +539,12 @@ function serviceMostQueued(handle Count) returns Count
 	return __Raw.loadAcquire(handle, offset: serviceMostOffset)
 end 'serviceMostQueued'
 
-// serviceStart gives a message's place in the mailbox back as its behaviour starts, and names the service as the one the
-// green thread runs a message of, and honours a stop the monitor asked for (honourAsk). state is the address of the
-// cown's value, which the behaviour is given.
+// serviceStart gives a message's place in the mailbox back as its behaviour starts, counting it among the started ones
+// (startCounted), and names the service as the one the green thread runs a message of, and honours a stop the monitor
+// asked for (honourAsk). state is the address of the cown's value, which the behaviour is given.
 function serviceStart(state Count)
 	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
-	_ = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: stepDown)
+	startCounted(handle, offset: serviceGateOffset)
 	let context = __Raw.threadContext()
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
 	__Raw.storeWord(g, offset: greenServiceOffset, value: handle)
@@ -472,9 +559,25 @@ function serviceNew(state Count, capacity Count) returns Count
 end 'serviceNew'
 
 function serviceTaken(state Count)
-	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
-	_ = __Raw.atomicAdd(handle, offset: serviceGateOffset, value: stepDown)
+	startCounted(__Raw.wrappingSub(state, right: cownValueOffset), offset: serviceGateOffset)
 end 'serviceTaken'
+
+// startCounted is what the holder of a service does as one of its messages starts: the count of started messages steps,
+// and then the count the message was among, the gate's for a sent one or servicePostedOffset for a posted one, steps down,
+// so that a mark read from the counts and then the started count is never short (slowedMark). A start that brings the
+// started count to the oldest slowed sender's mark lets go the senders it has passed (takeProgress), unless the service is
+// itself listed on another, whose catching up or its own mute lets them go (the bounds in the header). Only the holder
+// writes the started count, and it lies beside the gate, so a start that passes no mark reads one more word than it did.
+function startCounted(handle Count, offset Count)
+	let handled = __Raw.wrappingAdd(__Raw.loadWord(handle, offset: serviceHandledOffset), right: 1)
+	__Raw.storeRelease(handle, offset: serviceHandledOffset, value: handled)
+	_ = __Raw.atomicAdd(handle, offset: offset, value: stepDown)
+	if handled >= __Raw.loadWord(handle, offset: serviceReleaseAtOffset) 'passed'
+		if __Raw.loadAcquire(handle, offset: serviceWaitOffset) == waitNone 'free'
+			takeProgress(handle)
+		end 'free'
+	end 'passed'
+end 'startCounted'
 
 function cownRelease(record Count)
 	releaseCowns(record, service: noService)
@@ -529,6 +632,7 @@ end 'serviceStopNow'
 function letSendersGo(service Count)
 	let newest = lockMuted(service)
 	clearGateFlag(service, flag: serviceBehind)
+	ringTaken(service, newest: newest)
 	unlockMuted(service, newest: noSender)
 	unmuteRing(newest)
 end 'letSendersGo'
@@ -703,6 +807,8 @@ end 'postedQueue'
 // while the behaviour ahead still holds one, so the count never reaches 0 here.
 function postedEnqueue(record Count) returns bool
 	let cown = __Raw.loadWord(record, offset: cownOffset(1, index: 0))
+	// Counted before it is linked, as a send's place is, so a mark read meanwhile counts it (slowedMark).
+	_ = __Raw.atomicAdd(cown, offset: servicePostedOffset, value: 1)
 	let slot = requestSlot(record, index: 0)
 	__Raw.storeWord(slot, offset: requestCownOffset, value: cown)
 	__Raw.storeWord(slot, offset: requestOwnerOffset, value: record)
@@ -738,6 +844,7 @@ end 'servicePostedCancel'
 // its captures dropped by its thunk and its handler never run.
 function servicePostedStart(state Count, horizon Count) returns Count
 	let handle = __Raw.wrappingSub(state, right: cownValueOffset)
+	startCounted(handle, offset: servicePostedOffset)
 	let context = __Raw.threadContext()
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
 	__Raw.storeWord(g, offset: greenServiceOffset, value: handle)
@@ -1055,21 +1162,29 @@ function serviceStopStart(state Count) returns Count
 	return stopRun
 end 'serviceStopStart'
 
+// sendParks is whether a slowed send parks its sender: a task, a green thread that runs no message of a service.
+function sendParks() returns bool
+	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
+	return g != noGreen and messageOf(g) == noService
+end 'sendParks'
+
 // senderSlowed is what a send to a service that is behind does to its sender, once its message has its place: another
-// service whose message runs is listed on it, to be muted at the end of a handler, and a task parks until the receiver
-// catches up.
-function senderSlowed(receiver Count)
+// service whose message runs is listed on it, to be muted at the end of a handler, and a task, whose place the gate counts
+// as parked (parks), parks until the receiver has started the messages it counted ahead of it.
+function senderSlowed(receiver Count, parks bool)
 	let context = __Raw.threadContext()
 	let g = __Raw.loadWord(context, offset: contextGreenOffset)
+	if parks 'task'
+		parkSender(context, receiver: receiver, g: g)
+		return
+	end 'task'
 	if g == noGreen 'off'
 		return
 	end 'off'
 	let sender = messageOf(g)
 	if sender != noService 'message'
 		listService(receiver, sender: sender)
-		return
 	end 'message'
-	parkSender(context, receiver: receiver, g: g)
 end 'senderSlowed'
 
 // messageOf is the service whose message g runs, or noService for a task: a green thread that runs no behaviour, or one that
@@ -1090,10 +1205,19 @@ function isMessageOf(record Count, service Count) returns bool
 end 'isMessageOf'
 
 // listService lists a sender on a receiver that is behind, once, however many such receivers it sends to: it stays listed
-// until the receiver catches up, and is muted at the end of the first of its handlers that leaves it not exempt
-// (behaviourRelease). A service never waits on itself.
+// until the receiver has started every message the sender sent it while listed, or catches up, and is muted at the end of
+// the first of its handlers that leaves it not exempt (behaviourRelease). A service never waits on itself. A send of a
+// listed sender to the receiver it is listed on moves its mark to that send's (markAgain), so that it is let go only once
+// the receiver has started all it sent while listed, as when the receiver had to empty.
 function listService(receiver Count, sender Count)
-	if sender == receiver or __Raw.loadAcquire(sender, offset: serviceWaitOffset) != waitNone 'listed'
+	if sender == receiver 'self'
+		return
+	end 'self'
+	let wait = __Raw.loadAcquire(sender, offset: serviceWaitOffset)
+	if wait != waitNone 'listed'
+		if wait == waitListed and __Raw.loadAcquire(sender, offset: serviceOnOffset) == receiver 'again'
+			markAgain(receiver, sender: sender)
+		end 'again'
 		return
 	end 'listed'
 	let newest = lockMuted(receiver)
@@ -1101,19 +1225,97 @@ function listService(receiver Count, sender Count)
 		unlockMuted(receiver, newest: newest)
 		return
 	end 'caughtUp'
+	let entry = __Raw.wrappingAdd(sender, right: senderService)
+	__Raw.storeWord(sender, offset: serviceMarkOffset, value: ringMark(receiver, newest: newest))
+	__Raw.storeWord(sender, offset: serviceOnOffset, value: receiver)
 	__Raw.storeWord(sender, offset: serviceWaitOffset, value: waitListed)
-	unlockMuted(receiver, newest: ringAdd(newest, entry: __Raw.wrappingAdd(sender, right: senderService)))
+	unlockMuted(receiver, newest: ringAdd(newest, entry: entry))
 end 'listService'
 
-// parkSender parks a task on a receiver that is behind until it catches up. The unmute that readies it may hand it the rest
-// of the list, which it unmutes in turn.
+// markAgain moves the mark of a service listed on a receiver to what the receiver holds now, under the receiver's lock, and
+// the receiver's release point with it where the service is the oldest entry. The service is the one whose message runs,
+// so it is not muted, and an unmute that took it off the ring and has not yet cleared its wait finds the mark unread.
+function markAgain(receiver Count, sender Count)
+	let newest = lockMuted(receiver)
+	if newest != noSender and __Raw.loadAcquire(sender, offset: serviceWaitOffset) == waitListed 'listed'
+		let mark = slowedMark(receiver)
+		__Raw.storeWord(sender, offset: serviceMarkOffset, value: mark)
+		if senderLink(newest) == __Raw.wrappingAdd(sender, right: senderService) 'oldest'
+			__Raw.storeRelease(receiver, offset: serviceReleaseAtOffset, value: mark)
+		end 'oldest'
+	end 'listed'
+	unlockMuted(receiver, newest: newest)
+end 'markAgain'
+
+// slowedMark is the mark of a sender slowed on a service now, read under the lock of its list: how many of its messages
+// will have started once every message counted ahead of the sender has, which is those started, the gate's places that are
+// queued or about to be, and the posted messages queued. The places of slowed tasks that have not queued their messages
+// are left out (serviceParked), and must be: a task B that reserved before a task A, and so is counted in the gate A
+// reads, may take this lock after A and park behind it, and its message is queued only once it is let go, after A. A mark
+// of A that counted B's place would wait for a message that waits for A, which only an empty queue undoes, and a service
+// whose posted messages refill it never empties. Every place the mark counts is queued, or is a send's or a let-go task's
+// on its way to the queue that waits on nobody, so the service reaches the mark by running. The counts are read before the
+// started count, and a start steps the started count first (startCounted), so a start in between can make the mark
+// longer, never shorter.
+function slowedMark(service Count) returns Count
+	let ahead = countedAhead(service)
+	return __Raw.wrappingAdd(__Raw.loadAcquire(service, offset: serviceHandledOffset), right: ahead)
+end 'slowedMark'
+
+// countedAhead is what a mark counts ahead of a sender slowed on a service: the gate's places less the parked ones, and the
+// posted messages queued.
+function countedAhead(service Count) returns Count
+	let gate = __Raw.loadAcquire(service, offset: serviceGateOffset)
+	let posted = __Raw.loadAcquire(service, offset: servicePostedOffset)
+	let queued = __Raw.wrappingSub(gate and serviceQueued, right: (gate and serviceParked) / serviceParkedUnit)
+	return __Raw.wrappingAdd(queued, right: posted)
+end 'countedAhead'
+
+// ringMark is the mark of a sender that joins a service's ring now, under its lock: slowedMark, or the newest entry's where
+// that is later, so the marks along the ring never fall and its oldest entries are the ones a start passes first. A ring
+// that was empty makes the mark the service's release point.
+function ringMark(service Count, newest Count) returns Count
+	var mark = slowedMark(service)
+	if newest == noSender 'first'
+		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: mark)
+		return mark
+	end 'first'
+	let before = entryMark(newest)
+	if before > mark 'later'
+		mark = before
+	end 'later'
+	return mark
+end 'ringMark'
+
+function entryMark(entry Count) returns Count
+	if (entry and senderService) != 0 'service'
+		return __Raw.loadWord(__Raw.wrappingSub(entry, right: senderService), offset: serviceMarkOffset)
+	end 'service'
+	return __Raw.loadWord(entry, offset: greenMarkOffset)
+end 'entryMark'
+
+// unparkPlaces takes the places of n slowed tasks that a lock holder lets go off the gate's parked count: from then on
+// each is a place on its way to the queue.
+function unparkPlaces(service Count, n Count)
+	if n > 0 'some'
+		_ = __Raw.atomicAdd(service, offset: serviceGateOffset, value: __Raw.wrappingSub(0, right: try n * serviceParkedUnit otherwise panic("a parked count past the gate")))
+	end 'some'
+end 'unparkPlaces'
+
+// parkSender parks a task on a receiver that is behind until the receiver has started the messages counted ahead of it
+// (slowedMark), or catches up, or is muted. A mark that counts nothing ahead is passed by the receiver's next start, or
+// its queue empties; the task parks all the same, since a task that went on at once while the receiver drains on, listed
+// on another, would hand it one more message each time it reached its last, and the drain would never end. The unmute that
+// readies it may hand it the rest of the list, which it unmutes in turn.
 function parkSender(context Count, receiver Count, g Count)
 	__Raw.storeWord(g, offset: greenMuteOffset, value: noSender)
 	let newest = lockMuted(receiver)
 	if not slowsSenders(receiver) 'caughtUp'
+		unparkPlaces(receiver, n: 1)
 		unlockMuted(receiver, newest: newest)
 		return
 	end 'caughtUp'
+	__Raw.storeWord(g, offset: greenMarkOffset, value: ringMark(receiver, newest: newest))
 	unlockMuted(receiver, newest: ringAdd(newest, entry: g))
 	park(context)
 	let rest = __Raw.loadWord(g, offset: greenMuteOffset)
@@ -1192,6 +1394,7 @@ end 'keepsRelease'
 function muteService(service Count)
 	let newest = lockMuted(service)
 	setGateFlag(service, flag: serviceMuted)
+	ringTaken(service, newest: newest)
 	unlockMuted(service, newest: noSender)
 	unmuteRing(newest)
 end 'muteService'
@@ -1229,7 +1432,9 @@ end 'releasedIdle'
 // caughtUpIfSlowing is what the release that empties a service's queue does: the service is no longer behind, and its
 // senders are unmuted. The queue is read again under the lock: the release found it empty before, and a thread stopped
 // between the two can take the lock after the service has filled again, when a catch-up would let go senders that sent
-// into a full queue. A message queued since holds the tail, and the release that next finds the queue empty catches up.
+// into a full queue. A message queued since holds the tail, and the release that next finds the queue empty catches up,
+// or a start passes the marks of its senders (takeProgress). An empty queue is where every mark is passed but those that
+// count a place still on its way to the queue.
 function caughtUpIfSlowing(service Count)
 	if (__Raw.loadAcquire(service, offset: serviceGateOffset) and serviceBehind) != 0 or __Raw.loadAcquire(service, offset: serviceMutedOffset) != noSender 'slowing'
 		let newest = lockMuted(service)
@@ -1238,10 +1443,77 @@ function caughtUpIfSlowing(service Count)
 			return
 		end 'refilled'
 		clearGateFlag(service, flag: serviceBehind)
+		ringTaken(service, newest: newest)
 		unlockMuted(service, newest: noSender)
 		unmuteRing(newest)
 	end 'slowing'
 end 'caughtUpIfSlowing'
+
+// ringTaken is what a lock holder that takes a service's whole ring off does under the lock: the places of the tasks on it
+// are no longer parked, and no mark is left to reach.
+function ringTaken(service Count, newest Count)
+	__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: noMark)
+	if newest == noSender 'empty'
+		return
+	end 'empty'
+	var tasks = 0 as Count
+	var entry = newest
+	while true 'ring'
+		if (entry and senderService) == 0 'task'
+			tasks = __Raw.wrappingAdd(tasks, right: 1)
+		end 'task'
+		entry = senderLink(entry)
+		if entry == newest 'round'
+			break 'ring'
+		end 'round'
+	end 'ring'
+	unparkPlaces(service, n: tasks)
+end 'ringTaken'
+
+// takeProgress is what the holder of a service does at a start that has reached the release point: under the lock it lets go,
+// oldest first, the senders whose marks the service's started count has passed, and makes the next one's mark the release
+// point, or noMark where none is left. The marks never fall along the ring (ringMark), so those passed are the oldest. The
+// decision is the lock holder's, on the started count, which only grows: no sender is let go on a count that was past.
+function takeProgress(service Count)
+	let newest = lockMuted(service)
+	if newest == noSender 'none'
+		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: noMark)
+		unlockMuted(service, newest: newest)
+		return
+	end 'none'
+	let handled = __Raw.loadWord(service, offset: serviceHandledOffset)
+	let oldest = senderLink(newest)
+	var last = noSender
+	var entry = oldest
+	var tasks = 0 as Count
+	while entryMark(entry) <= handled 'passed'
+		if (entry and senderService) == 0 'task'
+			tasks = __Raw.wrappingAdd(tasks, right: 1)
+		end 'task'
+		last = entry
+		if entry == newest 'all'
+			break 'passed'
+		end 'all'
+		entry = senderLink(entry)
+	end 'passed'
+	if last == noSender 'early'
+		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: entryMark(oldest))
+		unlockMuted(service, newest: newest)
+		return
+	end 'early'
+	unparkPlaces(service, n: tasks)
+	if last == newest 'whole'
+		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: noMark)
+		unlockMuted(service, newest: noSender)
+	end 'whole' else 'part'
+		let next = senderLink(last)
+		setSenderLink(newest, link: next)
+		__Raw.storeRelease(service, offset: serviceReleaseAtOffset, value: entryMark(next))
+		unlockMuted(service, newest: newest)
+	end 'part'
+	setSenderLink(last, link: noSender)
+	unmuteFrom(oldest)
+end 'takeProgress'
 
 // unmuteRing unmutes the entries of a ring taken off its service, oldest first.
 function unmuteRing(newest Count)

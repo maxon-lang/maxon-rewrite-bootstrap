@@ -636,7 +636,8 @@ function entryServiceStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Ha
 		panic("interp: rt.service.start is given no service's state")
 	end 'notState'
 	let at = vm.h.oData[service]
-	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a message taken that no send reserved")
+	let passed = startTaken(vm.h.shareds[at])
+	try unmuteEntries(vm, senders: passed)
 	vm.threads[vm.cur].service = service
 	let b = vm.threads[vm.cur].behaviour
 	noteHandled(vm, b: b)
@@ -644,10 +645,14 @@ end 'entryServiceStart'
 
 // Backpressure, as the runtime's (runtime/service.maxon), with vm.turnLimit for its turn: a service is behind when a send
 // finds a turn's worth of its messages queued, counting its own; once a turn of its messages has run with more queued, until
-// its queue empties; and while it is muted. Another service whose message sends to it is listed on it until it catches up,
-// and muted at the end of a handler unless it drains on (drainsOn): its behaviour keeps its cowns until the receiver catches
-// up, and a service that is muted lets go the senders listed on it. A task, a thread that runs no message, parks at the
-// send. A service that catches up unmutes its senders in the order they were listed.
+// its queue empties; and while it is muted. Another service whose message sends to it is listed on it, with a mark, and
+// muted at the end of a handler unless it drains on (drainsOn): its behaviour keeps its cowns until it is let go, and a
+// service that is muted lets go the senders listed on it. A task, a thread that runs no message, parks at the send, with a
+// mark. A sender's mark is how many of the receiver's messages will have started once those counted ahead of it have: the
+// places of the gate, less those of the tasks parked on it, which are queued only once they are let go (listSender); a
+// listed service's send to the same receiver moves its mark to that send's (markAgain). A start that passes the oldest
+// marks lets those senders go, in order, unless the receiver is listed on another itself (startTaken), and a service whose
+// queue empties lets them all go. The interpreter has no posted messages, so a mark counts none.
 let muteNone = 0 as Count
 
 let muteKept = 1 as Count
@@ -671,18 +676,93 @@ function senderSlowed(mutates vm Vm, receiver Count)
 	let at = vm.h.oData[receiver]
 	if sender != 0 'message'
 		let own = vm.h.oData[sender]
-		if sender == receiver or vm.h.shareds[own].listedOn != 0 'listed'
+		let on = vm.h.shareds[own].listedOn
+		let entry = try sender * senderTag otherwise panic("interp: an object past a word")
+		if sender == receiver 'self'
+			return
+		end 'self'
+		if on == receiver 'again'
+			markAgain(vm.h.shareds[at], entry: entry)
+			return
+		end 'again'
+		if on != 0 'listed'
 			return
 		end 'listed'
-		vm.h.shareds[at].senders.push(try sender * senderTag otherwise panic("interp: an object past a word"))
+		listSender(vm.h.shareds[at], entry: entry, own: 0)
 		vm.h.shareds[own].listedOn = receiver
 		return
 	end 'message'
-	vm.h.shareds[at].senders.push(try t * senderTag + 1 otherwise panic("interp: a thread past a word"))
+	listSender(vm.h.shareds[at], entry: try t * senderTag + 1 otherwise panic("interp: a thread past a word"), own: 1)
 	// The send has its place, so the task goes on after it once readied, and does not take another.
 	vm.post = true
 	parkThread(vm)
 end 'senderSlowed'
+
+// countedAhead is what a mark counts ahead of a sender slowed on a service: the places of its gate, less those of the tasks
+// parked on it, whose messages are not queued.
+function countedAhead(d SharedData) returns Count
+	var parked = 0 as Count
+	for e in d.senders 'senders'
+		if e mod senderTag == 1 'task'
+			parked = try parked + 1 otherwise panic("interp: a count of tasks past a word")
+		end 'task'
+	end 'senders'
+	return try d.gate mod serviceClosed - parked otherwise panic("interp: more tasks parked than places")
+end 'countedAhead'
+
+// listSender lists entry on a service with its mark, no earlier than the mark of the entry before: a task (own 1) has its own
+// place in the gate and not queued, which its mark leaves out. A task parks even where nothing is counted ahead of it, as
+// the runtime's does (parkSender).
+function listSender(mutates d SharedData, entry Count, own Count)
+	let ahead = try countedAhead(d) - own otherwise panic("interp: a parked task without its place")
+	var mark = (try d.handled + ahead otherwise panic("interp: a mark past a word")) as Count
+	if not d.marks.isEmpty() 'before'
+		let last = d.marks.last()
+		if last > mark 'later'
+			mark = last
+		end 'later'
+	end 'before'
+	d.senders.push(entry)
+	d.marks.push(mark)
+end 'listSender'
+
+// markAgain moves the mark of a listed service to what its receiver holds now, in its place on the list.
+function markAgain(mutates d SharedData, entry Count)
+	let mark = try d.handled + countedAhead(d) otherwise panic("interp: a mark past a word")
+	var marks = CountList.create(0)
+	for i in 0 upto d.senders.count() 'senders'
+		let e = d.senders.get(i)
+		marks.push(mark if e == entry else try d.marks.get(i) otherwise 0)
+	end 'senders'
+	d.marks = marks
+end 'markAgain'
+
+// startTaken is a message's start on a service: its place is given back and the count of those started steps, and the senders
+// whose marks that count has passed are taken off the list, oldest first, to be let go, unless the service is listed on
+// another, whose catching up or the service's own mute lets them go.
+function startTaken(mutates d SharedData) returns CountList
+	d.gate = try d.gate - 1 otherwise panic("interp: a message taken that no send reserved")
+	d.handled = try d.handled + 1 otherwise panic("interp: a count of starts past a word")
+	var passed = CountList.create(0)
+	if d.listedOn != 0 'listed'
+		return passed
+	end 'listed'
+	while not d.marks.isEmpty() 'marks'
+		let mark = d.marks.first()
+		if mark > d.handled 'ahead'
+			break 'marks'
+		end 'ahead'
+		_ = d.marks.remove(0)
+		passed.push(try d.senders.remove(0) otherwise panic("interp: a mark without its sender"))
+	end 'marks'
+	return passed
+end 'startTaken'
+
+// takeSenders takes every sender off a service's list, with their marks.
+function takeSenders(mutates d SharedData) returns CountList
+	d.marks = CountList.create(0)
+	return exchange(d.senders, value: CountList.create(0))
+end 'takeSenders'
 
 // messageOf is the service whose message thread t runs, or 0 for a task.
 function messageOf(vm Vm, t Count) returns Count
@@ -760,9 +840,13 @@ end 'caughtUp'
 // one that empties the queue makes the service catch up, which a task parked on it while it was muted waits for.
 function unmuteSenders(mutates vm Vm, service Count) throws Halt
 	let at = vm.h.oData[service]
-	let senders = exchange(vm.h.shareds[at].senders, value: CountList.create(0))
-	for i in 0 upto senders.count() 'senders'
-		let e = senders[i]
+	let senders = takeSenders(vm.h.shareds[at])
+	try unmuteEntries(vm, senders: senders)
+end 'unmuteSenders'
+
+// unmuteEntries lets go the senders taken off a list, in order.
+function unmuteEntries(mutates vm Vm, senders CountList) throws Halt
+	for e in senders 'senders'
 		if e mod senderTag == 1 'task'
 			readyThread(vm, t: e / senderTag)
 			continue 'senders'
@@ -779,7 +863,7 @@ function unmuteSenders(mutates vm Vm, service Count) throws Halt
 		vm.behaviours.mute[b] = muteNone
 		try releaseBehaviour(vm, b: b, service: s)
 	end 'senders'
-end 'unmuteSenders'
+end 'unmuteEntries'
 
 // mutedBehaviours are the behaviours that backpressure keeps muted, in the order they were scheduled.
 function mutedBehaviours(vm Vm) returns CountList
@@ -955,7 +1039,8 @@ end 'entryServiceSelfHandle'
 function entryServiceStopStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let service = stateService(vm, f: f, x: x, what: "rt.service.stopStart")
 	let at = vm.h.oData[service]
-	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a message taken that no send reserved")
+	let passed = startTaken(vm.h.shareds[at])
+	try unmuteEntries(vm, senders: passed)
 	vm.threads[vm.cur].service = service
 	let b = vm.threads[vm.cur].behaviour
 	if vm.h.shareds[at].stoppedNow 'stopped'
@@ -1231,7 +1316,8 @@ end 'markedOf'
 function entryServiceShedStart(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let service = stateService(vm, f: f, x: x, what: "rt.service.shedStart")
 	let at = vm.h.oData[service]
-	vm.h.shareds[at].gate = try vm.h.shareds[at].gate - 1 otherwise panic("interp: a message taken that no send reserved")
+	let passed = startTaken(vm.h.shareds[at])
+	try unmuteEntries(vm, senders: passed)
 	vm.h.shareds[at].sheds = true
 	vm.threads[vm.cur].service = service
 	let b = vm.threads[vm.cur].behaviour

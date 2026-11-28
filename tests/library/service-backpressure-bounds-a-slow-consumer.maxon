@@ -8,10 +8,11 @@
 //
 // relayed: main sends to a relay, which passes each message to the consumer. The relay has main alone for a sender, which
 // adds one message once slowed and, should the relay be muted with main waiting on it, which lets main go, one more:
-// turn + 2. While the consumer's queue holds a turn's worth, every send to it is slowed and it cannot catch up, so the
-// relay is listed on it and muted after the handler that was slowed, unless it drains on, behind itself or with main
-// waiting on it: main is then slowed, and the relay passes on the message it runs and what it holds, at most turn + 2,
-// and the one main adds, and is muted for the rest. So the consumer holds at most turn + (turn + 4).
+// turn + 2. While the consumer's queue holds a turn's worth, every send to it is slowed, so the relay is listed on it and
+// muted after the handler that was slowed, unless it drains on, behind itself, holding a turn's worth or with main
+// waiting on it. A drain kept on by the relay's length alone lets main send unslowed once a handler until the turn rule
+// makes the relay behind, so the relay passes on up to 2 * turn, and the consumer holds at most turn + 2 * turn, the
+// bound runtime/service.maxon proves.
 // schedules: 6
 //> direct: handled=3000, within its bound
 //> relayed: handled=3000, the relay and the consumer within their bounds
@@ -91,7 +92,7 @@ function main() returns ExitCode
 	let relayMost = relay.mostQueued()
 	let consumerMost = relayed.mostQueued()
 	let relayBound = turn + 2
-	let consumerBound = turn + turn + 4
+	let consumerBound = turn + turn + turn
 	let both = "within" if relayMost <= relayBound and consumerMost <= consumerBound else "past"
 	print("relayed: handled={handled}, the relay and the consumer {both} their bounds\n")
 	if both == "past" 'relayedPast'

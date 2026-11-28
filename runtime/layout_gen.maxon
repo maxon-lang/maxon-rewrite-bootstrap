@@ -66,26 +66,41 @@ let cownValueOffset = 24 as Count
 // cownBytes is the size of a cown.
 let cownBytes = 40 as Count
 
-// serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, plus its flags: serviceClosed once it is shut down, serviceBehind and serviceMuted.
+// serviceGateOffset is where a service holds its mailbox's gate, stepped atomically: how many messages are queued and not yet started, how many of those are the places of slowed tasks not yet queued (serviceParked), and its flags: serviceClosed once it is shut down, serviceBehind and serviceMuted.
 let serviceGateOffset = 40 as Count
 
+// serviceHandledOffset is where a service holds how many of its messages, sent and posted, have started, which only the holder of its cown writes, before the start gives its place back: a slowed sender is let go once it passes the sender's mark. It lies beside the gate, which each start steps already.
+let serviceHandledOffset = 48 as Count
+
+// serviceReleaseAtOffset is where a service holds the mark of the oldest sender slowed on it, written under the lock of its list, or noMark for none: a start that brings serviceHandledOffset to it lets the senders go whose marks it has passed.
+let serviceReleaseAtOffset = 56 as Count
+
 // serviceMutedOffset is where a service holds the senders slowed on it, a ring of entries named by its newest, whose link names the oldest, 0 for none, with mutedLock added while one holds it.
-let serviceMutedOffset = 48 as Count
+let serviceMutedOffset = 64 as Count
 
 // serviceMostOffset is where a service holds the most messages a slowed send found queued with its own, which only a slowed send writes: every count past turnBehaviours is one.
-let serviceMostOffset = 56 as Count
+let serviceMostOffset = 72 as Count
 
 // serviceLinkOffset is where a service listed on another holds its link in that one's ring, and once its unmute queues its kept message, the rest of the ring that message unmutes when it runs.
-let serviceLinkOffset = 64 as Count
+let serviceLinkOffset = 80 as Count
 
 // serviceWaitOffset is where a service holds 0, waitListed while it is listed on another that slows it, or the record of its message whose release is kept while it is muted.
-let serviceWaitOffset = 72 as Count
+let serviceWaitOffset = 88 as Count
 
 // serviceArmedOffset is where a service holds the posted records armed on event entries that would post to it, linked through their prev and next words, 0 for none, with armedLock added while one holds it.
-let serviceArmedOffset = 80 as Count
+let serviceArmedOffset = 96 as Count
+
+// servicePostedOffset is where a service holds how many posted messages are queued on it and have not started, stepped atomically: what a slowed sender's mark counts of them, as the gate counts sent ones.
+let servicePostedOffset = 104 as Count
+
+// serviceMarkOffset is where a service listed on another holds its mark there: the count of the receiver's messages that must start before it is let go.
+let serviceMarkOffset = 112 as Count
+
+// serviceOnOffset is where a service listed on another holds that receiver while it is listed, written under the receiver's lock.
+let serviceOnOffset = 120 as Count
 
 // serviceBytes is the size of a service.
-let serviceBytes = 88 as Count
+let serviceBytes = 128 as Count
 
 // behaviourPendingOffset is where a behaviour's record holds how many cowns it still waits for, plus one while it is being queued, stepped atomically: it runs when that reaches 0.
 let behaviourPendingOffset = 0 as Count
@@ -651,8 +666,11 @@ let greenServiceOffset = 512 as Count
 // greenMuteOffset is where a task readied from a list of slowed senders holds the entries its wake goes on to unmute; 0 otherwise.
 let greenMuteOffset = 520 as Count
 
+// greenMarkOffset is where a task parked on a service that slows it holds its mark: the count of the service's messages that must start before it is let go.
+let greenMarkOffset = 528 as Count
+
 // greenBytes is the size of a green thread's record.
-let greenBytes = 528 as Count
+let greenBytes = 536 as Count
 
 // selectorGreenOffset is where a selector holds the green thread that waits.
 let selectorGreenOffset = 0 as Count

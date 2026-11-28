@@ -1,0 +1,97 @@
+// A send to a service that its own posted messages keep behind returns: the service holds 32768 one-shot timers of 1 ms,
+// each re-armed by the handler of its own fire, which post faster than it handles them, so its queue never empties and
+// it stays behind. A slowed sender is let go once the service has started what was queued ahead of it when it was
+// slowed (its mark), not once the queue is empty, so each ask of main, a task the send parks, is answered after a
+// backlog's worth of fires; before, the send waited for an empty queue that never came. The service is behind while
+// main asks, so underLoad() sees it so. The stop ends the re-arming, and the end of the service cancels its timers.
+// native-only
+//> the first ask was answered after fires, behind
+//> the second ask was answered after more fires, behind
+//> the third ask was answered after more fires, behind
+//> stopped
+typealias Timers = Array with Timer
+
+let timers = 32768 as Count
+
+let asks = 3 as Count
+
+type Churner implements Ends
+	var timers as Timers
+	var fires as Count
+	var churning as bool
+
+	static function create() returns Self
+		return Self{timers: Timers.create(0), fires: 0, churning: true}
+	end 'create'
+
+	export function start(mutates self, n Count) returns Count
+		for i in 0 upto n 'arm'
+			self.timers.push(Timer.notifyAfter(1, message: self.handle.post(Churner.Message.tick(i))))
+		end 'arm'
+		return n
+	end 'start'
+
+	export function tick(mutates self, i Count)
+		self.fires = try self.fires + 1 otherwise self.fires
+		if self.churning 'again'
+			self.timers[i].rearm(1, message: self.handle.post(Churner.Message.tick(i)))
+		end 'again'
+	end 'tick'
+
+	// count is the fires so far, and whether the service is behind as it answers.
+	export function count() returns String
+		let behind = "behind" if underLoad() else "caught up"
+		return "{self.fires} {behind}"
+	end 'count'
+
+	export function stop(mutates self) returns bool
+		self.churning = false
+		return true
+	end 'stop'
+
+	function finish(consumes self)
+		var held = self.timers
+		while not held.isEmpty() 'cancel'
+			let t = held.pop()
+			t.cancel()
+		end 'cancel'
+		held.dropEmpty()
+	end 'finish'
+end 'Churner'
+
+function firesOf(answer String) returns Count
+	var value = 0 as Count
+	for i in 0 upto answer.byteLength() 'each'
+		let digit = try (answer.byteAt(i) as Count) - 48 otherwise return value
+		if digit > 9 'other'
+			return value
+		end 'other'
+		value = try value * 10 + digit otherwise return value
+	end 'each'
+	return value
+end 'firesOf'
+
+function main() returns ExitCode
+	let c = spawn Churner.create()
+	let started = try c.start(timers) otherwise panic("a send to a service that runs")
+	_ = await started
+	sleep(50)
+	var last = 0 as Count
+	let names = ["first", "second", "third"]
+	for k in 0 upto asks 'ask'
+		let pending = try c.count() otherwise panic("a send to a service that runs")
+		let answer = await pending
+		let fires = firesOf(answer)
+		let more = "fires" if k == 0 else "more fires"
+		let seen = more if fires > last else "no {more}"
+		let behind = "behind" if answer.endsWith(" behind") else "not behind"
+		print("the {names[k]} ask was answered after {seen}, {behind}\n")
+		last = fires
+	end 'ask'
+	let stopped = try c.stop() otherwise panic("a send to a service that runs")
+	let done = await stopped
+	if done 'stopped'
+		print("stopped\n")
+	end 'stopped'
+	return 0
+end 'main'

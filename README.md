@@ -5087,21 +5087,34 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   of its messages ends at 64 with more queued, until a turn empties its queue; and while it is muted. The count and the
   flags are in the gate that every send compare-exchanges already, so one comparison of it decides, and a send to a
   service that is not behind costs what it did. A service that sends to one that is behind is listed on it and muted at
-  the end of a handler: it keeps its cown and runs no next message until the receiver catches up, and nothing waits
+  the end of a handler: it keeps its cown and runs no next message until the receiver lets it go, and nothing waits
   inside a handler or holds a green thread meanwhile. A listed service that is behind itself, or has senders waiting on
   it, drains on until it holds no message and is muted then, so it is not stopped while overloaded but cannot pass on
   a refill. A task (main, a coroutine, a `when` that is no message) parks at the send instead, and a service's sends to
   itself never slow it. A slowed sender waits
-  until the receiver's queue empties, not until it falls under 64, so it is slowed at most once per turn's worth it
-  hands on; a service that catches up unmutes its senders in order, 64 at a time; and a service that is muted lets
-  its own senders go, which is what keeps any cycle of muted services from closing. The queue is bounded in messages
-  whatever the speeds where one task sends: 64 plus what each sender sends in a stretch where the receiver holds 64 or
-  more, one message for the task and the handler that was slowed (and, if it drains on, what it holds) for a service, and
-  a round more for each if the receiver is muted in the stretch: main and a slow consumer, 65; main, a relay and the
-  consumer, 66 at the relay and 132 at the consumer; N tasks and a slow consumer only they send to, max(64, N) + N. A
-  slowed task parks with its place counted and its message not yet queued, so a queue that empties can leave one place
-  per task held, and the catch-up reads the queue again under its lock and lets the senders go only if it is still empty,
-  so a thread stopped between the release and the lock cannot let them go into a queue that has filled again. A service is listed on one receiver at a time, so a second receiver that is behind gets its next
+  until the receiver has started what was counted ahead of it when it was slowed (its mark: the messages started, the
+  places of the gate that are queued or on their way, and the posted messages queued, read under the lock of the
+  receiver's list), or until its queue empties, not until it falls under 64, so it is slowed at most once per backlog it
+  finds; a service that lets its senders go unmutes them in order, 64 at a time; and a service that is muted lets its own
+  senders go, which is what keeps any cycle of muted services from closing. So a service that never gets ahead of its own
+  posted messages (timers re-armed in their handlers faster than it runs them) lets a sender go once it has worked
+  through what was ahead of it, where its queue never empties; it stays behind until its queue empties, so `underLoad()`
+  and the policies see it so. A service listed on another lets its own senders go only by emptying or by its mute, and a
+  listed service's send to the same receiver moves its mark there. A service behind on its own posted messages and
+  listed on a slow service downstream keeps its senders waiting while it drains on: that is the downstream's
+  backpressure reaching them, and it is intended. The places of slowed tasks that have not queued their
+  messages are a second count in the gate, which a mark leaves out: such a task may park after one that reserved later,
+  and a mark counting its place would wait for a message that waits for it. The queue is bounded in messages: the bound
+  of its sent messages, below, plus the posted messages outstanding on it, one for each armed timer or ticker, socket arm
+  and watch of a stop, which are never slowed. The sent bound, whatever the speeds where one task sends: main and a slow
+  consumer, 65; main, a relay and the consumer, 66 at the relay and at most 192 at the consumer (3 x 64, where the
+  relay's turns run whole: its drain, kept on by its length alone, lets main send unslowed once a handler until the turn
+  rule makes the relay behind; the 132 stated before took main to be slowed throughout); N tasks and a slow consumer only
+  they send to, max(64, N) + N, a task let go having every message it sent before started, so that it holds at most its
+  last one queued and its next one parked. A message still on its way to the queue as its sender is let go (overtaken by
+  posted messages) adds nothing: each bound counts a sender's one place on its way already. The header of
+  `runtime/service.maxon` derives each. A
+  service is listed on one receiver at a time, so a second receiver that is behind gets its next
   handler after each unmute by the first. `h.mostQueued()`, in the library tier, is the most messages a slowed send to
   the service found queued, exact once past 64, which tests hold the bound to. The interpreter models the same rules, with
   a turn of 1 to 4 messages drawn from the seed, and its deadlock report names each service muted with nothing left to
@@ -5109,8 +5122,11 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   succeeded is handled exactly once; each sender's messages to a service (a service's from all its handlers, a task's) are
   handled in the order sent; a run never stops with backpressure alone holding it, every waiting thread a task parked at a
   send, with services muted or tasks so parked (progress); and the most a service held stays within the bound above for
-  the shapes it is stated for: a service that sends to none and that only tasks send to (the parts of a parallel loop among
-  them), the larger of the turn and its tasks, plus one per task; a relay of one task to one service, the turn and 2; that relay's lone consumer, two turns and 4. An oracle that fails is an internal
+  the shapes it is stated for, with no posted messages, which the interpreter does not run (the posted term is 0): a
+  service that sends to none and that only tasks send to (the parts of a parallel loop among them), the larger of the
+  turn and its tasks, plus one per task; a relay of one task to one service, the turn and 2; that relay's lone consumer,
+  two turns and 4, which for its turns of 1 to 4 lies above what the header proves. The interpreter lets a slowed sender
+  go by its mark as the runtime does. An oracle that fails is an internal
   error that names it, the seed of the schedule and the standard input, never a report of the program. `fuzz --services`
   runs the brute force of them (see "Tests").
 - **Overload policies** (`stdlib/service/Overload.maxon`, `self/check/policies.maxon`, `lowerPolicySend` in

@@ -131,28 +131,38 @@ function taskSender(t Count) returns Count
 end 'taskSender'
 
 // queueBound is the bound in messages that runtime/service.maxon states for the queue of a service, for the senders and
-// receivers it had, with turn for its turnBehaviours, where it states one: a service that sends to none and that only tasks
-// send to holds at most the larger of a turn and its tasks, each of which holds at most one place unqueued as its queue
-// empties, and a message of each task (the parts of a parallel loop are tasks); a relay that one task sends to and that
-// sends to one other service, a turn and 2; and the consumer that only such a relay sends to, two turns and 4, where each handler of the relay
-// sends it one message. The header counts a service's messages from its first slowed send to its mute, which is a whole
-// handler's, so a relay whose handler sends more passes its consumer more per mute, and that shape states no number.
+// receivers it had, with turn for its turnBehaviours, where it states one: the bound of its sent messages, which follows,
+// plus the posted messages outstanding on it (postedOutstanding). A service that sends to none and that only tasks send to
+// holds at most the larger of a turn and its tasks, plus one per task: a task let go has every message it sent before
+// started, so it holds at most its last one queued and its next one parked; a relay that one task sends to and that sends
+// to one other service, a turn and 2; and the consumer that only such a relay sends to, two turns and 4, where each handler
+// of the relay sends it one message. The header counts a service's messages from its first slowed send to its mute, which
+// is a whole handler's, so a relay whose handler sends more passes its consumer more per mute, and that shape states no
+// number.
 function queueBound(d Deliveries, service Count, turn Count) returns table.Option with Count
 	let senders = d.sendersOf(service)
 	let receivers = d.receiversOf(serviceSender(service))
+	let posted = postedOutstanding()
 	if receivers.count() == 0 and onlyTasks(senders) 'leaf'
 		let tasks = senders.count()
 		let parked = tasks if tasks > turn else turn
-		return table.Option.some(try parked + tasks otherwise panic("interp: a bound past a word"))
+		return table.Option.some(try parked + tasks + posted otherwise panic("interp: a bound past a word"))
 	end 'leaf'
 	if isRelay(d, service: service) 'relay'
-		return table.Option.some(try turn + 2 otherwise panic("interp: a bound past a word"))
+		return table.Option.some(try turn + 2 + posted otherwise panic("interp: a bound past a word"))
 	end 'relay'
 	if receivers.count() == 0 and senders.count() == 1 and not isTaskSender(senders[0]) and isRelay(d, service: senders[0] / senderTag) and d.sendsPerHandler(senders[0], to: service) <= 1 'consumer'
-		return table.Option.some(try 2 * turn + 4 otherwise panic("interp: a bound past a word"))
+		return table.Option.some(try 2 * turn + 4 + posted otherwise panic("interp: a bound past a word"))
 	end 'consumer'
 	return table.Option.none
 end 'queueBound'
+
+// postedOutstanding is the term of a bound for the posted messages queued on a service and not started, which a timer, a
+// readiness or a watch of a stop each hold at most one of: none here, as the interpreter runs no posted message (a program
+// that makes one stops, strands.maxon).
+function postedOutstanding() returns Count
+	return 0
+end 'postedOutstanding'
 
 // isRelay is whether one task alone sends to a service, which sends to one other service alone.
 function isRelay(d Deliveries, service Count) returns bool
