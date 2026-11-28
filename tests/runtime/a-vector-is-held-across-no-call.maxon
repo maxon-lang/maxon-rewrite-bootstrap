@@ -1,0 +1,21 @@
+// A vector of the runtime's source is held across no call: the switch of a green thread in the call keeps only half of
+// each vector register on arm64, so a vector still to be read after a call is refused at its function, on every target.
+// One made after the call, or read only before it, is not.
+// expect-error: E5900 at 6:1
+
+function testAcross() returns Count
+	let held = __Raw.vectorOfWords(1, high: 2)
+	let text = itoa(7, unsigned: true)
+	return __Raw.wrappingAdd(__Raw.vectorWord(held, lane: 1), right: text.byteLength())
+end 'testAcross'
+
+function testAfter() returns Count
+	let text = itoa(7, unsigned: true)
+	let made = __Raw.vectorOfWords(text.byteLength(), high: 2)
+	let low = __Raw.vectorWord(made, lane: 0)
+	return __Raw.wrappingAdd(low, right: itoa(low, unsigned: true).byteLength())
+end 'testAfter'
+
+function main() returns ExitCode
+	return (__Raw.wrappingAdd(testAcross(), right: testAfter()) and 0xFF) as ExitCode
+end 'main'

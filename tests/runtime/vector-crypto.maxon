@@ -228,15 +228,6 @@ function testAes()
 	free(out)
 end 'testAes'
 
-// testNextRcon is the round constant after rcon: rcon times x in AES's field.
-function testNextRcon(rcon Count) returns Count
-	let doubled = (rcon and 0xFF) shl 1
-	if doubled > 0xFF 'reduced'
-		return doubled xor 0x11B
-	end 'reduced'
-	return doubled
-end 'testNextRcon'
-
 // testExpand128 writes the eleven round keys of an AES-128 key: SubWord(RotWord(w3)) on every lane from the last round of
 // w3 broadcast under a zero key, whose ShiftRows leaves four equal columns as they are, then the rotation and rcon.
 function testExpand128(key Count, schedule Count)
@@ -258,7 +249,10 @@ function testExpand128(key Count, schedule Count)
 		spread = __Raw.vectorShiftBytesUp(spread, bytes: 4)
 		k = __Raw.vectorXor(__Raw.vectorXor(k, right: spread), right: t)
 		__Raw.vectorStore(schedule, offset: round * vectorBytes, value: k)
-		rcon = testNextRcon(rcon)
+		rcon = (rcon and 0xFF) shl 1
+		if rcon > 0xFF 'reduced'
+			rcon = rcon xor 0x11B
+		end 'reduced'
 	end 'rounds'
 end 'testExpand128'
 
@@ -279,7 +273,10 @@ function testExpand256(key Count, schedule Count)
 			t = __Raw.vectorShuffleBytes(t, picks: rotate)
 			let word = rcon or ((rcon and 0xFF) shl 32)
 			t = __Raw.vectorXor(t, right: __Raw.vectorOfWords(word, high: word))
-			rcon = testNextRcon(rcon)
+			rcon = (rcon and 0xFF) shl 1
+			if rcon > 0xFF 'reduced'
+				rcon = rcon xor 0x11B
+			end 'reduced'
 		end 'even'
 		var k = previous
 		var spread = __Raw.vectorShiftBytesUp(k, bytes: 4)
@@ -294,33 +291,29 @@ function testExpand256(key Count, schedule Count)
 	end 'rounds'
 end 'testExpand256'
 
-function testRoundKey(schedule Count, round Count) returns Count
-	return __Raw.wrappingAdd(schedule, right: try round * vectorBytes otherwise panic("a round past memory"))
-end 'testRoundKey'
-
 // testFirstRound is FIPS-197's state after its first round: the block with the first key, and one round.
 function testFirstRound(schedule Count, block Count, out Count)
 	var s = __Raw.vectorXor(__Raw.vectorLoad(block, offset: 0), right: __Raw.vectorLoad(schedule, offset: 0))
-	s = __Raw.vectorAesEncrypt(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: 1), offset: 0))
+	s = __Raw.vectorAesEncrypt(s, key: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: vectorBytes), offset: 0))
 	__Raw.vectorStore(out, offset: 0, value: s)
 end 'testFirstRound'
 
 function testEncrypt(schedule Count, rounds Count, block Count, out Count)
 	var s = __Raw.vectorXor(__Raw.vectorLoad(block, offset: 0), right: __Raw.vectorLoad(schedule, offset: 0))
 	for round in 1 upto rounds 'rounds'
-		s = __Raw.vectorAesEncrypt(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: round), offset: 0))
+		s = __Raw.vectorAesEncrypt(s, key: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: try round * vectorBytes otherwise panic("a round past memory")), offset: 0))
 	end 'rounds'
-	s = __Raw.vectorAesEncryptLast(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: rounds), offset: 0))
+	s = __Raw.vectorAesEncryptLast(s, key: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: try rounds * vectorBytes otherwise panic("a round past memory")), offset: 0))
 	__Raw.vectorStore(out, offset: 0, value: s)
 end 'testEncrypt'
 
 // testDecrypt is the equivalent inverse cipher: the round keys in the other order, the middle ones through InvMixColumns.
 function testDecrypt(schedule Count, rounds Count, block Count, out Count)
-	var s = __Raw.vectorXor(__Raw.vectorLoad(block, offset: 0), right: __Raw.vectorLoad(testRoundKey(schedule, round: rounds), offset: 0))
+	var s = __Raw.vectorXor(__Raw.vectorLoad(block, offset: 0), right: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: try rounds * vectorBytes otherwise panic("a round past memory")), offset: 0))
 	var round = rounds
 	while round > 1 'rounds'
 		round = round - 1
-		s = __Raw.vectorAesDecrypt(s, key: __Raw.vectorAesInverseMix(__Raw.vectorLoad(testRoundKey(schedule, round: round), offset: 0)))
+		s = __Raw.vectorAesDecrypt(s, key: __Raw.vectorAesInverseMix(__Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: try round * vectorBytes otherwise panic("a round past memory")), offset: 0)))
 	end 'rounds'
 	s = __Raw.vectorAesDecryptLast(s, key: __Raw.vectorLoad(schedule, offset: 0))
 	__Raw.vectorStore(out, offset: 0, value: s)
@@ -332,20 +325,20 @@ end 'testDecrypt'
 	function testNative(schedule Count, rounds Count, block Count, low Count, high Count)
 		var s = __Raw.vectorLoad(block, offset: 0)
 		for round in 0 upto rounds 'rounds'
-			s = __Raw.vectorAese(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: round), offset: 0))
+			s = __Raw.vectorAese(s, key: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: try round * vectorBytes otherwise panic("a round past memory")), offset: 0))
 			if round + 1 < rounds 'mix'
 				s = __Raw.vectorAesmc(s)
 			end 'mix'
 		end 'rounds'
-		s = __Raw.vectorXor(s, right: __Raw.vectorLoad(testRoundKey(schedule, round: rounds), offset: 0))
+		s = __Raw.vectorXor(s, right: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: try rounds * vectorBytes otherwise panic("a round past memory")), offset: 0))
 		if __Raw.vectorWord(s, lane: 0) != low or __Raw.vectorWord(s, lane: 1) != high 'encrypted'
 			panic("aese and aesmc gave another block")
 		end 'encrypted'
-		s = __Raw.vectorAesd(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: rounds), offset: 0))
+		s = __Raw.vectorAesd(s, key: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: try rounds * vectorBytes otherwise panic("a round past memory")), offset: 0))
 		var round = (try rounds - 1 otherwise panic("no rounds")) as Count
 		while round > 0 'back'
 			s = __Raw.vectorAesInverseMix(s)
-			s = __Raw.vectorAesd(s, key: __Raw.vectorAesInverseMix(__Raw.vectorLoad(testRoundKey(schedule, round: round), offset: 0)))
+			s = __Raw.vectorAesd(s, key: __Raw.vectorAesInverseMix(__Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: try round * vectorBytes otherwise panic("a round past memory")), offset: 0)))
 			round = round - 1
 		end 'back'
 		s = __Raw.vectorXor(s, right: __Raw.vectorLoad(schedule, offset: 0))
@@ -382,10 +375,6 @@ function testSha()
 	free(schedule)
 end 'testSha'
 
-function testSlot(schedule Count, group Count) returns Count
-	return __Raw.wrappingAdd(schedule, right: (group and shaSlotMask) * vectorBytes)
-end 'testSlot'
-
 #if arch(x64)
 	// testCompress is maxon's X64ShaRuntime: the state's A, B, E, F and C, D, G, H in two vectors, two sha256rnds2 for each
 	// four rounds, sha256msg1 and sha256msg2 with a palignr between them for the schedule.
@@ -398,7 +387,7 @@ end 'testSlot'
 		let savedHigh = high
 		let savedLow = low
 		for group in 0 upto shaGroups 'groups'
-			let slot = testSlot(schedule, group: group)
+			let slot = __Raw.wrappingAdd(schedule, right: (group and shaSlotMask) * vectorBytes)
 			if group < shaLoadedGroups 'load'
 				__Raw.vectorStore(slot, offset: 0, value: __Raw.vectorShuffleBytes(__Raw.vectorLoad(data, offset: group * vectorBytes), picks: swap))
 			end 'load'
@@ -406,14 +395,14 @@ end 'testSlot'
 			var words = __Raw.vectorAddLanes32(__Raw.vectorLoad(constants, offset: group * vectorBytes), right: current)
 			low = __Raw.vectorSha256Rounds2(low, other: high, words: words)
 			if group >= 3 and group <= 14 'extend'
-				let next = testSlot(schedule, group: group + 1)
-				let aligned = __Raw.vectorAlignBytes(current, low: __Raw.vectorLoad(testSlot(schedule, group: group + 3), offset: 0), bytes: 4)
+				let next = __Raw.wrappingAdd(schedule, right: ((group + 1) and shaSlotMask) * vectorBytes)
+				let aligned = __Raw.vectorAlignBytes(current, low: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: ((group + 3) and shaSlotMask) * vectorBytes), offset: 0), bytes: 4)
 				__Raw.vectorStore(next, offset: 0, value: __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(__Raw.vectorLoad(next, offset: 0), right: aligned), right: current))
 			end 'extend'
 			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
 			high = __Raw.vectorSha256Rounds2(high, other: low, words: words)
 			if group >= 1 and group <= 12 'prepare'
-				let back = testSlot(schedule, group: group + 3)
+				let back = __Raw.wrappingAdd(schedule, right: ((group + 3) and shaSlotMask) * vectorBytes)
 				__Raw.vectorStore(back, offset: 0, value: __Raw.vectorSha256Message1(__Raw.vectorLoad(back, offset: 0), right: current))
 			end 'prepare'
 		end 'groups'
@@ -434,17 +423,17 @@ end 'testSlot'
 		let savedAbcd = abcd
 		let savedEfgh = efgh
 		for group in 0 upto shaLoadedGroups 'load'
-			__Raw.vectorStore(testSlot(schedule, group: group), offset: 0, value: __Raw.vectorShuffleBytes(__Raw.vectorLoad(data, offset: group * vectorBytes), picks: swap))
+			__Raw.vectorStore(__Raw.wrappingAdd(schedule, right: (group and shaSlotMask) * vectorBytes), offset: 0, value: __Raw.vectorShuffleBytes(__Raw.vectorLoad(data, offset: group * vectorBytes), picks: swap))
 		end 'load'
 		for group in 0 upto shaGroups 'groups'
-			let slot = testSlot(schedule, group: group)
+			let slot = __Raw.wrappingAdd(schedule, right: (group and shaSlotMask) * vectorBytes)
 			let current = __Raw.vectorLoad(slot, offset: 0)
 			let words = __Raw.vectorAddLanes32(current, right: __Raw.vectorLoad(constants, offset: group * vectorBytes))
 			let copy = abcd
 			if group < shaGroups - shaLoadedGroups 'extend'
-				let first = __Raw.vectorSha256Su0(current, second: __Raw.vectorLoad(testSlot(schedule, group: group + 1), offset: 0))
-				let third = __Raw.vectorLoad(testSlot(schedule, group: group + 2), offset: 0)
-				let fourth = __Raw.vectorLoad(testSlot(schedule, group: group + 3), offset: 0)
+				let first = __Raw.vectorSha256Su0(current, second: __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: ((group + 1) and shaSlotMask) * vectorBytes), offset: 0))
+				let third = __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: ((group + 2) and shaSlotMask) * vectorBytes), offset: 0)
+				let fourth = __Raw.vectorLoad(__Raw.wrappingAdd(schedule, right: ((group + 3) and shaSlotMask) * vectorBytes), offset: 0)
 				__Raw.vectorStore(slot, offset: 0, value: __Raw.vectorSha256Su1(first, third: third, fourth: fourth))
 			end 'extend'
 			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
