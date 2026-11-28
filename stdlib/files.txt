@@ -29,7 +29,7 @@ AesGcm.maxon aes
 helpers/crypto/ChaCha20.maxon chacha
 helpers/crypto/Poly1305.maxon poly1305
 ChaCha20Poly1305.maxon poly1305
-Der.maxon asn1
+Der.maxon der
 Rsa.maxon rsa
 helpers/crypto/LimbWorkspace.maxon curves
 helpers/crypto/FixedBaseComb.maxon curves

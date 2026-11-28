@@ -774,10 +774,10 @@ export type X509TbsFields
 end 'X509TbsFields'
 
 type X509Reader
-	export var der as asn1.DerReader
+	export var der as der.DerReader
 
 	export static function over(bytes ByteArray) returns X509Reader
-		return X509Reader{der: asn1.DerReader.create(bytes)}
+		return X509Reader{der: der.DerReader.create(bytes)}
 	end 'over'
 
 	static function whole(bytes ByteArray) returns X509Reader throws X509Error
@@ -815,7 +815,7 @@ type X509Reader
 		return try inner.elements()
 	end 'setElements'
 
-	function explicitElements(mutates self, tagNumber asn1.DerTagNumber) returns ByteArrays throws X509Error
+	function explicitElements(mutates self, tagNumber der.DerTagNumber) returns ByteArrays throws X509Error
 		var inner = X509Reader{der: try der.enterExplicit(tagNumber) otherwise throw X509Error.invalidEncoding}
 		return try inner.elements()
 	end 'explicitElements'
@@ -832,7 +832,7 @@ type X509Reader
 		return content
 	end 'readObjectIdentifier'
 
-	export function readBitString(mutates self) returns asn1.DerBitString throws X509Error
+	export function readBitString(mutates self) returns der.DerBitString throws X509Error
 		return try der.readBitString() otherwise throw X509Error.invalidEncoding
 	end 'readBitString'
 
@@ -848,21 +848,21 @@ type X509Reader
 		return try der.readString() otherwise throw X509Error.invalidEncoding
 	end 'readString'
 
-	export function readImplicit(mutates self, tagNumber asn1.DerTagNumber) returns ByteArray throws X509Error
+	export function readImplicit(mutates self, tagNumber der.DerTagNumber) returns ByteArray throws X509Error
 		return try der.readImplicit(tagNumber) otherwise throw X509Error.invalidEncoding
 	end 'readImplicit'
 
-	export function readImplicitBitString(mutates self, tagNumber asn1.DerTagNumber) returns asn1.DerBitString throws X509Error
+	export function readImplicitBitString(mutates self, tagNumber der.DerTagNumber) returns der.DerBitString throws X509Error
 		return try der.readImplicitBitString(tagNumber) otherwise throw X509Error.invalidEncoding
 	end 'readImplicitBitString'
 
-	export function readImplicitSignedInteger(mutates self, tagNumber asn1.DerTagNumber) returns ByteArray throws X509Error
+	export function readImplicitSignedInteger(mutates self, tagNumber der.DerTagNumber) returns ByteArray throws X509Error
 		return try der.readImplicitSignedInteger(tagNumber) otherwise throw X509Error.invalidEncoding
 	end 'readImplicitSignedInteger'
 
 	function readTime(mutates self) returns UnixSeconds throws X509Error
 		let header = try der.peekHeader() otherwise throw X509Error.invalidEncoding
-		if header.tagClass == asn1.DerTagClass.universal and header.tagNumber == x509TagUtcTime 'utc'
+		if header.tagClass == der.DerTagClass.universal and header.tagNumber == x509TagUtcTime 'utc'
 			return try der.readUtcTime() otherwise throw X509Error.invalidEncoding
 		end 'utc'
 		return try der.readGeneralizedTime() otherwise throw X509Error.invalidEncoding
@@ -1288,7 +1288,7 @@ function x509PssField(item ByteArray, previous X509TaggedFields) returns X509Tag
 		end 'order'
 	end 'ordered'
 	var x509Reader = X509Reader.over(item)
-	let inner = try x509Reader.explicitElements(number as asn1.DerTagNumber)
+	let inner = try x509Reader.explicitElements(number as der.DerTagNumber)
 	if inner.count() != 1 'explicit'
 		throw X509Error.invalidEncoding
 	end 'explicit'
@@ -1557,7 +1557,7 @@ function x509UniqueIdentifiers(mutates cursor X509FieldCursor, version Certifica
 	try x509UniqueIdentifier(cursor, tag: x509TagSubjectUniqueId, tagNumber: x509SubjectUniqueIdTag, version: version)
 end 'x509UniqueIdentifiers'
 
-function x509UniqueIdentifier(mutates cursor X509FieldCursor, tag Byte, tagNumber asn1.DerTagNumber, version CertificateVersion) throws X509Error
+function x509UniqueIdentifier(mutates cursor X509FieldCursor, tag Byte, tagNumber der.DerTagNumber, version CertificateVersion) throws X509Error
 	if not cursor.nextHasTag(tag) 'absent'
 		return
 	end 'absent'
@@ -1659,7 +1659,7 @@ function x509KeyUsage(value ByteArray) returns X509KeyUsages throws X509Error
 	return usages
 end 'x509KeyUsage'
 
-function x509BitIsSet(bits asn1.DerBitString, index ElementIndex) returns bool
+function x509BitIsSet(bits der.DerBitString, index ElementIndex) returns bool
 	let octet = try bits.bytes().get(index / x509BitsPerByte) otherwise return false
 	return (octet and (x509HighBit shr (index mod x509BitsPerByte))) != 0
 end 'x509BitIsSet'
@@ -1681,7 +1681,7 @@ function x509ExtendedKeyUsage(value ByteArray) returns ByteArrays throws X509Err
 	return purposes
 end 'x509ExtendedKeyUsage'
 
-function x509GeneralName(element ByteArray) returns asn1.DerTagNumber throws X509Error
+function x509GeneralName(element ByteArray) returns der.DerTagNumber throws X509Error
 	let tag = x509Tag(element)
 	let number = tag and x509TagNumberMask
 	let isConstructed = (tag and x509ConstructedBit) != 0
@@ -1689,12 +1689,12 @@ function x509GeneralName(element ByteArray) returns asn1.DerTagNumber throws X50
 		throw X509Error.invalidEncoding
 	end 'tag'
 	var x509Reader = X509Reader.over(element)
-	if number == x509DirectoryNameTag and (try x509Reader.explicitElements(number as asn1.DerTagNumber)).count() != 1 'directoryName'
+	if number == x509DirectoryNameTag and (try x509Reader.explicitElements(number as der.DerTagNumber)).count() != 1 'directoryName'
 		throw X509Error.invalidEncoding
 	end 'directoryName'
 	if isConstructed 'constructed'
 		var x509Reader2 = X509Reader.over(element)
-		_ = try x509Reader2.explicitElements(number as asn1.DerTagNumber)
+		_ = try x509Reader2.explicitElements(number as der.DerTagNumber)
 	end 'constructed'
 	return number
 end 'x509GeneralName'
@@ -1972,7 +1972,7 @@ function x509VerifyRsa(key X509PublicKey, hash sha2.HashAlgorithm, isPss bool, m
 	if key.algorithm != X509KeyAlgorithm.rsa 'family'
 		throw X509VerifyError.badSignature
 	end 'family'
-	var derReader = asn1.DerReader.create(key.keyBytes())
+	var derReader = der.DerReader.create(key.keyBytes())
 	var integers = try derReader.enterSequence() otherwise panic("a parsed RSA key is an RSAPublicKey")
 	let bits = rsa.rsaBitLength(try integers.readInteger() otherwise panic("a parsed RSA key has a positive modulus"))
 	if bits < rsa.rsaMinimumModulusBits or bits > rsa.rsaMaximumModulusBits 'size'
@@ -2333,9 +2333,9 @@ function x509AppendHextet(mutates address ByteArray, part ByteArray) throws X509
 	if part.isEmpty() or part.count() > x509MaxHextetDigits 'length'
 		throw X509Malformation.malformed
 	end 'length'
-	var value = 0 as asn1.DerLength
+	var value = 0 as der.DerLength
 	for symbol in part 'eachDigit'
-		value = try value * x509HexBase + ((try x509HexDigit(symbol)) as asn1.DerLength) otherwise panic("out of range")
+		value = try value * x509HexBase + ((try x509HexDigit(symbol)) as der.DerLength) otherwise panic("out of range")
 	end 'eachDigit'
 	address.push(try (value shr x509BitsPerByte) as Byte otherwise panic("out of range"))
 	address.push((value and x509ByteMask) as Byte)

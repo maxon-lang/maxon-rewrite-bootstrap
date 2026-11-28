@@ -281,7 +281,7 @@ function nistDerEncodedInteger(value WorkspaceLimbs) returns ByteArray
 		end 'signPad'
 		content.push(byte)
 	end 'eachByte'
-	return asn1.derElement(nistDerIntegerTag, contents: content)
+	return der.derElement(nistDerIntegerTag, contents: content)
 end 'nistDerEncodedInteger'
 
 function nistNonceStep(hash sha2.HashAlgorithm, key ByteArray, value ByteArray, suffix ByteArray) returns (ByteArray, ByteArray)
@@ -775,7 +775,7 @@ type NistCurve implements CombPoints
 		end 'zeroS'
 		var content = nistDerEncodedInteger(r)
 		content.append(nistDerEncodedInteger(s))
-		return asn1.derElement(nistDerSequenceTag, contents: content)
+		return der.derElement(nistDerSequenceTag, contents: content)
 	end 'signature'
 
 	export function sign(privateKey ByteArray, message ByteArray) returns ByteArray throws EcdsaSignError

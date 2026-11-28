@@ -442,7 +442,7 @@ function rsaFieldLimbs(integers RsaIntegers, field RsaPrivateKeyField) returns R
 	return rsaValueLimbs(rsaIntegerAt(integers, index: field.ordinal))
 end 'rsaFieldLimbs'
 
-function rsaAlgorithm(mutates reader asn1.DerReader) returns ByteArray throws asn1.DerError
+function rsaAlgorithm(mutates reader der.DerReader) returns ByteArray throws der.DerError
 	var algorithm = try reader.enterSequence()
 	let identifier = try algorithm.readObjectIdentifier()
 	try algorithm.readNull()
@@ -450,8 +450,8 @@ function rsaAlgorithm(mutates reader asn1.DerReader) returns ByteArray throws as
 	return identifier
 end 'rsaAlgorithm'
 
-function rsaIntegers(encoding ByteArray, count Count) returns RsaIntegers throws asn1.DerError
-	var sequence = try asn1.DerReader.wholeSequence(encoding)
+function rsaIntegers(encoding ByteArray, count Count) returns RsaIntegers throws der.DerError
+	var sequence = try der.DerReader.wholeSequence(encoding)
 	var integers = RsaIntegers.create(0)
 	for _ in 0 upto count 'eachInteger'
 		integers.push(try sequence.readInteger())
@@ -460,16 +460,16 @@ function rsaIntegers(encoding ByteArray, count Count) returns RsaIntegers throws
 	return integers
 end 'rsaIntegers'
 
-function rsaPublicKeyParts(der ByteArray) returns (ByteArray, asn1.DerBitString) throws asn1.DerError
-	var info = try asn1.DerReader.wholeSequence(der)
+function rsaPublicKeyParts(der ByteArray) returns (ByteArray, der.DerBitString) throws der.DerError
+	var info = try der.DerReader.wholeSequence(der)
 	let algorithm = try rsaAlgorithm(info)
 	let key = try info.readBitString()
 	try info.finish()
 	return (algorithm, key)
 end 'rsaPublicKeyParts'
 
-function rsaPrivateKeyParts(der ByteArray) returns (ByteArray, ByteArray, ByteArray) throws asn1.DerError
-	var info = try asn1.DerReader.wholeSequence(der)
+function rsaPrivateKeyParts(der ByteArray) returns (ByteArray, ByteArray, ByteArray) throws der.DerError
+	var info = try der.DerReader.wholeSequence(der)
 	let version = try info.readInteger()
 	let algorithm = try rsaAlgorithm(info)
 	let key = try info.readOctetString()
