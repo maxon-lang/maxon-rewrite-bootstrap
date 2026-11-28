@@ -148,7 +148,7 @@ function runWith(p ast.Project, main ir.IrFunction, others ir.IrFunctionList, se
 	end 'others'
 	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	return run(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, seed: seed, wantFrees: false, races: true, stdin: "")
+	return run(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, workingDirectory: "", seed: seed, wantFrees: false, races: true, stdin: "")
 end 'runWith'
 
 function runMain(p ast.Project, main ir.IrFunction) returns Outcome
@@ -745,7 +745,7 @@ test 'a frozen value is freed with its last owner'
 	fns.push(b.ret(zero))
 	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	let out = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, seed: 0, wantFrees: true, races: true, stdin: "")
+	let out = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, workingDirectory: "", seed: 0, wantFrees: true, races: true, stdin: "")
 	if out.violations.count() != 0 'violated'
 		panic("{out.violations[0]}")
 	end 'violated'
@@ -944,12 +944,36 @@ test 'a run past its deadline in real time is a timeout'
 	fns.push(b.ret(zero))
 	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	let late = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: 0, seed: 0, wantFrees: false, races: true, stdin: "")
+	let late = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: 0, workingDirectory: "", seed: 0, wantFrees: false, races: true, stdin: "")
 	if not late.timedOut 'late'
 		panic("a run past its deadline ended after {late.steps} steps")
 	end 'late'
-	let free = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, seed: 0, wantFrees: false, races: true, stdin: "")
+	let free = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, deadlineMs: noDeadlineMs, workingDirectory: "", seed: 0, wantFrees: false, races: true, stdin: "")
 	if free.timedOut or free.violations.count() != 0 'free'
 		panic("a run with no deadline did not end clean")
 	end 'free'
 end 'a run past its deadline in real time is a timeout'
+
+function expectAnchored(directory String, text String, wanted String)
+	let got = anchored(directory, text: text)
+	if got != wanted 'differs'
+		panic("{text} in {directory} is {got}, not {wanted}")
+	end 'differs'
+end 'expectAnchored'
+
+test 'a relative path is read from the working directory of the run, as the process that an executable is reads it'
+	if ast.hostSeparator() == "\\" 'windows'
+		expectAnchored("C:\\run", text: "a\\b", wanted: "C:\\run\\a\\b")
+		expectAnchored("C:\\run", text: "..\\stdlib", wanted: "C:\\run\\..\\stdlib")
+		expectAnchored("C:\\run", text: "c:name", wanted: "C:\\run\\name")
+		expectAnchored("c:\\run", text: "C:name", wanted: "c:\\run\\name")
+		expectAnchored("C:\\run", text: "D:name", wanted: "D:name")
+		expectAnchored("C:\\run", text: "\\name", wanted: "C:\\name")
+		expectAnchored("C:\\run", text: "C:\\name", wanted: "C:\\name")
+		expectAnchored("C:\\run", text: "\\\\?\\C:\\name", wanted: "\\\\?\\C:\\name")
+	end 'windows' else 'posix'
+		expectAnchored("/run", text: "a/b", wanted: "/run/a/b")
+		expectAnchored("/run", text: "../stdlib", wanted: "/run/../stdlib")
+		expectAnchored("/run", text: "/name", wanted: "/name")
+	end 'posix'
+end 'a relative path is read from the working directory of the run, as the process that an executable is reads it'

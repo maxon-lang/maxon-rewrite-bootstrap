@@ -26,6 +26,75 @@ function pathOf(text String) returns FilePath
 	return try FilePath.from(name) otherwise panic("interp: the program gave an OS entry a path that is no path")
 end 'pathOf'
 
+// programPath is the file that the path a program names is: as the process that an executable of the program is reads it, relative
+// to the working directory of the run (workingDirectory) when it has one, and as it reads itself when it has none.
+function programPath(vm Vm, text String) returns FilePath
+	if vm.workingDirectory == "" or text == "" or text.contains("\0") 'asNamed'
+		return pathOf(text)
+	end 'asNamed'
+	return pathOf(anchored(vm.workingDirectory, text: text))
+end 'programPath'
+
+let colonByte = 58 as Byte
+
+let slashByte = 47 as Byte
+
+let backslashByte = 92 as Byte
+
+function isSeparatorByte(b Byte, windows bool) returns bool
+	return b == slashByte or (windows and b == backslashByte)
+end 'isSeparatorByte'
+
+// hasDrive is whether a path starts with a drive's letter and a colon, which only Windows reads so.
+function hasDrive(text String, windows bool) returns bool
+	if not windows or text.byteLength() < 2 or text.byteAt(1) != colonByte 'none'
+		return false
+	end 'none'
+	let letter = text.byteAt(0)
+	return (letter >= 65 and letter <= 90) or (letter >= 97 and letter <= 122)
+end 'hasDrive'
+
+// sameLetter is whether two drive letters are one, whatever their case.
+function sameLetter(a Byte, b Byte) returns bool
+	return a == b or (a >= 65 and a <= 90 and (a as Count) + 32 == (b as Count)) or (b >= 65 and b <= 90 and (b as Count) + 32 == (a as Count))
+end 'sameLetter'
+
+// anchored is the text of a path as the process whose working directory is directory reads it, which names a file: a relative path
+// follows directory, a path that names a drive alone (`C:name`) follows it when its drive is the same and is left to the
+// system's own working directory on that drive when not, and one that names a root alone (`\name`) is on directory's drive.
+// Anything else names its file already.
+function anchored(directory String, text String) returns String
+	let windows = ast.hostSeparator() == "\\"
+	let separator = ast.hostSeparator()
+	let first = text.byteAt(0)
+	if hasDrive(text, windows: windows) 'drive'
+		if text.byteLength() > 2 and isSeparatorByte(text.byteAt(2), windows: windows) 'rootedOnDrive'
+			return text.clone()
+		end 'rootedOnDrive'
+		if hasDrive(directory, windows: windows) and sameLetter(directory.byteAt(0), b: first) 'sameDrive'
+			return "{directory}{separator}{text.sliceBytes(2, endPos: text.byteLength())}"
+		end 'sameDrive'
+		return text.clone()
+	end 'drive'
+	if isSeparatorByte(first, windows: windows) 'rooted'
+		let secondIsSeparator = text.byteLength() > 1 and isSeparatorByte(text.byteAt(1), windows: windows)
+		if windows and hasDrive(directory, windows: windows) and not secondIsSeparator 'onItsDrive'
+			return "{directory.sliceBytes(0, endPos: 2)}{text}"
+		end 'onItsDrive'
+		return text.clone()
+	end 'rooted'
+	return "{directory}{separator}{text}"
+end 'anchored'
+
+// childDirectory is where a child that runs in directory starts: the directory anchored as a path is, or the run's own working
+// directory when it names none, which is empty for a run that has none.
+function childDirectory(vm Vm, directory String) returns String
+	if directory == "" 'none'
+		return vm.workingDirectory.clone()
+	end 'none'
+	return programPath(vm, text: directory).toString()
+end 'childDirectory'
+
 // stringArray is a new array of the strings.
 function stringArray(mutates vm Vm, texts ast.StringList) returns Count
 	let arr = newArray(vm)
@@ -90,7 +159,8 @@ function entryOsExecutablePath(mutates vm Vm, f ir.IrFunction, x ir.Instr) throw
 end 'entryOsExecutablePath'
 
 function entryOsCurrentPath(mutates vm Vm, f ir.IrFunction, x ir.Instr)
-	let made = newString(vm, text: Directory.currentPath().toString())
+	let working = vm.workingDirectory.clone() if vm.workingDirectory != "" else Directory.currentPath().toString()
+	let made = newString(vm, text: working)
 	giveRef(vm, x: x, o: made)
 end 'entryOsCurrentPath'
 
@@ -202,7 +272,7 @@ end 'entryOsReadBinary'
 // its bytes, which no read checks.
 function entryOsRead(mutates vm Vm, f ir.IrFunction, x ir.Instr, binary bool) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	let path = pathOf(vm.h.texts[at].clone())
+	let path = programPath(vm, text: vm.h.texts[at].clone())
 	var word = 0 as ir.Word
 	var value = ""
 	try 'read'
@@ -250,7 +320,7 @@ end 'writeMode'
 // writeTextEntry is the write of a string, which gives the file the mode.
 function writeTextEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePermission) throws Halt
 	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	let path = pathOf(vm.h.texts[pathAt].clone())
+	let path = programPath(vm, text: vm.h.texts[pathAt].clone())
 	let contentAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a file's content")
 	let content = vm.h.texts[contentAt].toByteArray()
 	let word = writeBytes(path, content: content, mode: mode)
@@ -266,7 +336,7 @@ end 'bytesOf'
 // writeBinaryEntry is the write of a byte array, which gives the file the mode.
 function writeBinaryEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr, mode FilePermission) throws Halt
 	let pathAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	let path = pathOf(vm.h.texts[pathAt].clone())
+	let path = programPath(vm, text: vm.h.texts[pathAt].clone())
 	let content = try bytesOf(vm, f: f, x: x, index: 1, what: "a file's content")
 	let word = writeBytes(path, content: content, mode: mode)
 	try errorWord(vm, f: f, x: x, word: word)
@@ -282,9 +352,9 @@ end 'entryOsWriteBinaryMode'
 
 function entryOsRename(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let fromAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	let source = pathOf(vm.h.texts[fromAt].clone())
+	let source = programPath(vm, text: vm.h.texts[fromAt].clone())
 	let toAt = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a path")
-	let dest = pathOf(vm.h.texts[toAt].clone())
+	let dest = programPath(vm, text: vm.h.texts[toAt].clone())
 	var word = 0 as ir.Word
 	try 'rename'
 		File.rename(source, to: dest)
@@ -302,7 +372,7 @@ end 'entryOsRename'
 
 function entryOsDelete(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	let path = pathOf(vm.h.texts[at].clone())
+	let path = programPath(vm, text: vm.h.texts[at].clone())
 	var word = 0 as ir.Word
 	try 'delete'
 		File.delete(path)
@@ -347,7 +417,7 @@ end 'wordOf'
 
 function entryOsFileInfo(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	let path = pathOf(vm.h.texts[at].clone())
+	let path = programPath(vm, text: vm.h.texts[at].clone())
 	var word = 0 as ir.Word
 	var size = 0 as ir.Word
 	var modified = 0 as ir.Word
@@ -392,7 +462,7 @@ function entryOsExists(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	var there = true
 	try 'info'
-		_ = File.info(pathOf(vm.h.texts[at].clone()))
+		_ = File.info(programPath(vm, text: vm.h.texts[at].clone()))
 	end 'info' otherwise 'missing'
 		there = false
 	end 'missing'
@@ -401,12 +471,12 @@ end 'entryOsExists'
 
 function entryOsIsDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	giveFlag(vm, x: x, b: Directory.isDirectory(pathOf(vm.h.texts[at].clone())))
+	giveFlag(vm, x: x, b: Directory.isDirectory(programPath(vm, text: vm.h.texts[at].clone())))
 end 'entryOsIsDirectory'
 
 function entryOsCreateDirectory(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	giveFlag(vm, x: x, b: Directory.create(pathOf(vm.h.texts[at].clone())))
+	giveFlag(vm, x: x, b: Directory.create(programPath(vm, text: vm.h.texts[at].clone())))
 end 'entryOsCreateDirectory'
 
 // entryOsDeleteDirectory halts: the interpreter removes no directory, so a program that does says `// native-only`.
@@ -416,7 +486,7 @@ end 'entryOsDeleteDirectory'
 
 function entryOsList(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
-	let path = pathOf(vm.h.texts[at].clone())
+	let path = programPath(vm, text: vm.h.texts[at].clone())
 	var word = 0 as ir.Word
 	var texts = ast.StringList.create(0)
 	try 'list'
@@ -516,7 +586,7 @@ function runChild(mutates vm Vm, f ir.IrFunction, x ir.Instr, directory String, 
 	end 'args'
 	var executable = Executable.name(exeText.clone())
 	if isPath(exeText) 'path'
-		executable = Executable.path(pathOf(exeText.clone()))
+		executable = Executable.path(programPath(vm, text: exeText.clone()))
 	end 'path'
 	let deadline = deadlineOf(argNum(vm, f: f, x: x, i: runArg(runDeadlineArg, shift: shift)))
 	var word = 0 as ir.Word
@@ -524,7 +594,7 @@ function runChild(mutates vm Vm, f ir.IrFunction, x ir.Instr, directory String, 
 	var stderr = ""
 	var code = 0 as ir.Word
 	try 'run'
-		let out = try childOutput(executable, arguments: args, directory: directory, deadline: deadline)
+		let out = try childOutput(executable, arguments: args, directory: childDirectory(vm, directory: directory), deadline: deadline)
 		stdout = out.stdout.clone()
 		stderr = out.stderr.clone()
 		code = out.exitCode() as ir.Word

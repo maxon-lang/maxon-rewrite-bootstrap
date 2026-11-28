@@ -968,7 +968,7 @@ end 'workerCountText'
 // the memory model. A program that schedules behaviours runs under several schedules, and each must give the same output.
 function runInterpreted(compiled CompiledProgram, expect Expectation) returns TestResult
 	for schedule in 0 upto expect.schedules 'schedules'
-		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: testRunDeadlineMs, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, races: true, stdin: expect.stdin)
+		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: testRunDeadlineMs, workingDirectory: inheritedDirectory, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0, races: true, stdin: expect.stdin)
 		var atSeed = ""
 		if out.behaviours > 0 'scheduled'
 			atSeed = " under the schedule of seed {schedule}"
@@ -1005,8 +1005,8 @@ end 'runInterpreted'
 // rules of the memory model are the corpus's to hold the programs to, which the spec tests, written for maxon, are not. A run
 // that outlasts the run deadline (testRunDeadlineMs, of the clock on the wall, as the executable's is) or the step limit fails
 // as timed out: the test is too slow for the interpreter, and its row of skips.tsv says `native`.
-function interpretedViolations(compiled CompiledProgram) returns TestResult
-	let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: testRunDeadlineMs, seed: interp.seedOf(0), wantFrees: false, races: true, stdin: "")
+function interpretedViolations(compiled CompiledProgram, directory String) returns TestResult
+	let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: testRunDeadlineMs, workingDirectory: directory, seed: interp.seedOf(0), wantFrees: false, races: true, stdin: "")
 	if out.uncheckedAccess 'wrong'
 		return TestResult.failed("the interpreter found an access left unchecked whose check fails:\n{joinLines(out.violations)}")
 	end 'wrong'

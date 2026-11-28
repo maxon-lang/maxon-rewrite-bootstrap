@@ -680,7 +680,7 @@ function runSpecPending(bench frozen with Bench, consumes pending SpecPending)
 	releaseExecutable(bench)
 	if result.outcome != TestOutcome.testFailed and pending.interprets 'interpreted'
 		let started = Clock.nowNanos() as Count
-		result = keepingTimes(interpretedViolations(pending.compiled), earlier: result)
+		result = keepingTimes(interpretedViolations(pending.compiled, directory: bench.corpus.workingDirectory), earlier: result)
 		result.interpretedNanos = elapsedSince(started)
 	end 'interpreted'
 	var finished = Finished.make(result)

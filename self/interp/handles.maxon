@@ -72,7 +72,7 @@ end 'createEmpty'
 // the handle that holds it open.
 function entryFileOpenCreateNew(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let name = try bytesOf(vm, f: f, x: x, index: 0, what: "a path")
-	let path = pathOf(String.from(name))
+	let path = programPath(vm, text: String.from(name))
 	let word = createEmpty(path)
 	try errorWord(vm, f: f, x: x, word: word)
 	if word == 0 'made'
@@ -89,7 +89,7 @@ end 'entryFileReadAppending'
 function openFilePath(vm Vm, f ir.IrFunction, x ir.Instr, index Count) returns FilePath
 	let row = ir.bitsOfWord(argNum(vm, f: f, x: x, i: index))
 	let text = try vm.files.paths.get(row) otherwise panic("interp: a row of an open file that no open gave")
-	return pathOf(text)
+	return programPath(vm, text: text)
 end 'openFilePath'
 
 // entryFileWrite writes the whole of the buffer after what the file holds, and gives its length: what the file holds is what the

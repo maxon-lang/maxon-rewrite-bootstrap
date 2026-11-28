@@ -98,7 +98,7 @@ function interpLoaded(consumes loadedProject ast.Project, seed ir.Word, wantFree
 	if errs.count() > 0 'failed'
 		return report(errs)
 	end 'failed'
-	let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: interp.noDeadlineMs, seed: seed, wantFrees: wantFrees, races: races, stdin: "")
+	let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: interp.defaultStepLimit, deadlineMs: interp.noDeadlineMs, workingDirectory: inheritedDirectory, seed: seed, wantFrees: wantFrees, races: races, stdin: "")
 	print(out.stdout)
 	printError(out.stderr)
 	for i in 0 upto out.violations.count() 'violations'
