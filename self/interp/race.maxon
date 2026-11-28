@@ -1,0 +1,379 @@
+// The race oracle. The checker claims that a program it accepts has no data race: a parallel loop's body writes only its own
+// element, a value lent to an async call is not used before the await, and a service's state is its behaviours' alone. The
+// oracle checks the claim at run time, as a vector-clock detector (FastTrack's): every read and write of a place, and every
+// change to an array's structure and read of it, is attributed to the thread that made it, and two accesses of one place by
+// different threads, one of them a write, that no fork and join orders is a failure, which the run makes an internal error
+// naming the place, the two threads and the seed.
+//
+// The orderings are the fork of a coroutine or of a parallel loop's worker, which comes after what its maker did before
+// it, and the join of one, by the await, take or drop of its promise or by the end of its loop, after which its maker has
+// what it did. The handing over of the strand is no ordering: members of a strand never run at once, but a coroutine that a
+// value was lent to and the caller that uses the value before the await are unordered all the same, as the checker's rule
+// says. A thread, its coroutines and its loops' workers are one family, from the thread no one forked, and the oracle
+// orders only accesses of one family: what threads of different families share, the value of a cown or a message's
+// payload, is the domain rule's (sched.maxon), which refuses a touch from outside the owner's family at the touch, so an
+// access from another family starts the place's history again. A family whose forks have all been joined has one thread
+// left, which every earlier access of the family comes before, so it records nothing: a program with no async call and no
+// parallel loop pays one branch an access.
+let oracleRace = "data race"
+
+// Clocks are the vector clocks, by thread: the thread's own clock, and what it has of the others', as a list sorted by
+// thread; the family each thread is of, 0 for a thread that is its own root; and the forks of each family not yet joined.
+type Clocks
+	var clock as CountList
+	var otherT as CountLists
+	var otherC as CountLists
+	var family as CountList
+	var open as CountList
+
+	static function new() returns Clocks
+		return Clocks{clock: CountList.create(0), otherT: CountLists.create(0), otherC: CountLists.create(0), family: CountList.create(0), open: CountList.create(0)}
+	end 'new'
+
+	function ensure(mutates self, t Count)
+		while clock.count() <= t 'grow'
+			clock.push(1)
+			otherT.push(CountList.create(0))
+			otherC.push(CountList.create(0))
+			family.push(0)
+			open.push(0)
+		end 'grow'
+	end 'ensure'
+
+	// familyOf is the thread no one forked that t descends from.
+	function familyOf(t Count) returns Count
+		if t < family.count() and family[t] != 0 'forked'
+			return family[t]
+		end 'forked'
+		return t
+	end 'familyOf'
+
+	// now is t's own clock, 1 for a thread that has neither forked nor been forked.
+	function now(t Count) returns Count
+		if t < clock.count() 'known'
+			return clock[t]
+		end 'known'
+		return 1
+	end 'now'
+
+	// active is whether t's family has a fork not yet joined, so that its accesses may race.
+	function active(t Count) returns bool
+		let f = self.familyOf(t)
+		return f < open.count() and open[f] > 0
+	end 'active'
+
+	// knows is the clock of u that t has, 0 for none.
+	function knows(t Count, u Count) returns Count
+		if t >= otherT.count() 'unknown'
+			return 0
+		end 'unknown'
+		var lo = 0 as Count
+		var hi = otherT[t].count()
+		while lo < hi 'search'
+			let mid = lo + (hi - lo) / 2
+			let at = otherT[t][mid]
+			if at == u 'found'
+				return otherC[t][mid]
+			end 'found'
+			if at < u 'above'
+				lo = mid + 1
+			end 'above' else 'below'
+				hi = mid
+			end 'below'
+		end 'search'
+		return 0
+	end 'knows'
+
+	// ordered is whether the access of u at clock c comes before what t does now.
+	function ordered(u Count, c Count, t Count) returns bool
+		return u == t or self.knows(t, u: u) >= c
+	end 'ordered'
+
+	// learn raises what t has of u's clock to c.
+	function learn(mutates self, t Count, u Count, c Count)
+		var lo = 0 as Count
+		var hi = otherT[t].count()
+		while lo < hi 'search'
+			let mid = lo + (hi - lo) / 2
+			let at = otherT[t][mid]
+			if at == u 'found'
+				if otherC[t][mid] < c 'raise'
+					otherC[t][mid] = c
+				end 'raise'
+				return
+			end 'found'
+			if at < u 'above'
+				lo = mid + 1
+			end 'above' else 'below'
+				hi = mid
+			end 'below'
+		end 'search'
+		otherT[t].insert(lo, value: u)
+		otherC[t].insert(lo, value: c)
+	end 'learn'
+
+	// fork makes k a thread that parent forked: k has what parent has done so far, and parent's clock moves on, so that
+	// what it does from here is unordered with k.
+	function fork(mutates self, parent Count, k Count)
+		let top = parent if parent > k else k
+		self.ensure(top)
+		let f = self.familyOf(parent)
+		family[k] = f
+		open[f] = try open[f] + 1 otherwise panic("interp: more forks than a word")
+		otherT[k] = otherT[parent].clone()
+		otherC[k] = otherC[parent].clone()
+		let at = clock[parent]
+		self.learn(k, u: parent, c: at)
+		clock[k] = 1
+		clock[parent] = try clock[parent] + 1 otherwise panic("interp: a clock past a word")
+	end 'fork'
+
+	// join gives w what k, which has finished, did.
+	function join(mutates self, w Count, k Count)
+		let top = w if w > k else k
+		self.ensure(top)
+		let ts = otherT[k].clone()
+		let cs = otherC[k].clone()
+		for i in 0 upto ts.count() 'others'
+			if ts[i] != w 'other'
+				self.learn(w, u: ts[i], c: cs[i])
+			end 'other'
+		end 'others'
+		let done = clock[k]
+		self.learn(w, u: k, c: done)
+		let f = self.familyOf(k)
+		open[f] = try open[f] - 1 otherwise panic("interp: a join of a family with no fork open")
+	end 'join'
+end 'Clocks'
+
+// Shadow is the history of the places of one kind, cells or objects, by handle: the last write's thread and clock, 0 for
+// none, and the reads since it: one read's thread and clock, or, where reads that no ordering separates came after it,
+// a list of them (reads, from 1).
+type Shadow
+	var writeT as CountList
+	var writeC as CountList
+	var readT as CountList
+	var readC as CountList
+	var reads as CountList
+	var readsT as CountLists
+	var readsC as CountLists
+	// otherWrote is whether the access that the last conflict found was a write.
+	var otherWrote as bool
+
+	static function new() returns Shadow
+		var s = Shadow{writeT: CountList.create(0), writeC: CountList.create(0), readT: CountList.create(0), readC: CountList.create(0), reads: CountList.create(0), readsT: CountLists.create(0), readsC: CountLists.create(0), otherWrote: false}
+		s.readsT.push(CountList.create(0))
+		s.readsC.push(CountList.create(0))
+		return s
+	end 'new'
+
+	function ensure(mutates self, at Count)
+		while writeT.count() <= at 'grow'
+			writeT.push(0)
+			writeC.push(0)
+			readT.push(0)
+			readC.push(0)
+			reads.push(0)
+		end 'grow'
+	end 'ensure'
+
+	// clear forgets the history of a place that is taken again for a new value.
+	function clear(mutates self, at Count)
+		if at >= writeT.count() 'unseen'
+			return
+		end 'unseen'
+		writeT[at] = 0
+		readT[at] = 0
+		self.clearReads(at)
+	end 'clear'
+
+	function clearReads(mutates self, at Count)
+		readT[at] = 0
+		let r = reads[at]
+		if r != 0 'list'
+			readsT[r].clear()
+			readsC[r].clear()
+		end 'list'
+	end 'clearReads'
+
+	// access records a read or a write of a place by t, and gives the thread of an earlier access that it races with, or 0.
+	function access(mutates self, at Count, t Count, write bool, clocks Clocks) returns Count
+		if at >= writeT.count() 'grow'
+			self.ensure(at)
+		end 'grow'
+		let now = clocks.now(t)
+		let w = writeT[at]
+		// The same thread's access again at the same clock adds nothing to what is known.
+		if w == t and writeC[at] == now 'again'
+			return 0
+		end 'again'
+		if not write and readT[at] == t and readC[at] == now 'reread'
+			return 0
+		end 'reread'
+		let f = clocks.familyOf(t)
+		if w != 0 and clocks.familyOf(w) != f 'otherFamily'
+			self.clear(at)
+		end 'otherFamily' else if w != 0 and not clocks.ordered(w, c: writeC[at], t: t) 'writeRaces'
+			otherWrote = true
+			return w
+		end 'writeRaces'
+		let r = reads[at]
+		let listed = r != 0 and readsT[r].count() > 0
+		if listed and clocks.familyOf(readsT[r][0]) != f 'otherReaders'
+			self.clearReads(at)
+		end 'otherReaders' else if not listed and readT[at] != 0 and clocks.familyOf(readT[at]) != f 'otherReader'
+			readT[at] = 0
+		end 'otherReader'
+		if write 'write'
+			let raced = self.readRacing(at, t: t, clocks: clocks)
+			if raced != 0 'races'
+				otherWrote = false
+				return raced
+			end 'races'
+			writeT[at] = t
+			writeC[at] = now
+			self.clearReads(at)
+			return 0
+		end 'write'
+		self.addRead(at, t: t, now: now, clocks: clocks)
+		return 0
+	end 'access'
+
+	// readRacing is a read since the last write that the write of t now is unordered with, or 0.
+	function readRacing(at Count, t Count, clocks Clocks) returns Count
+		let r = reads[at]
+		if r != 0 and readsT[r].count() > 0 'list'
+			for i in 0 upto readsT[r].count() 'reads'
+				if not clocks.ordered(readsT[r][i], c: readsC[r][i], t: t) 'races'
+					return readsT[r][i]
+				end 'races'
+			end 'reads'
+			return 0
+		end 'list'
+		let u = readT[at]
+		if u != 0 and not clocks.ordered(u, c: readC[at], t: t) 'races'
+			return u
+		end 'races'
+		return 0
+	end 'readRacing'
+
+	// addRead records a read: it replaces the one read before it that it comes after, and joins the list of the reads it is
+	// unordered with.
+	function addRead(mutates self, at Count, t Count, now Count, clocks Clocks)
+		var r = reads[at]
+		if r != 0 and readsT[r].count() > 0 'list'
+			for i in 0 upto readsT[r].count() 'reads'
+				if readsT[r][i] == t 'mine'
+					readsC[r][i] = now
+					return
+				end 'mine'
+			end 'reads'
+			readsT[r].push(t)
+			readsC[r].push(now)
+			return
+		end 'list'
+		let u = readT[at]
+		if u == 0 or clocks.ordered(u, c: readC[at], t: t) 'replaces'
+			readT[at] = t
+			readC[at] = now
+			return
+		end 'replaces'
+		if r == 0 'make'
+			r = readsT.count()
+			readsT.push(CountList.create(0))
+			readsC.push(CountList.create(0))
+			reads[at] = r
+		end 'make'
+		readsT[r].push(u)
+		readsC[r].push(readC[at])
+		readsT[r].push(t)
+		readsC[r].push(now)
+		readT[at] = 0
+	end 'addRead'
+end 'Shadow'
+
+// Race is the oracle's state: enabled for a run that asks for the oracle, on once such a run has forked a thread, the clocks, the history of cells and of objects (the
+// structure of an array), and by promise row whether it is a fork that has not been joined.
+type Race
+	var enabled as bool
+	var on as bool
+	var failed as bool
+	var clocks as Clocks
+	var cells as Shadow
+	var objects as Shadow
+	var forked as BoolList
+
+	static function new() returns Race
+		return Race{enabled: false, on: false, failed: false, clocks: Clocks.new(), cells: Shadow.new(), objects: Shadow.new(), forked: BoolList.create(0)}
+	end 'new'
+end 'Race'
+
+// raceFork records that the thread that runs forked thread k, whose promise row is row.
+function raceFork(mutates vm Vm, k Count, row Count)
+	if not vm.race.enabled 'off'
+		return
+	end 'off'
+	vm.race.on = true
+	vm.race.clocks.fork(vm.cur, k: k)
+	while vm.race.forked.count() <= row 'grow'
+		vm.race.forked.push(false)
+	end 'grow'
+	vm.race.forked[row] = true
+end 'raceFork'
+
+// raceJoin records that the thread that runs has what the coroutine or worker of promise row did, once.
+function raceJoin(mutates vm Vm, row Count)
+	if not vm.race.on or row >= vm.race.forked.count() or not vm.race.forked[row] 'notForked'
+		return
+	end 'notForked'
+	vm.race.forked[row] = false
+	vm.race.clocks.join(vm.cur, k: vm.promises.thread[row])
+end 'raceJoin'
+
+// raceCell records a read or a write of the cell c by the thread that runs.
+function raceCell(mutates vm Vm, c Count, write bool)
+	if vm.race.on 'on'
+		raceAccess(vm, at: c, onCells: true, write: write)
+	end 'on'
+end 'raceCell'
+
+// raceStructure records a read or a change of the structure of the array o.
+function raceStructure(mutates vm Vm, o Count, write bool)
+	if vm.race.on 'on'
+		raceAccess(vm, at: o, onCells: false, write: write)
+	end 'on'
+end 'raceStructure'
+
+// raceFresh forgets the history of a cell that is taken again: a frame's slot or an element's place.
+function raceFresh(mutates vm Vm, c Count)
+	if vm.race.on 'on'
+		vm.race.cells.clear(c)
+	end 'on'
+end 'raceFresh'
+
+function raceAccess(mutates vm Vm, at Count, onCells bool, write bool)
+	let t = vm.cur
+	if vm.race.failed or not vm.race.clocks.active(t) 'quiet'
+		return
+	end 'quiet'
+	var other = 0 as Count
+	var otherWrote = false
+	if onCells 'cells'
+		other = vm.race.cells.access(at, t: t, write: write, clocks: vm.race.clocks)
+		otherWrote = vm.race.cells.otherWrote
+	end 'cells' else 'objects'
+		other = vm.race.objects.access(at, t: t, write: write, clocks: vm.race.clocks)
+		otherWrote = vm.race.objects.otherWrote
+	end 'objects'
+	if other == 0 'ordered'
+		return
+	end 'ordered'
+	vm.race.failed = true
+	var place = "the structure of {objectText(vm, o: at)}"
+	if onCells 'cell'
+		place = cellText(vm, c: at)
+	end 'cell'
+	let verb = "writes" if write else "reads"
+	let before = "wrote" if otherWrote else "read"
+	oracleFails(vm, oracle: oracleRace, found: "{describeThread(vm, t: t)} {verb} {place} at {siteText(vm, site: vm.site())}, which {describeThread(vm, t: other)} {before} with no fork, join or await between them")
+end 'raceAccess'

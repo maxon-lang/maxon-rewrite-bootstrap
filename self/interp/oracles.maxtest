@@ -11,7 +11,7 @@ function runOracles(p ast.Project, main ir.IrFunction, others ir.IrFunctionList,
 	end 'others'
 	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	return runChecked(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, seed: seed, wantFrees: false, stdin: "")
+	return runChecked(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, seed: seed, wantFrees: false, races: true, stdin: "")
 end 'runOracles'
 
 function expectOracle(label String, out Outcome, oracle String, fragment String)

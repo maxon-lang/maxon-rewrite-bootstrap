@@ -32,6 +32,9 @@ let burstLimitCount = 3 as Count
 function describeThread(vm Vm, t Count) returns String
 	let name = vm.prog.symbols[vm.threads[t].name].clone()
 	let b = vm.threads[t].behaviour
+	if vm.threads[t].job != 0 'worker'
+		return "{name} (a worker of a parallel loop)"
+	end 'worker'
 	if vm.threads[t].promise != 0 'coroutine'
 		return "{name} (coroutine)"
 	end 'coroutine'

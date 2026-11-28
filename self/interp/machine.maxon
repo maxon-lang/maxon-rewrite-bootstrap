@@ -499,6 +499,7 @@ function enterFrame(mutates vm Vm, fn Count, dst ir.Word, err ir.Word) throws Ha
 		vm.h.cellLent[c] = false
 		vm.h.cellFrame[c] = serial
 		vm.h.cellIndex[c] = i
+		raceFresh(vm, c: c)
 	end 'slots'
 	vm.stackTop = top
 	vm.frames.push(serial)

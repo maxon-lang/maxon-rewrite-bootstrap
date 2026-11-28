@@ -40,6 +40,7 @@ end 'execDatum'
 function execLoadSlot(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let slot = ir.loadSlotSlot(x)
 	let c = slotCell(vm, slot: slot)
+	raceCell(vm, c: c, write: false)
 	if ir.owning(f.slots[slot]) 'managed'
 		_ = try live(vm, o: vm.h.refOf(c), what: "a read of the slot")
 	end 'managed'
@@ -48,6 +49,7 @@ end 'execLoadSlot'
 
 function execStoreSlot(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let c = slotCell(vm, slot: ir.storeSlotSlot(x))
+	raceCell(vm, c: c, write: true)
 	let src = ir.storeSlotSrc(x)
 	if not isManaged(f, r: src) 'scalar'
 		let at = vm.regAt(src)
@@ -106,11 +108,13 @@ end 'fieldOf'
 
 function execLoadField(mutates vm Vm, x ir.Instr) throws Halt
 	let c = try fieldOf(vm, obj: ir.loadFieldObj(x), offset: ir.loadFieldOffset(x), what: "a field read")
+	raceCell(vm, c: c, write: false)
 	copyToReg(vm, dst: x.dst, c: c)
 end 'execLoadField'
 
 function execStoreField(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let c = try fieldOf(vm, obj: ir.storeFieldObj(x), offset: ir.storeFieldOffset(x), what: "a field write")
+	raceCell(vm, c: c, write: true)
 	try changed(vm, c: c, o: 0)
 	if ir.storeFieldBorrow(x) 'lends'
 		let src = ir.storeFieldSrc(x)
@@ -192,6 +196,7 @@ end 'target'
 
 function execLoadAt(mutates vm Vm, x ir.Instr) throws Halt
 	let c = try target(vm, addr: ir.loadAtAddr(x), what: "a read through an address")
+	raceCell(vm, c: c, write: false)
 	if ir.loadAtFilled(x) 'filled'
 		try requireFilledCell(vm, c: c, what: "a read of an element through its address")
 	end 'filled'
@@ -200,6 +205,7 @@ end 'execLoadAt'
 
 function execStoreAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let c = try target(vm, addr: ir.storeAtAddr(x), what: "a write through an address")
+	raceCell(vm, c: c, write: true)
 	try changed(vm, c: c, o: 0)
 	try store(vm, f: f, c: c, src: ir.storeAtSrc(x), what: "the store")
 end 'execStoreAt'
@@ -208,6 +214,7 @@ end 'execStoreAt'
 // byteCell made a cell for, or a cell that holds the value, all of which the byte holds, since it is from 0 to 255.
 function execLoadByteAt(mutates vm Vm, x ir.Instr) throws Halt
 	let c = try target(vm, addr: ir.loadByteAtAddr(x), what: "a read through an address")
+	raceCell(vm, c: c, write: false)
 	let holder = vm.h.cellHolder[c]
 	if holder != 0 and vm.h.oKind[holder] == kindBytes 'buffer'
 		vm.setNum(x.dst, n: vm.h.buffers[vm.h.oData[holder]][vm.h.cellIndex[c]] as ir.Word)
@@ -220,6 +227,7 @@ end 'execLoadByteAt'
 // it.
 function execStoreByteAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let c = try target(vm, addr: ir.storeByteAtAddr(x), what: "a write through an address")
+	raceCell(vm, c: c, write: true)
 	let holder = vm.h.cellHolder[c]
 	if holder != 0 and vm.h.oKind[holder] == kindBytes 'buffer'
 		vm.h.buffers[vm.h.oData[holder]][vm.h.cellIndex[c]] = lowByte(vm.num(ir.storeByteAtSrc(x)))
@@ -329,11 +337,13 @@ end 'execCopy'
 
 function execDropSlot(mutates vm Vm, x ir.Instr) throws Halt
 	let c = slotCell(vm, slot: ir.dropSlotSlot(x))
+	raceCell(vm, c: c, write: true)
 	try dropCell(vm, c: c)
 end 'execDropSlot'
 
 function execDropAt(mutates vm Vm, x ir.Instr) throws Halt
 	let c = try target(vm, addr: ir.dropAtAddr(x), what: "a drop through an address")
+	raceCell(vm, c: c, write: true)
 	try dropCell(vm, c: c)
 end 'execDropAt'
 
@@ -343,6 +353,7 @@ function moveOut(mutates vm Vm, c Count, dst ir.Reg, what String) throws Halt
 	if vm.h.refOf(c) == 0 'empty'
 		throw violation(vm, kind: movedUse, message: "{what}, which holds no value: it was moved out already or never assigned")
 	end 'empty'
+	raceCell(vm, c: c, write: true)
 	try changed(vm, c: c, o: 0)
 	copyToReg(vm, dst: dst, c: c)
 	_ = try release(vm, c: c, what: what)

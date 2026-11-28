@@ -148,7 +148,7 @@ function runWith(p ast.Project, main ir.IrFunction, others ir.IrFunctionList, se
 	end 'others'
 	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	return run(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, seed: seed, wantFrees: false, stdin: "")
+	return run(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, seed: seed, wantFrees: false, races: true, stdin: "")
 end 'runWith'
 
 function runMain(p ast.Project, main ir.IrFunction) returns Outcome
@@ -745,7 +745,7 @@ test 'a frozen value is freed with its last owner'
 	fns.push(b.ret(zero))
 	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	let out = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, seed: 0, wantFrees: true, stdin: "")
+	let out = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, seed: 0, wantFrees: true, races: true, stdin: "")
 	if out.violations.count() != 0 'violated'
 		panic("{out.violations[0]}")
 	end 'violated'

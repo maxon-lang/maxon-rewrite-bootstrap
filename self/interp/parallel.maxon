@@ -2,7 +2,7 @@
 // and makes workers, how many of each the run's random numbers choose, each a thread with a part of its own; a worker takes
 // the next chunk in index order, runs the chunk code over it, and takes the next until none is left, as the runtime's parts
 // do, and the scheduler interleaves the workers as it does any other threads, so the iterations of different chunks run in
-// an order the seed decides. The caller waits until every worker has finished. A worker belongs to the caller (forkRoot), so
+// an order the seed decides. The caller waits until every worker has finished. A worker belongs to the caller (familyRoot), so
 // it reads what the caller's iterations may read, and touches a cown only as the caller's behaviour could. A chunk that
 // fails keeps its error when its index is the lowest that has failed, which drops the error it replaces, and a chunk taken
 // past that index is not run: so a body that the checker should have refused shows another result under some seed, and the
@@ -55,16 +55,6 @@ type ParallelJobs
 	end 'add'
 end 'ParallelJobs'
 
-// forkRoot is the thread whose data a thread reaches as its own: the caller of the parallel loop it is a worker of, through
-// every loop it is nested in, or the thread itself.
-function forkRoot(vm Vm, t Count) returns Count
-	var at = t
-	while vm.threads[at].job != 0 'up'
-		at = vm.parallels.caller[vm.threads[at].job]
-	end 'up'
-	return at
-end 'forkRoot'
-
 // entryParallelRun runs a parallel loop: its first run makes the job and its workers, and the thread waits at the
 // instruction until every worker has finished, then gives 0 or the lowest failed index's error.
 function entryParallelRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
@@ -87,6 +77,9 @@ function entryParallelRun(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 			return
 		end 'running'
 	end 'workers'
+	for k in 0 upto rows.count() 'joins'
+		raceJoin(vm, row: rows[k])
+	end 'joins'
 	let parts = vm.parallels.parts[job].clone()
 	for k in 0 upto parts.count() 'parts'
 		vm.h.oFreed[parts[k]] = true
@@ -123,6 +116,7 @@ function startJob(mutates vm Vm, f ir.IrFunction, x ir.Instr, count Count) retur
 		thread.startN.push(0)
 		thread.startR.push(try part as ir.Word otherwise panic("interp: a handle past a word"))
 		vm.threads.push(thread)
+		raceFork(vm, k: t, row: row)
 		vm.parallels.rows[job].push(row)
 		vm.parallels.parts[job].push(part)
 	end 'workers'

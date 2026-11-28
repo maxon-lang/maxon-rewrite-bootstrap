@@ -1,0 +1,141 @@
+typealias Num = int(0 to 1000000)
+
+typealias Nums = Array with Num
+
+typealias Grid = Array with Nums
+
+let modulus = 999983 as Num
+
+type Cell
+	export var value as Num
+	export var label as String
+
+	static function create(value Num) returns Self
+		return Self{value: value, label: ""}
+	end 'create'
+end 'Cell'
+
+typealias Cells = Array with Cell
+
+enum Stop implements Error
+	early
+	late
+end 'Stop'
+
+function mix(h Num, v Num) returns Num
+	return (h * 31 + v) mod modulus
+end 'mix'
+
+function numOf(n Count) returns Num
+	return try n as Num otherwise 0
+end 'numOf'
+
+function bump(mutates n Num)
+	n = mix(n, v: 1)
+end 'bump'
+
+function relabel(mutates c Cell)
+	c.value = mix(c.value, v: 2)
+	c.label = "c{c.value}"
+end 'relabel'
+
+function replace(mutates c Cell)
+	c = Cell.create(mix(c.value, v: 11))
+end 'replace'
+
+function checked(n Num, limit Num) returns Num throws Stop
+	if n > limit 'late'
+		throw Stop.late
+	end 'late'
+	return mix(n, v: limit)
+end 'checked'
+
+function later(n Num) returns Num
+	sleep(1)
+	return mix(n, v: 5)
+end 'later'
+
+function lendCell(mutates c Cell) returns Num
+	sleep(1)
+	c.value = mix(c.value, v: 3)
+	c.label = "l{c.value}"
+	return c.value
+end 'lendCell'
+
+function lendNum(mutates n Num) returns Num
+	sleep(1)
+	n = mix(n, v: 9)
+	return n
+end 'lendNum'
+
+function readCell(c Cell) returns Num
+	sleep(1)
+	return mix(c.value, v: numOf(c.label.byteLength()))
+end 'readCell'
+
+function sumOf(xs Nums) returns Num
+	var s = 0 as Num
+	for x in xs 'each'
+		s = mix(s, v: x)
+	end 'each'
+	return s
+end 'sumOf'
+
+function cellSum(cs Cells) returns Num
+	var s = 0 as Num
+	for c in cs 'each'
+		s = mix(s, v: mix(c.value, v: numOf(c.label.byteLength())))
+	end 'each'
+	return s
+end 'cellSum'
+
+function gridSum(g Grid) returns Num
+	var s = 0 as Num
+	for row in g 'rows'
+		s = mix(s, v: sumOf(row))
+	end 'rows'
+	return s
+end 'gridSum'
+
+function cellsOf(n Count, salt Num) returns Cells
+	var cs = Cells.create(0)
+	for i in 0 upto n 'each'
+		cs.push(Cell.create(mix(numOf(i), v: salt)))
+	end 'each'
+	return cs
+end 'cellsOf'
+
+function gridOf(rows Count, columns Count) returns Grid
+	var g = Grid.create(0)
+	for r in 0 upto rows 'rows'
+		g.push(Nums.filled(columns, value: numOf(r)))
+	end 'rows'
+	return g
+end 'gridOf'
+
+// Acc is a service: its messages from many senders arrive in any order, and what it keeps does not depend on it.
+type Acc
+	var sum as Num
+	var count as Num
+
+	static function create() returns Self
+		return Self{sum: 0, count: 0}
+	end 'create'
+
+	export function add(mutates self, value Num)
+		self.sum = (self.sum + value) mod modulus
+		self.count = (self.count + 1) mod modulus
+	end 'add'
+
+	export function total() returns Num
+		return mix(self.sum, v: self.count)
+	end 'total'
+
+	export function scaled(length Count) returns Nums
+		var out = Nums.filled(length, value: 0)
+		parallel for (i, o) in out.enumerated() 'each'
+			o = mix(numOf(i as Count), v: self.sum)
+		end 'each'
+		return out
+	end 'scaled'
+end 'Acc'

@@ -195,7 +195,7 @@ function servicesLane(options FuzzOptions, program String) returns ExitCode
 			end 'stopping'
 			let policy = try (g + schedule) mod lanePolicies otherwise panic("fuzz: a policy past a word")
 			let input = graph.input(stop, policy: policy)
-			let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: laneStepLimit, seed: interp.seedOf(seed), wantFrees: false, stdin: input)
+			let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: laneStepLimit, seed: interp.seedOf(seed), wantFrees: false, races: true, stdin: input)
 			if out.violations.count() > 0 or out.timedOut or out.exitCode != 0 'failed'
 				var report = "exit {out.exitCode}"
 				if out.timedOut 'timedOut'

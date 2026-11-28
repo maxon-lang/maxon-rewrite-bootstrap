@@ -314,14 +314,22 @@ end 'entryShare'
 
 // restructure is a change to the structure of a collection, which ends every address taken into it.
 function restructure(mutates vm Vm, o Count) throws Halt
+	raceStructure(vm, o: o, write: true)
 	try changed(vm, c: 0, o: o)
 	let version = vm.h.nextVersion()
 	vm.h.oVersion[o] = version
 end 'restructure'
 
+// elementPlace is a place for an element of the array a, whose history the race oracle forgets.
+function elementPlace(mutates vm Vm, a Count) returns Count
+	let c = vm.h.elementPlace(a)
+	raceFresh(vm, c: c)
+	return c
+end 'elementPlace'
+
 // moveIn puts an element that an entry takes in a new place of a collection, which becomes its owner.
 function moveIn(mutates vm Vm, f ir.IrFunction, holder Count, src ir.Reg, what String) returns Count throws Halt
-	let c = vm.h.elementPlace(holder)
+	let c = elementPlace(vm, a: holder)
 	try store(vm, f: f, c: c, src: src, what: what)
 	return c
 end 'moveIn'
@@ -358,6 +366,7 @@ end 'execLength'
 // arrayCount is the count of the elements of an array or a byte array, whose boxes have one layout.
 function arrayCount(mutates vm Vm, o Count) returns ir.Word throws Halt
 	let live = try live(vm, o: o, what: "a length")
+	raceStructure(vm, o: live, write: false)
 	let data = vm.h.oData[live]
 	if vm.h.oKind[live] == kindArray 'words'
 		return try vm.h.elements[data].count() as ir.Word otherwise panic("interp: an array past a word")
@@ -409,6 +418,7 @@ function elementCell(mutates vm Vm, arr ir.Reg, index ir.Reg, what String) retur
 	let a = try collection(vm, o: vm.ref(arr), kind: kindArray, what: what)
 	let i = ir.bitsOfWord(vm.num(index))
 	let data = vm.h.oData[a]
+	raceStructure(vm, o: a, write: false)
 	if i >= vm.h.elements[data].count() 'outside'
 		throw provenOutside(vm, what: what, index: i, count: vm.h.elements[data].count())
 	end 'outside'
@@ -460,6 +470,7 @@ function execElemLoad(mutates vm Vm, x ir.Instr) throws Halt
 	if vm.tracking 'tracking'
 		try requireReachableCell(vm, c: c, what: what)
 	end 'tracking'
+	raceCell(vm, c: c, write: false)
 	copyToReg(vm, dst: x.dst, c: c)
 end 'execElemLoad'
 
@@ -498,6 +509,7 @@ function entryArrayElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if i >= vm.h.elements[data].count() 'outside'
 		throw trap(vm, message: indexOutOfRangeMessage)
 	end 'outside'
+	raceStructure(vm, o: a, write: false)
 	let element = vm.h.elements[data][i]
 	giveAddress(vm, x: x, c: element)
 end 'entryArrayElem'
@@ -555,7 +567,7 @@ function entryStrsOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		throw trap(vm, message: indexOutOfRangeMessage)
 	end 'outside'
 	try restructure(vm, o: a)
-	let e = vm.h.elementPlace(a)
+	let e = elementPlace(vm, a: a)
 	vm.h.elements[data].insert(i, value: e)
 	giveAddress(vm, x: x, c: e)
 end 'entryStrsOpen'
@@ -583,7 +595,7 @@ function entryStrsFill(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let data = vm.h.oData[a]
 	try restructure(vm, o: a)
 	for _ in 0 upto count 'cells'
-		let cell = vm.h.elementPlace(a)
+		let cell = elementPlace(vm, a: a)
 		vm.h.elements[data].push(cell)
 	end 'cells'
 end 'entryStrsFill'
@@ -601,6 +613,7 @@ function entryRecsElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if i >= vm.h.elements[data].count() 'outside'
 		throw outsideAccess(vm, x: x, what: "an element address", index: i, count: vm.h.elements[data].count())
 	end 'outside'
+	raceStructure(vm, o: a, write: false)
 	let element = vm.h.elements[data][i]
 	giveCell(vm, x: x, c: element)
 end 'entryRecsElem'
@@ -616,7 +629,7 @@ function entryRecsOpen(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		throw trap(vm, message: indexOutOfRangeMessage)
 	end 'outside'
 	try restructure(vm, o: a)
-	let e = vm.h.elementPlace(a)
+	let e = elementPlace(vm, a: a)
 	let box = newBox(vm, words: words)
 	try adopt(vm, c: e, o: box, what: "the insert")
 	vm.h.elements[data].insert(i, value: e)

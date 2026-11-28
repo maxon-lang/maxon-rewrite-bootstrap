@@ -31,22 +31,33 @@ function holdsTurn(vm Vm, t Count) returns bool
 	return s == 0 or vm.strands.holder[s] == t
 end 'holdsTurn'
 
-// sameStrand is whether two threads reach the same data without a race: they are one thread, or members of one strand,
-// which never run at once.
+// familyRoot is the thread whose data a thread reaches as its own: up from a coroutine to the root of its strand, and up
+// from a parallel loop's worker to the loop's caller, as far as either goes, so that a coroutine a worker started and the
+// worker's own coroutines and workers are of the caller's family.
+function familyRoot(vm Vm, t Count) returns Count
+	var at = t
+	while true 'up'
+		let s = vm.threads[at].strand
+		if s != 0 and vm.strands.root[s] != at 'member'
+			at = vm.strands.root[s]
+		end 'member' else if vm.threads[at].job != 0 'worker'
+			at = vm.parallels.caller[vm.threads[at].job]
+		end 'worker' else 'root'
+			return at
+		end 'root'
+	end 'up'
+	panic("interp: the family of a thread does not end")
+end 'familyRoot'
+
+// sameStrand is whether two threads reach the same data without a race: they are of one family, whose members never run
+// at once or, as a loop's workers, touch only what the race oracle (race.maxon) holds apart.
 function sameStrand(vm Vm, a Count, b Count) returns bool
-	let x = forkRoot(vm, t: a)
-	let y = forkRoot(vm, t: b)
-	return x == y or (vm.threads[x].strand != 0 and vm.threads[x].strand == vm.threads[y].strand)
+	return familyRoot(vm, t: a) == familyRoot(vm, t: b)
 end 'sameStrand'
 
-// behaviourOf is the behaviour whose cowns a thread may touch: its own, or its strand's root's for a coroutine.
+// behaviourOf is the behaviour whose cowns a thread may touch: its family root's.
 function behaviourOf(vm Vm, t Count) returns Count
-	let root = forkRoot(vm, t: t)
-	let s = vm.threads[root].strand
-	if s == 0 'alone'
-		return vm.threads[root].behaviour
-	end 'alone'
-	return vm.threads[vm.strands.root[s]].behaviour
+	return vm.threads[familyRoot(vm, t: t)].behaviour
 end 'behaviourOf'
 
 // releaseStrand is a thread giving up the strand it holds, to the member that waited first, or to none.
@@ -171,6 +182,7 @@ function execAsync(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	thread.startR = vm.argR.clone()
 	vm.threads.push(thread)
 	vm.strands.queue[s].push(t)
+	raceFork(vm, k: t, row: row)
 	let site = vm.site()
 	let o = vm.h.newObject(kindPromise, site: site)
 	vm.h.oData[o] = row
@@ -254,6 +266,7 @@ end 'cancelPromise'
 
 // dropOutcome drops what a finished promise's function or message gave that no await took: its value and its error.
 function dropOutcome(mutates vm Vm, row Count) throws Halt
+	raceJoin(vm, row: row)
 	let value = vm.promises.valueR[row]
 	vm.promises.valueR[row] = 0
 	if value > 0 'value'
@@ -295,6 +308,8 @@ end 'settleDrops'
 
 // freePromise frees the record of a promise that an await has taken what it gave from.
 function freePromise(mutates vm Vm, o Count)
+	let row = vm.h.oData[o]
+	raceJoin(vm, row: row)
 	vm.h.oFreed[o] = true
 	vm.h.oFreedAt[o] = vm.site()
 	vm.h.oOwner[o] = 0

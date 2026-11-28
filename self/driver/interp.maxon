@@ -7,6 +7,9 @@ let seedFlagPrefix = "--seed="
 // freesFlag lists, after the run, each value that was freed in the order it was, which the tests of the order of frees compare.
 let freesFlag = "--frees"
 
+// raceFlag runs the race oracle (self/interp/race.maxon), which the test runner and fuzz always run.
+let raceFlag = "--race"
+
 let violationExitCode = 4 as ExitCode
 
 let timeoutExitCode = 5 as ExitCode
@@ -55,6 +58,7 @@ end 'parseSeed'
 function interpCommand(args CommandNames) returns ExitCode
 	var seedBits = 0 as Count
 	var wantFrees = false
+	var races = false
 	var path = ""
 	var named = false
 	for i in 1 upto args.count() 'args'
@@ -67,7 +71,9 @@ function interpCommand(args CommandNames) returns ExitCode
 			seedBits = number.unwrap()
 		end 'seed' else if args[i] == freesFlag 'frees'
 			wantFrees = true
-		end 'frees' else if not named 'path'
+		end 'frees' else if args[i] == raceFlag 'race'
+			races = true
+		end 'race' else if not named 'path'
 			path = args[i].clone()
 			named = true
 		end 'path'
@@ -79,20 +85,20 @@ function interpCommand(args CommandNames) returns ExitCode
 	var errs = diag.ErrorList.create(0)
 	let loaded = project.loadProject(path, errs: errs)
 	match consumes loaded 'load'
-		some(p) then return interpLoaded(p, seed: interp.seedOf(seedBits), wantFrees: wantFrees, errs: errs)
+		some(p) then return interpLoaded(p, seed: interp.seedOf(seedBits), wantFrees: wantFrees, races: races, errs: errs)
 		none then return report(errs)
 	end 'load'
 end 'interpCommand'
 
 // interpLoaded checks and lowers the project, as a build does but with no runtime and no backend, then runs it. What only the
 // interpreter runs is no refusal here.
-function interpLoaded(consumes loadedProject ast.Project, seed ir.Word, wantFrees bool, mutates errs diag.ErrorList) returns ExitCode
+function interpLoaded(consumes loadedProject ast.Project, seed ir.Word, wantFrees bool, races bool, mutates errs diag.ErrorList) returns ExitCode
 	var p = loadedProject
 	let generated = lowerForInterpreter(p, errs: errs)
 	if errs.count() > 0 'failed'
 		return report(errs)
 	end 'failed'
-	let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: interp.defaultStepLimit, seed: seed, wantFrees: wantFrees, stdin: "")
+	let out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: interp.defaultStepLimit, seed: seed, wantFrees: wantFrees, races: races, stdin: "")
 	print(out.stdout)
 	printError(out.stderr)
 	for i in 0 upto out.violations.count() 'violations'

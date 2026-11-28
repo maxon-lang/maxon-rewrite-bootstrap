@@ -32,6 +32,10 @@ const proofSeeds = "180"
 // seconds where every one takes four minutes (`fuzz --services` alone).
 const serviceGraphs = "200"
 
+// concurrentSeeds is how many programs of the concurrency generator the gate runs, each under six schedules and three times
+// natively, which takes seconds where the wide run (uzz --concurrent --native --count=2000) takes minutes.
+const concurrentSeeds = "40"
+
 // pinHashSeed sets the hash seed of the programs the gate starts, for the suites and for the regeneration of the specs alike:
 // the spec results are kept under a stamp that holds the seed, so a run under another one is not the run that the gate
 // replays.
@@ -155,6 +159,10 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		{step{"fuzz proofs", func() error { return mm("fuzz", "--proofs", "--native", "--count="+proofSeeds) }}, "checks"},
 		// Every run of the services lane's send graphs must keep the interpreter's oracles of backpressure.
 		{step{"fuzz services", func() error { return mm("fuzz", "--services", "--count="+serviceGraphs) }}, "checks"},
+		// The concurrency generator's programs, parallel loops, async lends and services, are accepted by construction and give
+		// one output under every schedule: under the race oracle and the oracles of backpressure, under six schedules of the
+		// interpreter and natively, the outputs must agree.
+		{step{"fuzz concurrent", func() error { return mm("fuzz", "--concurrent", "--native", "--count="+concurrentSeeds) }}, "checks"},
 		{step{"benchmarks compile", func() error { return benchmarksCompile(r.compiler, r.testArgs) }}, "builds"},
 		{step{"self compiles for arm64", func() error { return selfCompilesForArm64(r.compiler) }}, "builds"},
 		{step{"cache", func() error { return cacheTest(r.h, r.compiler) }}, "builds"},

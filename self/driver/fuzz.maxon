@@ -25,6 +25,9 @@ let fuzzWorkerFlag = "--worker"
 
 let fuzzServicesFlag = "--services"
 
+// fuzzConcurrentFlag runs the concurrency generator's programs (self/fuzz/concurrent.maxon).
+let fuzzConcurrentFlag = "--concurrent"
+
 // programsPerWorker is how many seeds one worker process runs: what an internal compiler error costs is the other programs of its
 // chunk, run again.
 let programsPerWorker = 100 as Count
@@ -45,6 +48,9 @@ let generatedStepLimit = 20000000 as Count
 
 // defaultScheduleSeeds is how many schedules a program that has behaviours runs under.
 let defaultScheduleSeeds = 3 as Count
+
+// concurrentScheduleSeeds is how many schedules a --concurrent run runs each program under unless --schedules says.
+let concurrentScheduleSeeds = 6 as Count
 
 // nativeBehaviourRuns is how many times --native runs the executable of a program that schedules behaviours, each run
 // under another schedule, with the worker count of the fuzzer's environment (MAXON_MAX_PROCS).
@@ -73,6 +79,9 @@ let proofsLibraryFileName = "proofs.txt"
 
 // servicesProgramFileName is the program of the services lane (services.maxon).
 let servicesProgramFileName = "services.txt"
+
+// concurrentLibraryFileName is the library of the concurrency generator's programs.
+let concurrentLibraryFileName = "concurrent.txt"
 
 // proofsKeepDirName is where --proofs keeps the programs that fail when --keep names no directory, under the system's temporary
 // directory.
@@ -127,6 +136,9 @@ function libraryFileOf(options FuzzOptions) returns String
 	if options.services 'services'
 		return servicesProgramFileName.clone()
 	end 'services'
+	if options.concurrent 'concurrent'
+		return concurrentLibraryFileName.clone()
+	end 'concurrent'
 	return libraryFileName.clone()
 end 'libraryFileOf'
 
@@ -135,6 +147,9 @@ function generatedProgram(options FuzzOptions, seed Count, library String) retur
 	if options.proofs 'proofs'
 		return fuzz.generateProof(seed, library: library)
 	end 'proofs'
+	if options.concurrent 'concurrent'
+		return fuzz.generateConcurrent(seed, library: library)
+	end 'concurrent'
 	return fuzz.generate(seed, library: library)
 end 'generatedProgram'
 
@@ -154,9 +169,12 @@ type FuzzOptions
 	// services says that the run is the services lane (services.maxon), whose count is of send graphs, every one unless
 	// --count says fewer, and whose schedules are per graph.
 	var services as bool
+	// concurrent says that the programs are the concurrency generator's, each written to be accepted and to give one output
+	// under every schedule, so each runs under every schedule and the outputs are compared.
+	var concurrent as bool
 
 	static function new() returns FuzzOptions
-		return FuzzOptions{first: 1, count: defaultGeneratedPrograms, schedules: defaultScheduleSeeds, keep: "", dump: false, native: false, proofs: false, worker: false, services: false}
+		return FuzzOptions{first: 1, count: defaultGeneratedPrograms, schedules: defaultScheduleSeeds, keep: "", dump: false, native: false, proofs: false, worker: false, services: false, concurrent: false}
 	end 'new'
 end 'FuzzOptions'
 
@@ -202,7 +220,9 @@ function readFuzzOptions(args CommandNames) returns table.Option with FuzzOption
 			options.worker = true
 		end 'worker' else if args[i] == fuzzServicesFlag 'services'
 			options.services = true
-		end 'services' else 'unknown'
+		end 'services' else if args[i] == fuzzConcurrentFlag 'concurrent'
+			options.concurrent = true
+		end 'concurrent' else 'unknown'
 			printError("fuzz: unknown argument {args[i]}\n")
 			return table.Option.none
 		end 'unknown'
@@ -210,6 +230,9 @@ function readFuzzOptions(args CommandNames) returns table.Option with FuzzOption
 	if options.services and not counted 'everyGraph'
 		options.count = everyGraph
 	end 'everyGraph'
+	if options.concurrent and not scheduled 'everySchedule'
+		options.schedules = concurrentScheduleSeeds
+	end 'everySchedule'
 	if options.services and not scheduled 'eachTurn'
 		options.schedules = laneScheduleSeeds
 	end 'eachTurn'
@@ -219,7 +242,7 @@ function readFuzzOptions(args CommandNames) returns table.Option with FuzzOption
 	return table.Option.some(options)
 end 'readFuzzOptions'
 
-// fuzzCommand is `fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--proofs] [--services] [--dump]`: it runs
+// fuzzCommand is `fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--proofs] [--concurrent] [--services] [--dump]`: it runs
 // the programs of the seeds from --seed up, --count of them, and with --dump only prints the program of --seed; with --services
 // it runs the services lane instead.
 function fuzzCommand(args CommandNames) returns ExitCode
@@ -269,9 +292,13 @@ type GeneratedRun
 	var behaviours as Count
 	// scheduleSeed is the schedule that gave the result, which for a program that breaks a rule is the first that did.
 	var scheduleSeed as Count
+	// everySchedule says that the program ran under every schedule whether it scheduled behaviours or not, and scheduleMismatch
+	// how the output of one differed from the first's, or nothing.
+	var everySchedule as bool
+	var scheduleMismatch as String
 
 	static function new() returns GeneratedRun
-		return GeneratedRun{rejected: false, syntaxFail: false, rejectedCode: "", rejectedText: "", violations: ast.StringList.create(0), timedOut: false, exitCode: 0, stdout: "", behaviours: 0, scheduleSeed: 0}
+		return GeneratedRun{rejected: false, syntaxFail: false, rejectedCode: "", rejectedText: "", violations: ast.StringList.create(0), timedOut: false, exitCode: 0, stdout: "", behaviours: 0, scheduleSeed: 0, everySchedule: false, scheduleMismatch: ""}
 	end 'new'
 end 'GeneratedRun'
 
@@ -280,11 +307,13 @@ function isSyntaxCode(code String) returns bool
 	return code == diag.errUnexpectedToken or code == diag.errUnexpectedCharacter or code == diag.errControlCharacter or code == diag.errLineSeparator or code == diag.errBidiControl or code == diag.errByteOrderMark or code == diag.errUnexpectedEnd or code == diag.errMismatchedEndLabel or code == diag.errExpectedToken or code == diag.errIntegerLiteralRange
 end 'isSyntaxCode'
 
-// runGenerated checks a program and runs it under the interpreter, under as many schedules as the program's behaviours want.
+// runGenerated checks a program and runs it under the interpreter, under as many schedules as the program's behaviours want,
+// or under every one of them with everySchedule, whose outputs must then agree.
 // A generated program is staged in the library tier, as every check of one is: it tests the rules of cowns and behaviours,
 // which only the library tiers write (E3185 elsewhere).
-function runGenerated(source String, schedules Count) returns GeneratedRun
+function runGenerated(source String, schedules Count, everySchedule bool) returns GeneratedRun
 	var outcome = GeneratedRun.new()
+	outcome.everySchedule = everySchedule
 	var errs = diag.ErrorList.create(0)
 	var p = ast.Project.new("")
 	project.loadSourceInto(p, path: generatedPath, text: source, errs: errs)
@@ -307,17 +336,19 @@ function runLoaded(mutates p ast.Project, schedules Count, mutates outcome Gener
 		end 'each'
 		return
 	end 'rejected'
-	var out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(0), wantFrees: false, stdin: "")
-	if out.behaviours > 0 'scheduled'
+	var out = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(0), wantFrees: false, races: true, stdin: "")
+	if out.behaviours > 0 or outcome.everySchedule 'scheduled'
 		// The schedule of behaviours is random, so a program that has some runs under several, and a rule that only some of them
 		// break is still broken.
 		var schedule = 1 as Count
 		while schedule < schedules and out.violations.count() == 0 'schedules'
-			let again = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(schedule), wantFrees: false, stdin: "")
+			let again = interp.run(p, modules: generated.modules, entry: generated.entry, stepLimit: generatedStepLimit, seed: interp.seedOf(schedule), wantFrees: false, races: true, stdin: "")
 			if again.violations.count() > 0 'broken'
 				out = again
 				outcome.scheduleSeed = schedule
-			end 'broken'
+			end 'broken' else if outcome.everySchedule and outcome.scheduleMismatch == "" and (again.stdout != out.stdout or again.exitCode != out.exitCode or again.timedOut != out.timedOut) 'differs'
+				outcome.scheduleMismatch = "the schedule of seed {schedule} gives exit code {again.exitCode} and the output:\n{again.stdout}\nwhere the schedule of seed 0 gives exit code {out.exitCode} and:\n{out.stdout}"
+			end 'differs'
 			schedule = schedule + 1
 		end 'schedules'
 	end 'scheduled'
@@ -362,7 +393,7 @@ function compareNative(shared SharedRuntime, source String, outcome GeneratedRun
 	end 'failed'
 	let exePath = try FilePath.from(exe) otherwise return NativeCheck.differs("{exe} is not a path", ran: false)
 	var runs = 1 as Count
-	if outcome.behaviours > 0 'scheduled'
+	if outcome.behaviours > 0 or outcome.everySchedule 'scheduled'
 		runs = nativeBehaviourRuns
 	end 'scheduled'
 	for run in 0 upto runs 'runs'
@@ -638,16 +669,18 @@ function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 		if options.proofs 'proofs'
 			source = fixedProgram(source, libraries: libraries, only: table.Option.none)
 		end 'proofs'
-		var outcome = runGenerated(source, schedules: options.schedules)
+		var outcome = runGenerated(source, schedules: options.schedules, everySchedule: options.concurrent)
 		if outcome.rejected and outcome.rejectedCode == diag.errNeedlessTry 'needless'
 			// The generator writes a try on every piece of arithmetic, which the analysis may prove cannot fail; what it is
 			// refused for is nothing the program is about, so the program runs without those tries.
 			source = fixedProgram(source, libraries: libraries, only: table.Option.some(check.fixKindUntry.clone()))
-			outcome = runGenerated(source, schedules: options.schedules)
+			outcome = runGenerated(source, schedules: options.schedules, everySchedule: options.concurrent)
 		end 'needless'
 		if outcome.syntaxFail 'syntax'
 			fail(tally, options: options, seed: seed, source: source, message: "the generator wrote a program that does not parse: {outcome.rejectedText}")
-		end 'syntax' else if outcome.rejected and options.proofs and not isStaticRefusal(outcome.rejectedCode) 'refused'
+		end 'syntax' else if outcome.rejected and options.concurrent 'refusedConcurrent'
+			fail(tally, options: options, seed: seed, source: source, message: "the checker refuses the program after the fix, which a concurrency program is written never to need: {outcome.rejectedText}")
+		end 'refusedConcurrent' else if outcome.rejected and options.proofs and not isStaticRefusal(outcome.rejectedCode) 'refused'
 			fail(tally, options: options, seed: seed, source: source, message: "the checker refuses the program after the fix, which a proof program never needs: {outcome.rejectedText}")
 		end 'refused' else if outcome.rejected 'rejected'
 			tally.reject(outcome.rejectedCode, programs: 1)
@@ -657,7 +690,9 @@ function fuzzWorker(options FuzzOptions, library String) returns ExitCode
 				report = "{report}{outcome.violations[i]}\n"
 			end 'each'
 			fail(tally, options: options, seed: seed, source: source, message: "a program the checker accepted breaks the memory model (schedule of seed {outcome.scheduleSeed}):\n{report}")
-		end 'violated' else if outcome.timedOut 'timedOut'
+		end 'violated' else if outcome.scheduleMismatch != "" 'mismatch'
+			fail(tally, options: options, seed: seed, source: source, message: "a program written to give one output under every schedule gives another: {outcome.scheduleMismatch}")
+		end 'mismatch' else if outcome.timedOut 'timedOut'
 			tally.timedOut = try tally.timedOut + 1 otherwise panic("fuzz: more programs than memory")
 			keepSource(options.keep, name: "timeout{seed}.maxon", source: source)
 		end 'timedOut' else 'accepted'
@@ -736,6 +771,9 @@ function workerArguments(options FuzzOptions, first Count, count Count) returns 
 	if options.proofs 'proofs'
 		args.push(fuzzProofsFlag)
 	end 'proofs'
+	if options.concurrent 'concurrent'
+		args.push(fuzzConcurrentFlag)
+	end 'concurrent'
 	return args
 end 'workerArguments'
 
@@ -809,7 +847,9 @@ function fuzzSummary(mutates tally FuzzTally, options FuzzOptions) returns ExitC
 	print("{options.count} programs: {tally.accepted} accepted and clean ({tally.trapped} of them ended in a trap, {tally.timedOut} ran out of steps), {total} rejected by the checker [{fuzz.joinStrings(parts, separator: " ")}], {tally.failures} failed\n")
 	if options.proofs 'proofs'
 		print("{tally.accesses} accesses in the accepted programs, {tally.proven} of them proven by the analysis\n")
-	end 'proofs' else 'schedules'
+	end 'proofs' else if options.concurrent 'concurrent'
+		print("{tally.accepted} accepted programs ran under {options.schedules} schedules each with one output, under the race oracle and the oracles of backpressure\n")
+	end 'concurrent' else 'schedules'
 		print("{tally.planted} of the accepted programs refused, as they must, the shape planted in them\n")
 		print("{tally.concurrent} of the accepted programs scheduled behaviours ({tally.behaviours} in all), each under {options.schedules} schedules\n")
 	end 'schedules'

@@ -1,0 +1,152 @@
+// The race oracle fires: on traces of accesses built by hand, and on IR that uses a lent place before its await, which no
+// accepted program lowers to.
+
+// A place, and threads: the root, two that it forks, and one of another family.
+let place = 5 as Count
+
+let root = 1 as Count
+
+let left = 2 as Count
+
+let right = 3 as Count
+
+let stranger = 9 as Count
+
+function forkedTwo() returns Clocks
+	var c = Clocks.new()
+	c.fork(root, k: left)
+	c.fork(root, k: right)
+	return c
+end 'forkedTwo'
+
+function expectRace(label String, got Count, want Count)
+	if got != want 'wrong'
+		panic("{label}: the access raced with thread {got}, wanted {want}")
+	end 'wrong'
+end 'expectRace'
+
+test 'two workers that write one place race'
+	let c = forkedTwo()
+	var s = Shadow.new()
+	expectRace("left", got: s.access(place, t: left, write: true, clocks: c), want: 0)
+	expectRace("right", got: s.access(place, t: right, write: true, clocks: c), want: left)
+	if not s.otherWrote 'kind'
+		panic("the race is with a write")
+	end 'kind'
+end 'two workers that write one place race'
+
+test 'workers that write their own places do not race'
+	let c = forkedTwo()
+	var s = Shadow.new()
+	expectRace("left", got: s.access(place, t: left, write: true, clocks: c), want: 0)
+	expectRace("right", got: s.access(place + 1, t: right, write: true, clocks: c), want: 0)
+	expectRace("left reads", got: s.access(place + 2, t: left, write: false, clocks: c), want: 0)
+	expectRace("right reads", got: s.access(place + 2, t: right, write: false, clocks: c), want: 0)
+end 'workers that write their own places do not race'
+
+test 'a read by one worker and a write by another race'
+	let c = forkedTwo()
+	var s = Shadow.new()
+	expectRace("left reads", got: s.access(place, t: left, write: false, clocks: c), want: 0)
+	expectRace("right writes", got: s.access(place, t: right, write: true, clocks: c), want: left)
+	if s.otherWrote 'kind'
+		panic("the race is with a read")
+	end 'kind'
+end 'a read by one worker and a write by another race'
+
+test 'a write after reads of two workers races with one of them'
+	var c = forkedTwo()
+	var s = Shadow.new()
+	expectRace("left reads", got: s.access(place, t: left, write: false, clocks: c), want: 0)
+	expectRace("right reads", got: s.access(place, t: right, write: false, clocks: c), want: 0)
+	c.join(root, k: left)
+	expectRace("root writes", got: s.access(place, t: root, write: true, clocks: c), want: right)
+	c.join(root, k: right)
+	expectRace("root writes after both joins", got: s.access(place, t: root, write: true, clocks: c), want: 0)
+end 'a write after reads of two workers races with one of them'
+
+test 'a fork orders what its maker did before it, and not after'
+	var c = Clocks.new()
+	var s = Shadow.new()
+	c.fork(root, k: left)
+	expectRace("root writes after the fork", got: s.access(place, t: root, write: true, clocks: c), want: 0)
+	expectRace("left reads", got: s.access(place, t: left, write: false, clocks: c), want: root)
+	var later = Clocks.new()
+	var t = Shadow.new()
+	later.fork(root, k: left)
+	expectRace("root writes before the second fork", got: t.access(place, t: root, write: true, clocks: later), want: 0)
+	later.fork(root, k: right)
+	expectRace("right reads", got: t.access(place, t: right, write: false, clocks: later), want: 0)
+end 'a fork orders what its maker did before it, and not after'
+
+test 'a join orders what the joined thread and what it joined did'
+	var c = Clocks.new()
+	var s = Shadow.new()
+	c.fork(root, k: left)
+	c.fork(left, k: right)
+	expectRace("right writes", got: s.access(place, t: right, write: true, clocks: c), want: 0)
+	c.join(left, k: right)
+	c.join(root, k: left)
+	expectRace("root reads", got: s.access(place, t: root, write: false, clocks: c), want: 0)
+	if c.active(root) 'open'
+		panic("a family whose forks are joined is still active")
+	end 'open'
+end 'a join orders what the joined thread and what it joined did'
+
+test 'an access from another family starts the place again'
+	let c = forkedTwo()
+	var s = Shadow.new()
+	expectRace("left writes", got: s.access(place, t: left, write: true, clocks: c), want: 0)
+	expectRace("a stranger writes", got: s.access(place, t: stranger, write: true, clocks: c), want: 0)
+	s.clear(place)
+	expectRace("right writes a fresh place", got: s.access(place, t: right, write: true, clocks: c), want: 0)
+end 'an access from another family starts the place again'
+
+// lentWriter writes 7 through the address it is lent.
+function lentWriter(mutates p ast.Project) returns ir.IrFunction
+	var w = Fn.new(p, name: "writer", convs: convs1(ast.Convention.convMutates))
+	let addr = w.param(0, kind: ir.IrKind.kindScalar)
+	let seven = w.konst(7)
+	w.emit(ir.newStoreAt(addr, src: seven))
+	let zero = w.konst(0)
+	return w.ret(zero)
+end 'lentWriter'
+
+// lendingMain lends a slot to an async call of writer and writes the slot itself, before the await or after it.
+function lendingMain(mutates p ast.Project, writer ir.IrFunction, beforeAwait bool) returns ir.IrFunction
+	var b = Fn.new(p, name: "main", convs: ir.convs0())
+	let s = b.slot(ir.IrKind.kindScalar)
+	let zero = b.konst(0)
+	b.store(s, v: zero)
+	let addr = b.addr(s)
+	let d = b.reg(ir.IrKind.kindManaged)
+	let i = b.b.asyncInstr(d, target: writer.decl, args: ir.regs1(addr))
+	b.emit(i)
+	let one = b.konst(1)
+	if beforeAwait 'before'
+		b.store(s, v: one)
+	end 'before'
+	awaitPromise(b, promise: d)
+	if not beforeAwait 'after'
+		b.store(s, v: one)
+	end 'after'
+	return b.ret(zero)
+end 'lendingMain'
+
+test 'a place lent to an async call and written before the await races'
+	var p = ir.irProject()
+	let writer = lentWriter(p)
+	let main = lendingMain(p, writer: writer, beforeAwait: true)
+	let out = runOracles(p, main: main, others: others1(writer), seed: 0)
+	expectOracle("lent", out: out, oracle: oracleRace, fragment: "writes slot s0 of main")
+end 'a place lent to an async call and written before the await races'
+
+test 'a place lent to an async call and written after the await does not race'
+	var p = ir.irProject()
+	let writer = lentWriter(p)
+	let main = lendingMain(p, writer: writer, beforeAwait: false)
+	let out = runOracles(p, main: main, others: others1(writer), seed: 0)
+	if out.oracleFailures.count() != 0 or out.violations.count() != 0 'raced'
+		panic("{out.oracleFailures.count()} oracle failures, {out.violations.count()} violations")
+	end 'raced'
+end 'a place lent to an async call and written after the await does not race'

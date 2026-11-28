@@ -1,0 +1,400 @@
+// The concurrency generator writes programs over what the race oracle and the oracles of backpressure check: parallel loops
+// of the three forms, whose bodies read what is around them, write their own element, call a mutates helper with it, throw
+// at some index, nest, await a coroutine of their own and send to a service; async calls that lend a local to be changed
+// or read until their await; and a service whose handler runs a loop of its own, mixed with records, strings and arrays.
+// Unlike the main generator's, every program is written to be accepted, after the compiler's own fix pass takes out the
+// tries the analysis proves needless, so a refusal is the generator's fault or the checker's, and every program's output is
+// the same under every schedule and every count of workers: a loop's results land in its own elements and are read in
+// index order, the error of a loop is its lowest index's, and a service's state does not depend on the order its messages
+// come in. Each program runs under several schedules of the interpreter, whose loops take from 1 to 4 workers as the seed
+// says, and natively, and the outputs must agree.
+//
+// A program is the library of concurrent.txt, a few helper functions, a few scenario functions, each a fold of the pieces it
+// runs into one number, and a main that prints each scenario's number.
+
+let concMinScenarios = 2 as Count
+
+let concExtraScenarios = 3 as Count
+
+let concMinPieces = 2 as Count
+
+let concExtraPieces = 4 as Count
+
+// concLength is one more than the longest array a piece makes, so that a loop has from 0 to concLength - 1 iterations.
+let concLength = 12 as Count
+
+let concLiteral = 60 as Count
+
+// concNestPercent is how often a loop's body holds a loop of its own.
+let concNestPercent = 25 as Count
+
+// The kinds of piece a scenario is made of.
+let pieceNums = 0 as Count
+
+let pieceEnumerated = 1 as Count
+
+let pieceRange = 2 as Count
+
+let pieceCells = 3 as Count
+
+let pieceFailing = 4 as Count
+
+let pieceGrid = 5 as Count
+
+let pieceLends = 6 as Count
+
+let pieceScaled = 7 as Count
+
+let pieceHelper = 8 as Count
+
+let pieceKinds = 9 as Count
+
+type ConcGen
+	var rng as Rand
+	var helpers as StringList
+	var out as StringList
+	var indent as Count
+	var labels as Count
+
+	static function new(seed Count) returns ConcGen
+		return ConcGen{rng: Rand.new(seed), helpers: StringList.create(0), out: StringList.create(0), indent: 0, labels: 0}
+	end 'new'
+
+	function line(mutates self, text String)
+		out.push("{tabs(indent)}{text}")
+	end 'line'
+
+	function open(mutates self, text String)
+		self.line(text)
+		indent = try indent + 1 otherwise panic("fuzz: a block past memory")
+	end 'open'
+
+	function close(mutates self, text String)
+		indent = try indent - 1 otherwise panic("fuzz: a block closed that was not open")
+		self.line(text)
+	end 'close'
+
+	// fresh is a name no other in the program has.
+	function fresh(mutates self, base String) returns String
+		labels = try labels + 1 otherwise panic("fuzz: more names than memory")
+		return "{base}{labels}"
+	end 'fresh'
+
+	function literal(mutates self) returns String
+		return "{rng.pick(concLiteral)}"
+	end 'literal'
+
+	function length(mutates self) returns Count
+		return rng.pick(concLength)
+	end 'length'
+
+	// numStatements writes the statements of a body that has the Num place x of its own to change, in a loop labelled loop:
+	// nested says whether it may hold a loop of its own.
+	function numStatements(mutates self, x String, loop String, nested bool)
+		let n = try 1 + rng.pick(3) otherwise panic("fuzz: a draw past memory")
+		for _ in 0 upto n 'each'
+			self.numStatement(x, loop: loop, nested: nested)
+		end 'each'
+	end 'numStatements'
+
+	function numStatement(mutates self, x String, loop String, nested bool)
+		let kind = rng.pick(9)
+		if kind == 0 'base'
+			self.line("{x} = mix({x}, v: base)")
+		end 'base' else if kind == 1 'bump'
+			self.line("bump({x})")
+		end 'bump' else if kind == 2 'fixed'
+			self.line("{x} = mix({x}, v: sumOf(fixed))")
+		end 'fixed' else if kind == 3 'skip'
+			self.skipIf("{x}", loop: loop)
+		end 'skip' else if kind == 4 'local'
+			let t = self.fresh("t")
+			self.line("{kwVar} {t} = {x}")
+			self.line("bump({t})")
+			self.line("{x} = mix({t}, v: 1)")
+		end 'local' else if kind == 5 'name'
+			self.line("{x} = mix({x}, v: numOf(name.byteLength()))")
+		end 'name' else if kind == 6 'send'
+			self.line("{kwTry} acc.add({x}) {kwOtherwise} panic(\"send\")")
+		end 'send' else if kind == 7 'await'
+			let q = self.fresh("q")
+			self.line("{kwLet} {q} = async later({x})")
+			self.line("{x} = mix(await {q}, v: 1)")
+		end 'await' else if nested and rng.chance(concNestPercent) 'nest'
+			let i = self.fresh("i")
+			let inner = self.fresh("n")
+			let count = self.length()
+			self.open("parallel {kwFor} {i} {kwIn} 0 {kwUpto} {count} '{inner}'")
+			self.line("{kwTry} acc.add(mix(numOf({i}), v: {x})) {kwOtherwise} panic(\"send\")")
+			self.close("{kwEnd} '{inner}'")
+		end 'nest' else 'literal'
+			let n = self.literal()
+			self.line("{x} = mix({x}, v: {n})")
+		end 'literal'
+	end 'numStatement'
+
+	// skipIf ends the iteration of the loop labelled loop when value is past a bound.
+	function skipIf(mutates self, value String, loop String)
+		let skip = self.fresh("skip")
+		let bound = rng.pick(concLiteral * 1000)
+		self.open("{kwIf} {value} > {bound} '{skip}'")
+		self.line("{kwContinue} '{loop}'")
+		self.close("{kwEnd} '{skip}'")
+	end 'skipIf'
+
+	// cellStatements writes the statements of a body that has the Cell place c of its own, in a loop labelled loop.
+	function cellStatements(mutates self, c String, loop String)
+		let n = try 1 + rng.pick(3) otherwise panic("fuzz: a draw past memory")
+		for _ in 0 upto n 'each'
+			let kind = rng.pick(7)
+			if kind == 0 'relabel'
+				self.line("relabel({c})")
+			end 'relabel' else if kind == 1 'base'
+				self.line("{c}.value = mix({c}.value, v: base)")
+			end 'base' else if kind == 2 'label'
+				self.line("{c}.label = \"{braced("name")}{braced("{c}.value")}\"")
+			end 'label' else if kind == 3 'replace'
+				self.line("replace({c})")
+			end 'replace' else if kind == 4 'skip'
+				self.skipIf("{c}.value", loop: loop)
+			end 'skip' else if kind == 5 'lend'
+				let m = self.fresh("m")
+				let q = self.fresh("q")
+				let k = self.fresh("k")
+				self.line("{kwVar} {m} = Cell.create({c}.value)")
+				self.line("{kwLet} {q} = async lendCell({m})")
+				self.line("{kwLet} {k} = await {q}")
+				self.line("{c}.label = \"{braced(k)}{braced("{m}.label")}\"")
+			end 'lend' else 'bump'
+				self.line("bump({c}.value)")
+			end 'bump'
+		end 'each'
+	end 'cellStatements'
+
+	function piece(mutates self, kind Count)
+		if kind == pieceNums 'nums'
+			let xs = self.fresh("xs")
+			let x = self.fresh("x")
+			let loop = self.fresh("p")
+			let count = self.length()
+			let value = self.literal()
+			self.line("{kwVar} {xs} = Nums.filled({count}, value: {value})")
+			self.open("parallel {kwFor} {x} {kwIn} {xs} '{loop}'")
+			self.numStatements(x, loop: loop, nested: true)
+			self.close("{kwEnd} '{loop}'")
+			self.line("h = mix(h, v: sumOf({xs}))")
+		end 'nums' else if kind == pieceEnumerated 'enumerated'
+			let xs = self.fresh("xs")
+			let i = self.fresh("i")
+			let x = self.fresh("x")
+			let loop = self.fresh("p")
+			let count = self.length()
+			let value = self.literal()
+			self.line("{kwVar} {xs} = Nums.filled({count}, value: {value})")
+			self.open("parallel {kwFor} ({i}, {x}) {kwIn} {xs}.enumerated() '{loop}'")
+			self.line("{x} = mix({x}, v: numOf({i} {kwAs} Count))")
+			self.numStatements(x, loop: loop, nested: true)
+			self.close("{kwEnd} '{loop}'")
+			self.line("h = mix(h, v: sumOf({xs}))")
+		end 'enumerated' else if kind == pieceRange 'range'
+			let i = self.fresh("i")
+			let loop = self.fresh("p")
+			let count = self.length()
+			self.open("parallel {kwFor} {i} {kwIn} 0 {kwUpto} {count} '{loop}'")
+			let t = self.fresh("t")
+			self.line("{kwVar} {t} = mix(numOf({i}), v: base)")
+			self.numStatements(t, loop: loop, nested: false)
+			self.line("{kwTry} acc.add({t}) {kwOtherwise} panic(\"send\")")
+			self.close("{kwEnd} '{loop}'")
+		end 'range' else if kind == pieceCells 'cells'
+			let cs = self.fresh("cs")
+			let c = self.fresh("c")
+			let loop = self.fresh("p")
+			let count = self.length()
+			let salt = self.literal()
+			self.line("{kwVar} {cs} = cellsOf({count}, salt: {salt})")
+			if rng.chance(halfTheTime) 'indexed'
+				let i = self.fresh("i")
+				self.open("parallel {kwFor} ({i}, {c}) {kwIn} {cs}.enumerated() '{loop}'")
+				self.line("{c}.value = mix({c}.value, v: numOf({i} {kwAs} Count))")
+			end 'indexed' else 'plain'
+				self.open("parallel {kwFor} {c} {kwIn} {cs} '{loop}'")
+			end 'plain'
+			self.cellStatements(c, loop: loop)
+			self.close("{kwEnd} '{loop}'")
+			self.line("h = mix(h, v: cellSum({cs}))")
+		end 'cells' else if kind == pieceFailing 'failing'
+			self.failingPiece()
+		end 'failing' else if kind == pieceGrid 'grid'
+			let g = self.fresh("g")
+			let row = self.fresh("row")
+			let x = self.fresh("x")
+			let outer = self.fresh("p")
+			let inner = self.fresh("p")
+			let rows = self.length()
+			let columns = self.length()
+			self.line("{kwVar} {g} = gridOf({rows}, columns: {columns})")
+			self.open("parallel {kwFor} {row} {kwIn} {g} '{outer}'")
+			self.open("parallel {kwFor} {x} {kwIn} {row} '{inner}'")
+			self.numStatements(x, loop: inner, nested: false)
+			self.close("{kwEnd} '{inner}'")
+			self.close("{kwEnd} '{outer}'")
+			self.line("h = mix(h, v: gridSum({g}))")
+		end 'grid' else if kind == pieceLends 'lends'
+			self.lendsPiece()
+		end 'lends' else if kind == pieceScaled 'scaled'
+			let s = self.fresh("s")
+			let count = self.length()
+			self.line("{kwLet} {s} = {kwTry} await acc.scaled({count}) {kwOtherwise} Nums.create(0)")
+			self.line("h = mix(h, v: sumOf({s}))")
+		end 'scaled' else if kind == pieceHelper 'helper'
+			self.helperPiece()
+		end 'helper' else 'unknown'
+			panic("fuzz: {kind} is no kind of piece")
+		end 'unknown'
+	end 'piece'
+
+	// failingPiece writes a helper whose loop throws at an index, or where its element is past a limit, and a call of it
+	// that folds which error the loop threw, the lowest index's, into h. What the loop left in its array depends on which
+	// iterations ran before the throw, so nothing reads it.
+	function failingPiece(mutates self)
+		let fn = self.fresh("failing")
+		let loop = self.fresh("f")
+		helpers.push("{kwFunction} {fn}({kwMutates} xs Nums, limit Num) throws Stop")
+		helpers.push("\tparallel {kwFor} (i, x) {kwIn} xs.enumerated() '{loop}'")
+		if rng.chance(halfTheTime) 'early'
+			let stopAt = rng.pick(concLength)
+			helpers.push("\t\t{kwIf} i == {stopAt} 'stop'")
+			helpers.push("\t\t\tthrow Stop.early")
+			helpers.push("\t\t{kwEnd} 'stop'")
+		end 'early'
+		helpers.push("\t\tx = {kwTry} checked(x, limit: limit)")
+		helpers.push("\t\tbump(x)")
+		helpers.push("\t{kwEnd} '{loop}'")
+		helpers.push("{kwEnd} '{fn}'")
+		helpers.push("")
+		let ys = self.fresh("ys")
+		let caught = self.fresh("caught")
+		let which = self.fresh("which")
+		let count = self.length()
+		let value = self.literal()
+		self.line("{kwVar} {ys} = Nums.filled({count}, value: {value})")
+		let limit = self.literal()
+		self.open("{kwTry} {fn}({ys}, limit: {limit}) {kwOtherwise} (e) '{caught}'")
+		self.open("{kwMatch} e '{which}'")
+		self.line("early {kwThen} h = mix(h, v: 1)")
+		self.line("late {kwThen} h = mix(h, v: 2)")
+		self.close("{kwEnd} '{which}'")
+		self.close("{kwEnd} '{caught}'")
+	end 'failingPiece'
+
+	// lendsPiece lends locals to async calls, a cell and a number to be changed or a cell to be read, does something else
+	// before the awaits, and folds what the coroutines gave and left.
+	function lendsPiece(mutates self)
+		let c = self.fresh("c")
+		let n = self.fresh("n")
+		let value = self.literal()
+		self.line("{kwVar} {c} = Cell.create({value})")
+		let number = self.literal()
+		self.line("{kwVar} {n} = {number} {kwAs} Num")
+		let changesCell = rng.chance(halfTheTime)
+		let pc = self.fresh("pc")
+		let pn = self.fresh("pn")
+		if changesCell 'changes'
+			self.line("{kwLet} {pc} = async lendCell({c})")
+		end 'changes' else 'reads'
+			self.line("{kwLet} {pc} = async readCell({c})")
+		end 'reads'
+		self.line("{kwLet} {pn} = async lendNum({n})")
+		let between = rng.pick(3)
+		if between == 0 'base'
+			self.line("h = mix(h, v: base)")
+		end 'base' else if between == 1 'loop'
+			self.piece(pieceRange)
+		end 'loop' else if changesCell 'busy'
+			self.line("h = mix(h, v: sumOf(fixed))")
+		end 'busy' else 'reading'
+			self.line("h = mix(h, v: {c}.value)")
+		end 'reading'
+		let gc = self.fresh("gc")
+		let gn = self.fresh("gn")
+		if rng.chance(halfTheTime) 'inOrder'
+			self.line("{kwLet} {gc} = await {pc}")
+			self.line("{kwLet} {gn} = await {pn}")
+		end 'inOrder' else 'reversed'
+			self.line("{kwLet} {gn} = await {pn}")
+			self.line("{kwLet} {gc} = await {pc}")
+		end 'reversed'
+		self.line("h = mix(h, v: mix({gc}, v: mix({gn}, v: mix({n}, v: {c}.value))))")
+		self.line("h = mix(h, v: numOf({c}.label.byteLength()))")
+	end 'lendsPiece'
+
+	// helperPiece writes a function that changes each element of an array it is lent, and calls it.
+	function helperPiece(mutates self)
+		let fn = self.fresh("fill")
+		let loop = self.fresh("e")
+		helpers.push("{kwFunction} {fn}({kwMutates} cs Cells, by Num)")
+		helpers.push("\tparallel {kwFor} c {kwIn} cs '{loop}'")
+		helpers.push("\t\tc.value = mix(c.value, v: by)")
+		helpers.push("\t\trelabel(c)")
+		helpers.push("\t{kwEnd} '{loop}'")
+		helpers.push("{kwEnd} '{fn}'")
+		helpers.push("")
+		let cs = self.fresh("cs")
+		let count = self.length()
+		let salt = self.literal()
+		self.line("{kwVar} {cs} = cellsOf({count}, salt: {salt})")
+		self.line("{fn}({cs}, by: base)")
+		self.line("h = mix(h, v: cellSum({cs}))")
+	end 'helperPiece'
+
+	function scenario(mutates self, k Count)
+		self.open("{kwFunction} scenario{k}() {kwReturns} Num")
+		let base = self.literal()
+		self.line("{kwLet} base = {base} {kwAs} Num")
+		let count = self.length()
+		let value = self.literal()
+		self.line("{kwLet} fixed = Nums.filled({count}, value: {value})")
+		self.line("{kwLet} name = \"s{k}\"")
+		self.line("{kwLet} acc = spawn Acc.create()")
+		let start = self.literal()
+		self.line("{kwVar} h = {start} {kwAs} Num")
+		let pieces = try concMinPieces + rng.pick(concExtraPieces) otherwise panic("fuzz: a draw past memory")
+		for _ in 0 upto pieces 'pieces'
+			let kind = rng.pick(pieceKinds)
+			self.piece(kind)
+		end 'pieces'
+		self.line("h = mix(h, v: mix(sumOf(fixed), v: mix(base, v: numOf(name.byteLength()))))")
+		self.line("h = mix(h, v: {kwTry} await acc.total() {kwOtherwise} 0)")
+		self.line("{kwReturn} h")
+		self.close("{kwEnd} 'scenario{k}'")
+		self.line("")
+	end 'scenario'
+
+	function start(mutates self)
+		let scenarios = try concMinScenarios + rng.pick(concExtraScenarios) otherwise panic("fuzz: a draw past memory")
+		for k in 0 upto scenarios 'each'
+			self.scenario(k)
+		end 'each'
+		self.open("{kwFunction} main() {kwReturns} ExitCode")
+		for k in 0 upto scenarios 'print'
+			self.line("{printCall}\"s{k} {braced("scenario{k}()")}\\n\"{printClose}")
+		end 'print'
+		self.line("{kwReturn} 0")
+		self.close("{kwEnd} 'main'")
+	end 'start'
+
+	function finish(library String) returns String
+		var parts = helpers.clone()
+		parts.append(out.clone())
+		return "{trimTrailingNewlines(library)}\n\n{joinStrings(parts, separator: "\n")}\n"
+	end 'finish'
+end 'ConcGen'
+
+// generateConcurrent writes the program of a seed, whose output is the same under every schedule, so its executable and the
+// interpreter can be compared.
+export function generateConcurrent(seed Count, library String) returns GeneratedProgram
+	var g = ConcGen.new(seed)
+	g.start()
+	return GeneratedProgram.unplanted(g.finish(library), scheduleIndependent: true)
+end 'generateConcurrent'
