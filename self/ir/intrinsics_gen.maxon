@@ -1160,6 +1160,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrRawWipeStack 'intrRawWipeStack'
 		return lowerRawWipeStack(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawWipeStack'
+	if op == ast.Intrinsic.intrRawStoreVectorRegisters 'intrRawStoreVectorRegisters'
+		return lowerRawStoreVectorRegisters(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrRawStoreVectorRegisters'
 	if op == ast.Intrinsic.intrRawCodeAddress 'intrRawCodeAddress'
 		return lowerRawCodeAddress(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrRawCodeAddress'
@@ -2353,6 +2356,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrRawWipeStack 'intrRawWipeStack'
 		return false
 	end 'intrRawWipeStack'
+	if op == ast.Intrinsic.intrRawStoreVectorRegisters 'intrRawStoreVectorRegisters'
+		return false
+	end 'intrRawStoreVectorRegisters'
 	if op == ast.Intrinsic.intrRawCodeAddress 'intrRawCodeAddress'
 		return true
 	end 'intrRawCodeAddress'

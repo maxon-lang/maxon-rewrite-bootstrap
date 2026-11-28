@@ -332,6 +332,12 @@ function lowerRawWipeStack(mutates l Lowerer, p ast.Project, ms ast.ModuleState,
 	return konst(l, value: 0 as Word)
 end 'lowerRawWipeStack'
 
+function lowerRawStoreVectorRegisters(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emitCallRuntime(l, dst: d, symbol: Rt.rtVectorRegistersStore, args: args.clone(), routine: ast.noFunc)
+	return d
+end 'lowerRawStoreVectorRegisters'
+
 function lowerRawStackSwitchAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
 	return globalAddress(l, symbol: Rt.rtStackSwitch)
 end 'lowerRawStackSwitchAddress'

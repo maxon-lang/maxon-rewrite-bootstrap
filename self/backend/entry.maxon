@@ -99,6 +99,7 @@ function emitGreenRoutines(mutates u CodeUnit, system ast.TargetSystem)
 	emitGreenStart(u)
 	emitAsyncPreempt(u, system: system)
 	emitStackWipe(u)
+	emitVectorRegistersStore(u)
 end 'emitGreenRoutines'
 
 // callRuntime calls an entry of the runtime by the internal convention with the word a register holds as its one

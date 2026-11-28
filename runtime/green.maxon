@@ -909,6 +909,20 @@ function stoppable(context Count, g Count, instruction Count, stackPointer Count
 	return preemptibleAt(instruction)
 end 'stoppable'
 
+// stackFloor is the lowest address of the running stack that code may write: a green thread's pooled stack above its
+// guard page, or 0 on a thread's own stack, which its system grows.
+function stackFloor() returns Count
+	let g = __Raw.loadWord(__Raw.threadContext(), offset: contextGreenOffset)
+	if g == noGreen 'own'
+		return 0
+	end 'own'
+	let stack = __Raw.loadWord(g, offset: greenStackOffset)
+	if stack == noStack 'none'
+		return 0
+	end 'none'
+	return __Raw.wrappingAdd(__Raw.loadWord(stack, offset: pooledStackLowOffset), right: stackGuardBytes)
+end 'stackFloor'
+
 // preemptibleAt is whether an address is in a range of the link's table of preemptible code, whose words say how far
 // below the table each range starts and ends.
 function preemptibleAt(address Count) returns bool
