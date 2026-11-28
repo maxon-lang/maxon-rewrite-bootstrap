@@ -490,9 +490,10 @@ let workerCountsFlag = "--worker-counts="
 
 let envRunnerFlag = "--env-runner="
 
-// behaviourRuns is how many times the corpus runs the executable of a program that schedules behaviours, unless
-// --repeat says: each run is another schedule, and the gate runs the corpus under three worker counts, so a few runs each
-// are enough there, while a soak asks for hundreds.
+// behaviourRuns is how many times the corpus runs the executable of a program that schedules behaviours, within its job, unless
+// --repeat is given, which makes each program that many jobs of one run each (CorpusOptions.copies): each run is another
+// schedule, and the gate runs the corpus under three worker counts, so a few runs each are enough there, while a soak asks for
+// hundreds.
 let behaviourRuns = 2 as Count
 
 // The environment variable the runtime reads its worker count from, which a failure of a program that schedules
@@ -510,7 +511,11 @@ type CorpusOptions
 	var includesManual as bool
 	// slowest is how many of the slowest tests the run reports at its end, or 0 for none (slowestFlag).
 	var slowest as Count
+	// repeats is how many times a program that schedules behaviours runs its executable within its job, which --repeat sets to 1: it
+	// makes copies of each program instead.
 	var repeats as Count
+	// copies is how many jobs each program of the run is (repeatFlag): each is named `name#k` and runs the one compile of the first.
+	var copies as Count
 	// target is the target the programs are compiled for, whose executables runner starts.
 	var target as ast.Target
 	var runner as TargetRunner
@@ -529,7 +534,7 @@ type CorpusOptions
 	var workingDirectory as String
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, includesManual: false, slowest: 0, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, interprets: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, includesManual: false, slowest: 0, repeats: behaviourRuns, copies: 1, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, interprets: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
 	end 'new'
 end 'CorpusOptions'
 
@@ -537,8 +542,8 @@ end 'CorpusOptions'
 // [--compile-only] [--manual] [--slowest=N] [--interpret] [--skip-passed] [--require-passed] [--record-passed] [--save-results=file] [--replay-results=file]`: the corpus is the given directory of programs, or the spec files at the given path, or
 // else the nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its
 // code at another place has the directive rewritten to that place, as after a change that only moves code, such as renaming
-// a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
-// such program N times. --executables lets at most N test executables run at once. The last three flags are for the spec
+// a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat makes N jobs of each program, which
+// share its one compile and run its executable side by side. --executables lets at most N test executables run at once. The last three flags are for the spec
 // files: one leaves out the tests that the list of the tests that pass has, one fails the run when one of them does not
 // pass, and one writes the list. The last two keep the result of every test in a file and take them from it instead of running the
 // tests (self/driver/specresults.maxon). --interpret, also for the spec files, runs each test that passes under the interpreter
@@ -617,7 +622,8 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 				printError("test: {repeatFlag} takes a number of runs from 1\n")
 				return usageExitCode
 			end 'malformed'
-			corpus.repeats = runs
+			corpus.repeats = 1
+			corpus.copies = runs
 			corpusFlags = true
 		end 'repeat' else if rest[i] == recordPassedFlag 'record'
 			options.record = true
@@ -773,10 +779,20 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 		let leftOut = options.behavioursOnly and not mayScheduleBehaviours(expect, file: file)
 		// A program that is run by hand is still compiled by a run that runs none (compileOnly), since that holds no time.
 		let byHand = expect.manual and not (single or options.includesManual or options.compilesOnly)
-		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut, byHand: byHand)))
+		// With --repeat=N a program is N jobs, `name#1` to `name#N`, of which the first compiles and the others run its executable
+		// (Copies). A program that the run leaves out is left out once.
+		var copies = 1 as Count
+		if not (leftOut or byHand) 'repeated'
+			copies = options.copies
+		end 'repeated'
+		let first = jobs.count()
+		for copy in 1 upto offsetBy(copies, by: 1) 'copies'
+			let copyName = "{name}#{copy}" if copies > 1 else name.clone()
+			jobs.push(Job.corpus(CorpusJob.make(file.clone(), name: copyName, expect: expect.clone(), leftOut: leftOut, byHand: byHand, copying: Copies.of(copy, copies: copies, first: first))))
+		end 'copies'
 	end 'tests'
 	let tests = jobs.count()
-	startTests(prepareSharedRuntime(options.target), host: SharedRuntime.none(), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test", suffix: executableExtension(options.target)), width: width, tally: Tally.corpus(CorpusTally.make(tests, slowest: options.slowest)))
+	startTests(prepareSharedRuntime(options.target), host: SharedRuntime.none(), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test", suffix: executableExtension(options.target)), width: width, tally: Tally.corpus(CorpusTally.make(tests, slowest: options.slowest, copies: options.copies)))
 	return compiledByBehaviours
 end 'runTests'
 
@@ -922,7 +938,7 @@ function checkTest(expect Expectation, file String, consumes compiled CompiledPr
 		runs = options.repeats
 	end 'repeated'
 	let interprets = not (expect.nativeOnly or options.behavioursOnly)
-	return Staged.needsRun(PendingRun.corpus(CorpusPending.make(index, exe: exe.clone(), expect: expect.clone(), compiled: compiled, runs: runs, interprets: interprets)))
+	return Staged.needsRun(PendingRun.corpus(CorpusPending.make(index, exe: exe.clone(), expect: expect.clone(), compiled: compiled, runs: runs, interprets: interprets, shared: options.copies > 1)))
 end 'checkTest'
 
 // runNativeRuns runs the executable runs times, and each run must give what the program expects; a failure says which run

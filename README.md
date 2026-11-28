@@ -133,7 +133,7 @@ programs as an artifact. The workflow reads the repository and writes nothing to
 | `minimaxon build <file\|dir> [-o out.exe] [--target=<arch>-<os>]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules"); `--target` names the target, `x64-windows`, `x64-linux` or `arm64-linux` (see "Targets"), the system the compiler runs on by default |
 | `minimaxon run <file\|dir>` | compile to the compiler's directory of the temporary directory (`minimaxon`, under `TEMP` on Windows and `TMPDIR`, or `/tmp` when that is unset or empty, elsewhere, where every executable the compiler and its tests build goes, so that a scanner can be told to leave that one directory alone), as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check [--tests] <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime"); `--tests` checks every module's files of tests (`.maxtest`) with its source |
-| `minimaxon test [--update-positions] [--behaviours] [--manual] [--slowest=N] [--repeat=N] [--worker-counts=N,N,...] [--env-runner=path] [--executables=N] [--target=<arch>-<os>] [dir\|file.maxon]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests"), or the one program at a path, compiled for the target and run through its runner |
+| `minimaxon test [--update-positions] [--behaviours] [--manual] [--slowest=N] [--repeat=N] [--worker-counts=N,N,...] [--env-runner=path] [--executables=N] [--target=<arch>-<os>] [dir\|file.maxon]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests"), or the one program at a path, compiled for the target and run through its runner; `--repeat=N` runs each program N times as the jobs `file#1`..`file#N` that share one compile, side by side in the runner's window |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--interpret] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
 | `minimaxon test <module dir> [--compile-only] [--manual] [--target=<arch>-<os>]` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests"); `--compile-only` builds that executable for the target, through code generation, and runs nothing, and without it a target other than the host's is refused, as the executable runs only on the host |
 | `minimaxon selftest [--compile-only] [--manual]` | run the compiler's own tests: `test self`, from the root of the repository; the files of tests named `*.manual.maxtest` are left out and named unless `--manual` |
@@ -423,8 +423,16 @@ runs under (`// schedules: N`).
 A program that runs the scheduler runs natively more than once, each run another schedule, and every run must give
 what the directives say: the runner knows it does from the link, which gives the scheduler only to a program whose code
 reaches it (see "Main with or without the scheduler"), a test of the runtime that runs it by hand among them. It runs 2 times in a
-run of the corpus, or N with `--repeat=N`, under the worker count of the runner's environment, which every executable
-it starts inherits (`MAXON_MAX_PROCS`, else the machine's processors). `--compile-only` compiles every program and runs none, for any target (the gate holds `tests/bench/`, the corpus for the targets the host does not run and the spec tests for one of them, to the compiler with it). `--behaviours` runs only those programs, and
+run of the corpus, under the worker count of the runner's environment, which every executable
+it starts inherits (`MAXON_MAX_PROCS`, else the machine's processors). `--repeat=N` makes each program N jobs, `file#1` to
+`file#N` in the RUN, PASS and FAIL lines, each of which runs the executable once: the first copy compiles, and the others queue a
+run of its executable, so the one compile serves them all, and the runner's window of executables runs the copies side by side, as
+N hand-made copies of the program would. It combines with a path (`test tests/runtime/x.maxon --repeat=50`), with a directory
+and with `--behaviours` (then it repeats the runs of each program's behaviours, under each worker count). The summary adds
+`N runs of each, F failed runs`, and a failed copy's message is listed as any failure's is. A program that says `// runs: alone`
+is not run beside anything: its copies run one after another, so `--repeat` is there for repetition and not for load. The
+25-copy batch of `tests/runtime/green-preempt-runtime.maxon` is what this was made for: it reproduced in minutes a failure of a
+per-processor timer that the gates had seen once. `--compile-only` compiles every program and runs none, for any target (the gate holds `tests/bench/`, the corpus for the targets the host does not run and the spec tests for one of them, to the compiler with it). `--behaviours` runs only those programs, and
 only natively, which is how a program meets other worker counts: the gate runs the corpus with the machine's count,
 which holds every program to the interpreter too, and then `test --behaviours --worker-counts=1,2,4 --env-runner=bin/envrun`:
 the programs are compiled once and each executable is run under each count in turn (twice each), with `cmd/envrun` giving the
@@ -432,7 +440,7 @@ executable its `MAXON_MAX_PROCS` for itself alone (and `WSLENV` naming it, for W
 deadline, so the runner keeps its own width; so the gate runs each such program 8 times natively under four counts; it compiles only the
 programs that have one of the words `when`, `async`, `sleep` and `Scheduler` in a file, or are tests of the runtime, and
 leaves out the rest uncounted. A soak
-is the same flags with `--repeat=300` at each count. A failure names the run and the worker count. The stress
+is the same flags with `--repeat=300`, which runs 300 copies of each program under each count. A failure names the copy and the worker count. The stress
 programs, of `tests/library/` since a program does not name cowns, are `behaviours-over-a-ring-of-cowns` and `behaviours-on-one-to-eight-cowns-and-pushers-handing-off` (1 to 8
 cowns per `when` and per-sender order across hand-offs, after maxon's `cown-multi-torture` and
 `cown-handoff-torture`); the others named `a-…` and `behaviours-…` each hold one path of the runtime to it (a function

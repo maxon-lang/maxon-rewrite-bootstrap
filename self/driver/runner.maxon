@@ -80,18 +80,37 @@ typealias Jobs = Array with Job
 
 // CorpusJob is a program or project of the corpus: its path, its name in the output, and what its directives say. A run of
 // the behaviours alone leaves out a test that cannot schedule any without compiling it, and a run leaves out a test that is run
-// by hand (byHand) the same way, which the summary names.
+// by hand (byHand) the same way, which the summary names. A program that --repeat=N makes N jobs of, which are named `name#k`,
+// is told by copying from the job of one copy.
 type CorpusJob
 	var file as String
 	var name as String
 	var expect as Expectation
 	var leftOut as bool
 	var byHand as bool
+	var copying as Copies
 
-	static function make(consumes file String, consumes name String, consumes expect Expectation, leftOut bool, byHand bool) returns CorpusJob
-		return CorpusJob{file: file, name: name, expect: expect, leftOut: leftOut, byHand: byHand}
+	static function make(consumes file String, consumes name String, consumes expect Expectation, leftOut bool, byHand bool, copying Copies) returns CorpusJob
+		return CorpusJob{file: file, name: name, expect: expect, leftOut: leftOut, byHand: byHand, copying: copying.clone()}
 	end 'make'
 end 'CorpusJob'
+
+// Copies is where a job stands among the copies that a run of --repeat=N makes of one program: the copy's number from 1, how
+// many copies there are, and the place among the run's jobs of the first copy, which is the only one that compiles: the others
+// run its executable (CorpusPending.shared). A job that is not repeated is the one copy of its program.
+type Copies
+	var copy as Count
+	var copies as Count
+	var first as Count
+
+	static function single() returns Copies
+		return Copies{copy: 1, copies: 1, first: 0}
+	end 'single'
+
+	static function of(copy Count, copies Count, first Count) returns Copies
+		return Copies{copy: copy, copies: copies, first: first}
+	end 'of'
+end 'Copies'
 
 // SpecJob is a test of a spec file: the file, by its place among the run's, the test's key in the output and in the list of
 // the tests that passed, the test, whether that list has it, which leaves the test out of a run that skips them, and whether
@@ -176,7 +195,9 @@ end 'PendingRun'
 typealias PendingRuns = Array with PendingRun
 
 // CorpusPending is a program of the corpus that compiled: its executable is run runs times, and then, unless it says it is
-// too heavy for that or the run is of the behaviours alone, what it lowered runs under the interpreter.
+// too heavy for that or the run is of the behaviours alone, what it lowered runs under the interpreter. The executable of a
+// program that --repeat=N made N jobs of is shared by them (shared): none of them deletes it, and the board does when the
+// last copy has ended.
 type CorpusPending
 	var index as Count
 	var exe as String
@@ -184,11 +205,28 @@ type CorpusPending
 	var compiled as CompiledProgram
 	var runs as Count
 	var interprets as bool
+	var shared as bool
 
-	static function make(index Count, consumes exe String, consumes expect Expectation, consumes compiled CompiledProgram, runs Count, interprets bool) returns CorpusPending
-		return CorpusPending{index: index, exe: exe, expect: expect, compiled: compiled, runs: runs, interprets: interprets}
+	static function make(index Count, consumes exe String, consumes expect Expectation, consumes compiled CompiledProgram, runs Count, interprets bool, shared bool) returns CorpusPending
+		return CorpusPending{index: index, exe: exe, expect: expect, compiled: compiled, runs: runs, interprets: interprets, shared: shared}
 	end 'make'
 end 'CorpusPending'
+
+// SharedCompile is what the compile of the first copy of a repeated program gave, which the other copies take: its result when
+// it ended without a run of its executable, or the executable and what it is to give when it is to run.
+union SharedCompile
+	ended(value TestResult)
+	built(value SharedExecutable)
+end 'SharedCompile'
+
+type SharedExecutable
+	var exe as String
+	var expect as Expectation
+
+	static function make(consumes exe String, consumes expect Expectation) returns SharedExecutable
+		return SharedExecutable{exe: exe, expect: expect}
+	end 'make'
+end 'SharedExecutable'
 
 // SpecPending is a test of a spec file that compiled, whose executable is run once, and then, when the run is of the interpreter
 // too (interprets), what it lowered runs under the interpreter.
@@ -231,9 +269,11 @@ type CorpusTally
 	var leftOut as Count
 	var byHand as ast.StringList
 	var slowest as Slowest
+	// copies is how many runs of each program the run was asked for (--repeat=N), or 1 when it was not.
+	var copies as Count
 
-	static function make(tests Count, slowest Count) returns CorpusTally
-		return CorpusTally{tests: tests, failures: ast.StringList.create(0), unsupported: 0, leftOut: 0, byHand: ast.StringList.create(0), slowest: Slowest.make(slowest)}
+	static function make(tests Count, slowest Count, copies Count) returns CorpusTally
+		return CorpusTally{tests: tests, failures: ast.StringList.create(0), unsupported: 0, leftOut: 0, byHand: ast.StringList.create(0), slowest: Slowest.make(slowest), copies: copies}
 	end 'make'
 
 	// take counts the result of the test called name and prints its line, unless the run left it out.
@@ -270,6 +310,9 @@ type CorpusTally
 			manual = ", {byHand.count()} manual, left out: {joinWith(byHand, separator: ", ")}"
 		end 'byHand'
 		print("{passed} passed, {failures.count()} failed, {unsupported} not yet supported{manual}\n")
+		if copies > 1 'repeated'
+			print("{copies} runs of each, {failures.count()} failed runs\n")
+		end 'repeated'
 		slowest.report()
 		if failures.count() == 0 'clean'
 			return 0
@@ -373,11 +416,21 @@ typealias ResultSlot = table.Option with TestResult
 
 typealias ResultSlots = Array with ResultSlot
 
+// SharedCompiles are what the compile of the first copy of each repeated program gave, by the first copy's place among the
+// run's tests, and SharingCounts how many copies of each program whose executable is shared have not ended.
+typealias SharedCompiles = table.IntMap with SharedCompile
+
+typealias SharingCounts = table.IntMap with Count
+
 // Board is what the cown of a run of tests holds: the slot of each test's result, the next test to start, how many are under
 // way and how many of their executables run, the tests that run alone and wait for the rest to end, the compiled tests that wait for their run,
-// how many results were taken in, the tally, and the executables that could not be deleted.
+// how many results were taken in, the tally, and the executables that could not be deleted. The copies of a repeated program
+// after the first (Copies) start when the first has compiled, and take what it gave (compiles): a run of its executable, which
+// the board deletes once the last copy has ended (sharing), or its result.
 type Board
 	var results as ResultSlots
+	var compiles as SharedCompiles
+	var sharing as SharingCounts
 	var next as Count
 	var underWay as Count
 	var running as Count
@@ -397,20 +450,25 @@ type Board
 		for _ in 0 upto tests 'slots'
 			results.push(table.Option.none)
 		end 'slots'
-		return Board{results: results, next: 0, underWay: 0, running: 0, deferred: CountList.create(0), deferredAt: 0, waiting: PendingRuns.create(0), taken: 0, ended: false, tally: tally, scratch: scratch}
+		return Board{results: results, compiles: SharedCompiles.new(), sharing: SharingCounts.new(), next: 0, underWay: 0, running: 0, deferred: CountList.create(0), deferredAt: 0, waiting: PendingRuns.create(0), taken: 0, ended: false, tally: tally, scratch: scratch}
 	end 'make'
 
 	// fill starts the tests after the last one started while fewer than the window are under way. A test that the run leaves
 	// out without compiling it is done as it is reached, and one that runs alone is put by until every test has been reached and
-	// every one that was started has ended; each of those then starts alone, one after another (startDeferred).
+	// every one that was started has ended; each of those then starts alone, one after another (startDeferred). A copy of a
+	// repeated program after the first starts when the first has compiled, or, for a program that runs alone, in its turn.
 	function fill(mutates self, bench frozen with Bench)
 		while next < results.count() and underWay < bench.width.window 'start'
 			let index = next
 			next = offsetBy(next, by: 1)
 			if isLeftOut(bench.jobs[index]) 'leftOut'
 				sayStart(bench, index: index)
-				results[index] = table.Option.some(leftOutResult(bench.jobs[index]))
-			end 'leftOut' else if runsAlone(bench.jobs[index]) 'alone'
+				self.store(index, result: leftOutResult(bench.jobs[index]))
+			end 'leftOut' else if copiesOf(bench, index: index).copy > 1 'copy'
+				if runsAloneAt(bench, index: index) 'aloneCopy'
+					deferred.push(index)
+				end 'aloneCopy'
+			end 'copy' else if runsAlone(bench.jobs[index]) 'alone'
 				deferred.push(index)
 			end 'alone' else 'run'
 				sayStart(bench, index: index)
@@ -430,10 +488,95 @@ type Board
 		end 'busy'
 		let index = deferred.get(deferredAt)
 		deferredAt = offsetBy(deferredAt, by: 1)
+		if copiesOf(bench, index: index).copy > 1 'copy'
+			// The first copy has ended: this one takes what it gave, and when that was a result, nothing is under way and the
+			// next one that runs alone may start.
+			self.startCopy(bench, index: index)
+			self.startDeferred(bench)
+			return
+		end 'copy'
 		sayStart(bench, index: index)
 		underWay = offsetBy(underWay, by: 1)
 		startJob(bench, index: index)
 	end 'startDeferred'
+
+	// store keeps the result of the test at index until it is taken in.
+	function store(mutates self, index Count, consumes result TestResult)
+		results[index] = table.Option.some(result)
+	end 'store'
+
+	// startCopy starts the copy at index of a repeated program, which compiles nothing: it ends with the result of the first
+	// copy's compile when that ended without a run, and else runs the first copy's executable.
+	function startCopy(mutates self, bench frozen with Bench, index Count)
+		sayStart(bench, index: index)
+		match consumes compiles.get(copiesOf(bench, index: index).first) 'compiled'
+			some(shared) then self.takeShared(bench, index: index, shared: shared)
+			none then panic("test: a copy of a repeated program starts before the first has compiled")
+		end 'compiled'
+	end 'startCopy'
+
+	function takeShared(mutates self, bench frozen with Bench, index Count, consumes shared SharedCompile)
+		match consumes shared 'shared'
+			ended(result) then self.store(index, result: result)
+			built(executable) then self.runShared(bench, index: index, executable: executable)
+		end 'shared'
+	end 'takeShared'
+
+	// runShared queues the run of the executable of the first copy for the copy at index.
+	function runShared(mutates self, bench frozen with Bench, index Count, consumes executable SharedExecutable)
+		underWay = offsetBy(underWay, by: 1)
+		queueRun(bench, pending: PendingRun.corpus(CorpusPending.make(index, exe: executable.exe.clone(), expect: executable.expect.clone(), compiled: CompiledProgram.nothing(), runs: 1, interprets: false, shared: true)))
+	end 'runShared'
+
+	// startCopies starts the copies after the first, which is at first, unless the program runs alone, which starts them in
+	// their turn. The first copy's compile is in compiles.
+	function startCopies(mutates self, bench frozen with Bench, first Count)
+		if runsAloneAt(bench, index: first) 'alone'
+			return
+		end 'alone'
+		for k in 1 upto copiesOf(bench, index: first).copies 'copies'
+			self.startCopy(bench, index: offsetBy(first, by: k))
+		end 'copies'
+	end 'startCopies'
+
+	// shareEnded keeps the result of the compile of the first copy of a repeated program, which ended without a run, for its other
+	// copies, and starts them.
+	function shareEnded(mutates self, bench frozen with Bench, index Count, result TestResult)
+		if copiesOf(bench, index: index).copies < 2 'single'
+			return
+		end 'single'
+		compiles.insert(index, value: SharedCompile.ended(result.clone()))
+		self.startCopies(bench, first: index)
+	end 'shareEnded'
+
+	// shareRun keeps the executable that the first copy of a repeated program is to run for its other copies, which start with
+	// it, and the count of the copies that use it.
+	function shareRun(mutates self, bench frozen with Bench, index Count, pending PendingRun)
+		let copies = copiesOf(bench, index: index).copies
+		if copies < 2 'single'
+			return
+		end 'single'
+		match pending 'pending'
+			corpus(value) then compiles.insert(index, value: SharedCompile.built(SharedExecutable.make(value.exe.clone(), expect: value.expect.clone())))
+			spec(_) then return
+		end 'pending'
+		sharing.insert(index, value: copies)
+	end 'shareRun'
+
+	// endCopy counts the end of a copy that ran the executable of a repeated program, and deletes the executable with the last.
+	function endCopy(mutates self, bench frozen with Bench, index Count)
+		let first = copiesOf(bench, index: index).first
+		if not sharing.has(first) 'unshared'
+			return
+		end 'unshared'
+		let left = try sharing.getOr(first, fallback: 0) - 1 otherwise 0 as Count
+		if left > 0 'others'
+			sharing.insert(first, value: left)
+			return
+		end 'others'
+		_ = sharing.remove(first)
+		scratch.discard(scratch.executableAt(first))
+	end 'endCopy'
 
 	function sayStart(bench frozen with Bench, index Count)
 		if bench.verbose 'say'
@@ -444,10 +587,23 @@ type Board
 	// staged takes in what the compile of the test at index gave.
 	function staged(mutates self, bench frozen with Bench, index Count, consumes staged Staged)
 		match consumes staged 'stagedValue'
-			done(value) then settle(bench, index: index, finished: value)
-			needsRun(value) then queueRun(bench, pending: value)
+			done(value) then self.stagedDone(bench, index: index, finished: value)
+			needsRun(value) then self.stagedRun(bench, index: index, pending: value)
 		end 'stagedValue'
 	end 'staged'
+
+	// stagedDone takes in a test that ended with its compile: the copies of the program after the first end the same way.
+	function stagedDone(mutates self, bench frozen with Bench, index Count, consumes finished Finished)
+		self.shareEnded(bench, index: index, result: finished.result)
+		settle(bench, index: index, finished: finished)
+	end 'stagedDone'
+
+	// stagedRun queues the run of a compiled test, and with it the runs of the copies of its program after the first.
+	function stagedRun(mutates self, bench frozen with Bench, index Count, consumes pending PendingRun)
+		self.shareRun(bench, index: index, pending: pending)
+		queueRun(bench, pending: pending)
+		self.startCopies(bench, first: index)
+	end 'stagedRun'
 
 	function queueRun(mutates self, bench frozen with Bench, consumes pending PendingRun)
 		waiting.push(pending)
@@ -481,7 +637,8 @@ type Board
 			some(path) then scratch.left.push(path)
 			none then break
 		end 'left'
-		results[index] = table.Option.some(exchange(held.result, value: TestResult.passed()))
+		self.store(index, result: exchange(held.result, value: TestResult.passed()))
+		self.endCopy(bench, index: index)
 		underWay = try underWay - 1 otherwise panic("test: a test ends that never started")
 		fill(bench)
 	end 'settle'
@@ -569,6 +726,22 @@ function runsAlone(job Job) returns bool
 		spec(_) gives false
 	end 'job'
 end 'runsAlone'
+
+// runsAloneAt is whether the test at index of the run runs alone.
+function runsAloneAt(bench frozen with Bench, index Count) returns bool
+	let job = try bench.jobs.get(index) otherwise return false
+	return runsAlone(job)
+end 'runsAloneAt'
+
+// copiesOf is where the test at index of the run stands among the copies of its program: a spec test, and a program that
+// --repeat did not repeat, is the one copy.
+function copiesOf(bench frozen with Bench, index Count) returns Copies
+	let job = try bench.jobs.get(index) otherwise return Copies.single()
+	return match job 'job'
+		corpus(value) gives value.copying.clone()
+		spec(_) gives Copies.single()
+	end 'job'
+end 'copiesOf'
 
 // isLeftOut is whether the run leaves the test out without compiling it.
 function isLeftOut(job Job) returns bool
@@ -666,7 +839,9 @@ function runCompiledProgram(bench frozen with Bench, consumes pending CorpusPend
 		result = interpretedAfter(result, compiled: pending.compiled, expect: pending.expect)
 	end 'interpreted'
 	var finished = Finished.make(result)
-	finished.left = discarded(pending.exe)
+	if not pending.shared 'own'
+		finished.left = discarded(pending.exe)
+	end 'own'
 	settleJob(bench, index: pending.index, finished: finished)
 end 'runCompiledProgram'
 
