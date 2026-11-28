@@ -673,6 +673,7 @@ end 'main'
 ```
 
 <!-- test: aes-hardware.xor-key-stream-matches-the-bitsliced-cipher -->
+<!-- native: its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test -->
 <!-- tier: stdlib -->
 Every length from 0 to 300 bytes covers each group size and the partial last block. Under 128-, 192- and
 256-bit keys, from counter zero and from the last counter the length allows, `Aes.xorKeyStream` and
@@ -1618,6 +1619,7 @@ error E3005: <fragment>:7:20: '__Builtins.aesGcmOpen' requires an argument of ty
 ```
 
 <!-- test: aes-hardware.gcm-large-messages-match-the-software-backing -->
+<!-- native: its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test -->
 <!-- tier: stdlib -->
 Messages of 1000, 4096, 16384, 16385 and 65553 bytes under 3000 bytes of associated data, for each key size, cross the
 8-block loop many times: the hardware backing seals what the bitsliced backing seals and opens it.

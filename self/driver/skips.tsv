@@ -893,3 +893,5 @@ native	slab-scavenger.md	slab-scavenger.a-released-chunk-serves-a-different-clas
 native	builtins-mm-counters.md	builtins-mm-counters.process-totals-only-rise-while-another-thread-allocates	its interpreted run takes 2.4 s, beyond the 2 s the gate may spend on one test
 native	builtins-clock.md	builtins-clock.thread-cpu-ticks-advances-under-work	its interpreted run takes 2.1 s, beyond the 2 s the gate may spend on one test
 native	hkdf.md	hkdf.derive	its interpreted run takes 2.0 s, beyond the 2 s the gate may spend on one test
+native	aes-hardware.md	aes-hardware.xor-key-stream-matches-the-bitsliced-cipher	its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test
+native	aes-hardware.md	aes-hardware.gcm-large-messages-match-the-software-backing	its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test

@@ -861,5 +861,7 @@ function codeSkipTable() returns CodeSkips
 	skips.push(CodeSkip.nativeOnly("builtins-mm-counters.md", test: "builtins-mm-counters.process-totals-only-rise-while-another-thread-allocates", line: "<!-- native: its interpreted run takes 2.4 s, beyond the 2 s the gate may spend on one test -->\n"))
 	skips.push(CodeSkip.nativeOnly("builtins-clock.md", test: "builtins-clock.thread-cpu-ticks-advances-under-work", line: "<!-- native: its interpreted run takes 2.1 s, beyond the 2 s the gate may spend on one test -->\n"))
 	skips.push(CodeSkip.nativeOnly("hkdf.md", test: "hkdf.derive", line: "<!-- native: its interpreted run takes 2.0 s, beyond the 2 s the gate may spend on one test -->\n"))
+	skips.push(CodeSkip.nativeOnly("aes-hardware.md", test: "aes-hardware.xor-key-stream-matches-the-bitsliced-cipher", line: "<!-- native: its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test -->\n"))
+	skips.push(CodeSkip.nativeOnly("aes-hardware.md", test: "aes-hardware.gcm-large-messages-match-the-software-backing", line: "<!-- native: its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test -->\n"))
 	return skips
 end 'codeSkipTable'
