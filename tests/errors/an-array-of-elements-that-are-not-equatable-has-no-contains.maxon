@@ -1,0 +1,23 @@
+// An array's contains and containsSequence compare its elements through the element's equals, as maxon's do where its
+// element is Equatable: an array of a record that is not has neither (maxon's E4006).
+type Point
+	export var x as Count
+
+	static function make(x Count) returns Point
+		return Point{x: x}
+	end 'make'
+end 'Point'
+
+typealias Points = Array with Point
+
+function main() returns ExitCode
+	let a = Points from [Point.make(1)]
+	let b = Points from [Point.make(1)]
+	if a.contains(Point.make(1)) or a.containsSequence(b) 'found'
+		return 1
+	end 'found'
+	return 0
+end 'main'
+
+// expect-error: E4006 at 16:7
+// expect-error: E4006 at 16:36

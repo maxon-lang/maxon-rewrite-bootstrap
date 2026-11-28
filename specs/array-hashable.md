@@ -927,13 +927,13 @@ true
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	let a = Reals.create(0)
+	var a = Reals.create(0)
 	a.push(1.5)
 	a.push(2.5)
-	let b = Reals.create(0)
+	var b = Reals.create(0)
 	b.push(1.5)
 	b.push(2.5)
-	let c = Reals.create(0)
+	var c = Reals.create(0)
 	c.push(1.5)
 	c.push(3.5)
 	print("{a == b} {a == c} {a.equals(c)}\n")

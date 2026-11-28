@@ -115,13 +115,14 @@ end 'witnessFor'
 
 // ownWitness is the method of the type recv's own that meets a requirement: a built-in one of a built-in generic type (an
 // Array's equals) as it is, since a call through the bound lowers it in place (lowerBuiltinWitness), but for an array's
-// equals that the library's elementwiseEquals is instead (ast.runsBuiltin), and any other at its instance for recv.
+// equals that the library's elementwise method is instead (ast.runsBuiltin), and any other at its instance for recv.
 function ownWitness(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, method ast.FuncID, recv ast.TypeID, conformance diag.ModuleID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
 	if not ast.runsBuiltin(p, ms: ms, t: recv, fid: method) 'library'
-		match consumes ast.extensionMethod(p, ms: ms, from: conformance, owner: ast.extensionKey(p, ms: ms, t: recv).unwrap(), name: ast.elementwiseEquals) 'elementwise'
+		let name = ast.elementwiseMethod(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).intrinsic)
+		match consumes ast.extensionMethod(p, ms: ms, from: conformance, owner: ast.extensionKey(p, ms: ms, t: recv).unwrap(), name: name) 'elementwise'
 			found(fid) then return instantiateMethod(p, ms: ms, module: module, site: site, method: fid, recv: recv, errs: errs)
-			absent then panic("the conformance of {ast.typeName(ms.types, reads: p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has no method '{ast.elementwiseEquals}'")
-			ambiguous(_, _) then panic("the conformance of {ast.typeName(ms.types, reads: p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has two methods '{ast.elementwiseEquals}'")
+			absent then panic("the conformance of {ast.typeName(ms.types, reads: p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has no method '{name}'")
+			ambiguous(_, _) then panic("the conformance of {ast.typeName(ms.types, reads: p.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has two methods '{name}'")
 		end 'elementwise'
 	end 'library'
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).intrinsic != ast.Intrinsic.intrNone 'builtIn'

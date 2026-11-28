@@ -2554,29 +2554,67 @@ end 'packsByte'
 
 // comparesInPlace is whether the built-in methods of an array that compare its elements (equals, contains and
 // containsSequence) compare elements of type elem themselves: an integer, a bool or an enum by its word, a String by its
-// bytes. An array of any other element is equal to another through the element's own equals, by the library's
-// elementwiseEquals.
+// bytes. An array of any other element compares them through the element's own equals, by the library's elementwise
+// method (elementwiseMethod).
 export function comparesInPlace(tt TypeSlot, reads TypeTable, elem TypeID) returns bool
 	let kind = typeKind(tt, reads: reads, t: elem)
 	return kind == TypeKind.intRange or kind == TypeKind.primBool or kind == TypeKind.primString or kind == TypeKind.enumTy
 end 'comparesInPlace'
 
-// elementwiseEquals is the method of the library's conditional conformance of Array to Equatable that compares two arrays
-// element by element through the element's equals, as maxon's Array.equals does: what an array's equals, and == and != of
-// two arrays, run where the built-in equals does not compare the elements in place.
+// The methods of the library's extensions of Array that compare elements through the element's equals, as maxon's Array
+// methods do: what an array's equals (and == and != of two arrays), contains and containsSequence run where the built-in
+// method does not compare the elements in place.
 export let elementwiseEquals = "equalsByElements"
 
-// runsBuiltin is whether a call of the built-in method fid of the type t runs it: every one but the equals of an instance
-// of Array whose elements it does not compare in place, or are bools, for which the call runs the library's
-// elementwiseEquals.
+export let elementwiseContains = "containsByElements"
+
+export let elementwiseContainsSequence = "containsSequenceByElements"
+
+// elementwiseMethod is the library's method that a call of the built-in method with the intrinsic op runs where the
+// built-in does not compare the elements in place, or "" for a built-in that compares none.
+export function elementwiseMethod(op Intrinsic) returns String
+	if op == Intrinsic.intrArrayEquals 'equals'
+		return elementwiseEquals
+	end 'equals'
+	if op == Intrinsic.intrArrayContains 'contains'
+		return elementwiseContains
+	end 'contains'
+	if op == Intrinsic.intrArrayContainsSequence 'sequence'
+		return elementwiseContainsSequence
+	end 'sequence'
+	return ""
+end 'elementwiseMethod'
+
+// builtinOfElementwise is the name of the built-in method that the library's elementwise method stands for, or "" for a
+// name that is no elementwise method. A program never names an elementwise method: it is reached through the built-in.
+export function builtinOfElementwise(name String) returns String
+	if name == elementwiseEquals 'equals'
+		return "equals"
+	end 'equals'
+	if name == elementwiseContains 'contains'
+		return "contains"
+	end 'contains'
+	if name == elementwiseContainsSequence 'sequence'
+		return "containsSequence"
+	end 'sequence'
+	return ""
+end 'builtinOfElementwise'
+
+// runsBuiltin is whether a call of the built-in method fid of the type t runs it: every one but a method that compares
+// the elements of an instance of Array whose elements it does not compare in place, for which the call runs the library's
+// elementwiseMethod, and the equals of an array of bools.
 export function runsBuiltin(p Project, ms ModuleState, t TypeID, fid FuncID) returns bool
-	if funcEntry(ms.funcs, funcReads: p.funcs, f: fid).intrinsic != Intrinsic.intrArrayEquals 'other'
+	let op = funcEntry(ms.funcs, funcReads: p.funcs, f: fid).intrinsic
+	if elementwiseMethod(op) == "" 'other'
 		return true
 	end 'other'
 	for elem in typeEntry(ms.types, reads: p.types, t: contentType(ms.types, reads: p.types, t: t)).typeArgs 'element'
 		// A bool is Equatable and not Hashable, so an array of bools meets no condition of the library's conformance and has
 		// no equals, as in maxon, though contains compares its elements in place.
-		return comparesInPlace(ms.types, reads: p.types, elem: elem) and typeKind(ms.types, reads: p.types, t: elem) != TypeKind.primBool
+		if op == Intrinsic.intrArrayEquals and typeKind(ms.types, reads: p.types, t: elem) == TypeKind.primBool 'bools'
+			return false
+		end 'bools'
+		return comparesInPlace(ms.types, reads: p.types, elem: elem)
 	end 'element'
 	// The declaration of Array itself, whose own methods its conformances are checked against.
 	return true

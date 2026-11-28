@@ -3861,8 +3861,8 @@ Stack trace:
 Growth below the wrap bound takes the allocation road with no overflow refusal: a byte array and a word array pushed through many reallocations keep every element and agree on their counts.
 ```maxon
 function main() returns ExitCode
-	let bytes = ByteArray.create(0)
-	let words = [0 as Count].clone()
+	var bytes = ByteArray.create(0)
+	var words = [0 as Count].clone()
 	var wrong = 0 as Count
 	for i in 0 upto 5000 'push'
 		bytes.push((i and 0xFF) as Byte)

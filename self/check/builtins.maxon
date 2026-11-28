@@ -125,14 +125,14 @@ function checkManagedByteAtArgs(mutates c Checker, p ast.Project, ms ast.ModuleS
 	failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: 'byteAt' on a buffer of '{nameOfType(p, ms: ms, t: elem)}': only a buffer of bytes is read by byte; read the element with 'get(index)'", errs: errs)
 end 'checkManagedByteAtArgs'
 
-// checkElementsComparable refuses a method that compares elements, for an element that it does not compare in place
-// (ast.comparesInPlace): integers, bools, enums and strings. An array's equals of any other element is the library's.
+// checkElementsComparable holds that a built-in method that compares elements is called only on an array whose elements
+// it compares in place (ast.comparesInPlace): integers, bools, enums and strings. For any other element the call runs the
+// library's elementwise method (ast.runsBuiltin).
 function checkElementsComparable(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, method String, mutates errs diag.ErrorList)
 	let elem = callElement(c, call: call)
-	if elem != ast.noType and ast.comparesInPlace(ms.types, reads: p.types, elem: elem) 'comparable'
-		return
-	end 'comparable'
-	failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: '{method}' on an array of '{nameOfType(p, ms: ms, t: elem)}': only an array of integers, bools, enums or strings compares its elements, since there is no Equatable interface yet", errs: errs)
+	if elem == ast.noType or not ast.comparesInPlace(ms.types, reads: p.types, elem: elem) 'notInPlace'
+		panic("check: the built-in '{method}' of an array of '{nameOfType(p, ms: ms, t: elem)}', whose elements it does not compare, is called where the library's elementwise method runs")
+	end 'notInPlace'
 end 'checkElementsComparable'
 
 // checkArrayAwaitAnyArgs refuses awaitAny on an array whose elements are not promises, which has no such method, as maxon's

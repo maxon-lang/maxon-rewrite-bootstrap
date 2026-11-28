@@ -1,0 +1,28 @@
+typealias Rows = Array with ByteArray
+
+typealias Characters = Array with Character
+
+function bytes(a Byte, b Byte) returns ByteArray
+	var out = ByteArray.create(0)
+	out.push(a)
+	out.push(b)
+	return out
+end 'bytes'
+
+function main() returns ExitCode
+	var seen = Rows.create(0)
+	seen.push(bytes(1, b: 2))
+	seen.push(bytes(3, b: 4))
+	var wanted = Rows.create(0)
+	wanted.push(bytes(3, b: 4))
+	var gap = Rows.create(0)
+	gap.push(bytes(1, b: 2))
+	gap.push(bytes(5, b: 6))
+	var characters = Characters.create(0)
+	characters.push('a')
+	characters.push('b')
+	print("{seen.contains(bytes(3, b: 4))} {seen.contains(bytes(4, b: 3))} {seen.containsSequence(wanted)} {seen.containsSequence(gap)} {characters.contains('b')} {characters.contains('c')}\n")
+	return 0
+end 'main'
+
+//> true false true false true false

@@ -176,19 +176,19 @@ end 'Counter'
 typealias Counters = Array with Counter
 
 function main() returns ExitCode
-	let counters = Counters.create(0)
+	var counters = Counters.create(0)
 	counters.push(thaw(freeze(Counter.create(3))))
 	counters.push(thaw(freeze(Counter.create(1))))
 	counters.push(thaw(freeze(Counter.create(2))))
 	counters.sort()
 	var total = 0 as Integer
 	for counter in counters 'each'
-		total = total + counter.n
+		total = try total + counter.n otherwise panic("out of range")
 	end 'each'
 	if counters.contains(Counter.create(2)) 'found'
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 	end 'found'
-	return (total + (counters.count() as Integer)) as ExitCode
+	return try (total + (counters.count() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

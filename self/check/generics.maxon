@@ -436,10 +436,11 @@ function requireCondition(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		return
 	end 'other'
 	var method = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: bound.methodFn).name.clone()
-	if method == ast.elementwiseEquals 'equals'
-		// The library's equals of an array, which a call of the array's equals runs (ast.runsBuiltin), as maxon names it.
-		method = equalsMethod.clone()
-	end 'equals'
+	if ast.builtinOfElementwise(method) != "" 'elementwise'
+		// The library's elementwise method of an array, which a call of the array's built-in one runs (ast.runsBuiltin), as
+		// maxon names it.
+		method = ast.builtinOfElementwise(method)
+	end 'elementwise'
 	let msg = diag.conditionalExtensionWithheld(nameOfType(p, ms: ms, t: bound.receiverTy), methodName: method, clause: conditionText(p, ms: ms, method: bound.methodFn), bindingName: nameOfType(p, ms: ms, t: bound.argTy), interfaceName: nameOfType(p, ms: ms, t: bound.ifaceTy))
 	checkFail(c.modID, off: bound.off, code: diag.errInvalidFieldAccess, msg: msg, errs: errs)
 end 'requireCondition'

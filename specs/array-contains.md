@@ -23,7 +23,7 @@ typealias ByteArray = Array with Byte
 typealias ByteArrayArray = Array with ByteArray
 
 function main() returns ExitCode
-	let names = ByteArrayArray.create(0)
+	var names = ByteArrayArray.create(0)
 	names.push(b"hello")
 	names.push(b"world")
 	// Contains should match by content, not by pointer

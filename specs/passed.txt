@@ -79,6 +79,7 @@ array-conditional-conformance-withheld.md: error.an-array-of-non-conforming-arra
 array-conditional-conformance-withheld.md: error.equality-operator-is-withheld-for-a-non-conforming-element
 array-conditional-conformance-withheld.md: error.hash-is-withheld-for-a-non-conforming-element
 array-conditional-conformance-withheld.md: the-cloneable-witness-route-is-opened-by-the-instance-dictionary
+array-contains.md: bytearray-array-contains
 array-copy-widths.md: append-copies-every-length-at-every-alignment
 array-copy-widths.md: insert-and-remove-shift-every-length
 array-copy-widths.md: insert-and-remove-shift-every-position-of-eight-byte-elements
@@ -122,6 +123,7 @@ array-enum-element-size.md: enum-array-push-get
 array-enum-element-size.md: enum-array-push-get-last
 array-enum-element-size.md: narrow-signed-enum-element-reaches-user-code-through-the-corpus
 array-enum-element-size.md: nested-enum-array-push-get
+array-hashable.md: a-float-array-compares-and-searches-by-its-values
 array-hashable.md: a-float-array-hashes-as-its-element-chain
 array-hashable.md: a-generic-body-compares-a-field-array-with-the-operator
 array-hashable.md: a-generic-body-compares-arrays-of-a-parametric-instance
@@ -376,6 +378,7 @@ arrays.md: error.slice-negative-start-is-refused
 arrays.md: every-mutator-detaches-a-view
 arrays.md: five-elements
 arrays.md: growfilled-supplies-the-element-an-excluding-alias-needs
+arrays.md: growth-by-pushing-keeps-every-element-across-the-doublings
 arrays.md: index-assignment
 arrays.md: insert-keeps-an-element-read-before-it
 arrays.md: int-literal-expression-element-stays-integer
@@ -6545,6 +6548,7 @@ raw-bit-patterns.md: xor-over-a-top-bit-variable-reaches-an-unsigned-quantity-pa
 readonly-element-returns.md: a-generic-method-returning-its-item-type-over-an-immutable-instance-runs
 readonly-element-returns.md: a-method-returning-an-immutable-element-is-read-through-a-let
 readonly-element-returns.md: error.a-method-returning-an-immutable-element-or-a-fresh-record-hands-back-a-read-only-value
+readonly-element-types.md: a-generic-body-over-t-takes-an-immutable-instance
 readonly-element-types.md: a-map-stores-frozen-values-and-stays-mutable
 readonly-element-types.md: a-set-element-read-by-for-is-kept-without-a-copy
 readonly-element-types.md: a-wrapper-storing-into-an-immutable-element-takes-a-frozen-argument

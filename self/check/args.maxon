@@ -383,8 +383,9 @@ end 'declares'
 
 // requireVisible refuses a function of another module that the module cannot name.
 function requireVisible(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, target ast.FuncID, mutates errs diag.ErrorList) returns bool
-	// The library's equals of an array stands for the array's equals, which every module sees (ast.runsBuiltin).
-	if declares(c, p: p, ms: ms, f: target) or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).name == ast.elementwiseEquals 'declared'
+	// The library's elementwise method of an array stands for the array's built-in one, which every module sees
+	// (ast.runsBuiltin).
+	if declares(c, p: p, ms: ms, f: target) or ast.builtinOfElementwise(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).name) != "" 'declared'
 		return true
 	end 'declared'
 	let owner = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).module

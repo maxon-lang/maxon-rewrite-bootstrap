@@ -1,8 +1,8 @@
-// The equals of an array's conditional conformance to Equatable for an array whose elements the built-in equals does not
-// compare in place (ast.comparesInPlace): a float, a Character, a record, an array. As maxon's Array.equals, it compares the
-// two arrays element by element through the element's own equals. An array's equals, and == and != of two arrays, call it
-// where the built-in does not compare the elements, and nothing reaches it by its own name; minimaxon's own, since the
-// built-in equals is what maxon's converts to.
+// The methods of an array that compare elements, for an array whose elements the built-in methods do not compare in place
+// (ast.comparesInPlace): a float, a Character, a record, an array. As maxon's Array methods, they compare elements through
+// the element's own equals. An array's equals (and == and != of two arrays), contains and containsSequence call them where
+// the built-in does not compare the elements, and nothing reaches them by their own names; minimaxon's own, since the
+// built-in methods are what maxon's convert to.
 extension Array where T implements Hashable and Equatable
 	export function equalsByElements(other Self) returns bool
 		if count() != other.count() 'lengths'
@@ -15,4 +15,39 @@ extension Array where T implements Hashable and Equatable
 		end 'each'
 		return true
 	end 'equalsByElements'
+end 'Array'
+
+extension Array where T implements Equatable
+	export function containsByElements(element T) returns bool
+		for i in 0 upto count() 'each'
+			if self[i] == element 'found'
+				return true
+			end 'found'
+		end 'each'
+		return false
+	end 'containsByElements'
+
+	export function containsSequenceByElements(sequence Self) returns bool
+		if sequence.count() == 0 'empty'
+			return true
+		end 'empty'
+		if sequence.count() > count() 'longer'
+			return false
+		end 'longer'
+		for start in 0 to count() - sequence.count() 'each'
+			if matchesAt(sequence, start: start) 'found'
+				return true
+			end 'found'
+		end 'each'
+		return false
+	end 'containsSequenceByElements'
+
+	function matchesAt(sequence Self, start Count) returns bool
+		for i in 0 upto sequence.count() 'each'
+			if self[try start + i otherwise panic("out of range")] != sequence[i] 'differ'
+				return false
+			end 'differ'
+		end 'each'
+		return true
+	end 'matchesAt'
 end 'Array'

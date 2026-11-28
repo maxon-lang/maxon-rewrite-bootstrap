@@ -909,7 +909,7 @@ typealias Wide = bits(64)
 typealias Num = int(i64.min to i64.max)
 
 function shlDynamic(v Wide, d Num) returns Wide
-	return v shl d
+	return try v shl d otherwise panic("out of range")
 end 'shlDynamic'
 
 function shlPastWidth(v Wide) returns Wide
