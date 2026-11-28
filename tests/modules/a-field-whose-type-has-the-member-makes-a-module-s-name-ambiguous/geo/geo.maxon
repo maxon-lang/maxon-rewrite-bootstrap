@@ -1,0 +1,11 @@
+export type Point
+	export let x as Count
+
+	export static function parse(text String) returns Point
+		return Point{x: text.byteLength()}
+	end 'parse'
+
+	export static function origin() returns Point
+		return Point{x: 0}
+	end 'origin'
+end 'Point'

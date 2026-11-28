@@ -1,0 +1,21 @@
+// A module's name before a type of the module names the module where a field of that name is in scope, as it does past a
+// local or a parameter: a method of a type with a field geo calls geo.Point.parse(geo).
+type Place
+	let geo as String
+
+	static function make(consumes geo String) returns Place
+		return Place{geo: geo}
+	end 'make'
+
+	function point() returns geo.Point
+		return geo.Point.parse(geo)
+	end 'point'
+end 'Place'
+
+function main() returns ExitCode
+	let place = Place.make("three")
+	print("{place.point().x}\n")
+	return 0
+end 'main'
+
+//> 5

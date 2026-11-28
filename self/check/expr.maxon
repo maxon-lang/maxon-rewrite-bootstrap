@@ -298,7 +298,7 @@ function isQualifiedName(c Checker, p ast.Project, ms ast.ModuleState, e ast.Nod
 	return ast.resolutionOf(p, ms: ms).becomeNames.has(e as Count) or ms.tables.memberDecl(e as Count).isSome()
 end 'isQualifiedName'
 
-// checkShadowedQualifier refuses a type written after a module's name that a local or a parameter of that name has a member
+// checkShadowedQualifier refuses a type written after a module's name that a local, a parameter or a field of that name has a member
 // of too (resolve's namesModuleTypeMember read the qualifier as the module): `url.URL.parse(s)` where the local url's type has
 // a member URL could mean either, so neither is chosen.
 function checkShadowedQualifier(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, name String, mutates errs diag.ErrorList) returns bool
@@ -309,19 +309,41 @@ function checkShadowedQualifier(c Checker, p ast.Project, ms ast.ModuleState, e 
 end 'checkShadowedQualifier'
 
 function localHasMember(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, local String, member String, mutates errs diag.ErrorList) returns bool
-	let id = lookupLocal(c, name: local)
-	if id == ast.noLocal 'notLocal'
+	let held = shadowingType(c, p: p, ms: ms, name: local)
+	if held == ast.noType 'none'
 		return false
-	end 'notLocal'
-	let t = ast.contentType(ms.types, reads: p.types, t: c.typing.locals[id as Count].ty)
+	end 'none'
+	let t = ast.contentType(ms.types, reads: p.types, t: held)
 	let isField = typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.record) and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t)).findField(member).isSome()
 	let isMethod = typeIsNominal(ms.types, reads: p.types, t: t) and methodNamed(p, ms: ms, t: t, name: member) != ast.noFunc
 	if not isField and not isMethod 'none'
 		return false
 	end 'none'
-	failAt(c, p: p, ms: ms, node: e, code: diag.errAmbiguousQualifier, msg: "'{local}.{member}' is ambiguous: '{local}' names the module that declares the type '{member}' and a local whose type '{nameOfType(p, ms: ms, t: t)}' has a member '{member}'; rename the local", errs: errs)
+	failAt(c, p: p, ms: ms, node: e, code: diag.errAmbiguousQualifier, msg: "'{local}.{member}' is ambiguous: '{local}' names the module that declares the type '{member}' and a {shadowingKind(c, name: local)} whose type '{nameOfType(p, ms: ms, t: t)}' has a member '{member}'; rename the {shadowingKind(c, name: local)}", errs: errs)
 	return true
 end 'localHasMember'
+
+// shadowingType is the type of the local, the parameter or the field of the enclosing type that a bare name stands for, or
+// noType: a local outranks a field, as a bare name's lookup has it.
+function shadowingType(c Checker, p ast.Project, ms ast.ModuleState, name String) returns ast.TypeID
+	let id = lookupLocal(c, name: name)
+	if id != ast.noLocal 'local'
+		return c.typing.locals[id as Count].ty
+	end 'local'
+	let rt = selfRecord(c, p: p, ms: ms)
+	if rt == ast.noType 'noSelf'
+		return ast.noType
+	end 'noSelf'
+	let entry = ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: rt))
+	match entry.findField(name) 'field'
+		some(index) then return entry.fields[index].ty
+		none then return ast.noType
+	end 'field'
+end 'shadowingType'
+
+function shadowingKind(c Checker, name String) returns String
+	return "local" if lookupLocal(c, name: name) != ast.noLocal else "field"
+end 'shadowingKind'
 
 function checkQualifiedName(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = ast.nameExprName(ms.tree(), id: e).clone()

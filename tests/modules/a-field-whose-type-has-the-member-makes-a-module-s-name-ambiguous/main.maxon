@@ -1,0 +1,27 @@
+// A module's name before a type of the module is read past a field of that name, but where the field's own type has a member
+// of the type's name too, the name could mean either, and it is refused, as it is for a local.
+// expect-error: E3964
+type Holder
+	export let Point as Count
+
+	static function make() returns Holder
+		return Holder{Point: 3}
+	end 'make'
+end 'Holder'
+
+type Place
+	let geo as Holder
+
+	static function make() returns Place
+		return Place{geo: Holder.make()}
+	end 'make'
+
+	function point() returns geo.Point
+		return geo.Point.parse("ab")
+	end 'point'
+end 'Place'
+
+function main() returns ExitCode
+	let p = Place.make().point()
+	return 0
+end 'main'

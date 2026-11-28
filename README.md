@@ -566,7 +566,7 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   `7 as geometry.Length`, `net.http.parse()`, `geometry.Shape.circle(2)`. The root module's own declarations are
   `export.X` (`export` is a name only as the start of a qualified name), and `stdlib.X` is a built-in. A value cannot qualify a type, so a
   module's name before a type of the module names the module where a local, a parameter or a field of that name is in scope,
-  in a type and in a static member of the type (`url.URL.parse(url)` with a parameter `url String`); where the local's own
+  in a type and in a static member of the type (`url.URL.parse(url)` with a parameter `url String`); where that name's own
   type has a member of the type's name too, the name is refused as ambiguous (`E3964`).
 - **A bare name** is a local, a field, a type parameter, the module's own declaration, a built-in or, last, a public
   declaration of any module of the standard library (below), and nothing else, so adding a declaration to one module never changes
