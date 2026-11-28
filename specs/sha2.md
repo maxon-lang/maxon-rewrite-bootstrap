@@ -345,7 +345,6 @@ Stack trace:
 ```
 
 <!-- test: sha2.the-hardware-and-software-compressions-agree -->
-<!-- skip: language difference: minimaxon's library is software only, so the hardware intrinsics the test calls (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) are not provided -->
 <!-- tier: stdlib -->
 SHA-256 has two compressions: the SHA instructions (SHA-NI on x64, the ARMv8 SHA2 extension on arm64) where
 the CPU has them, and the portable one everywhere else. `Digest.create` takes the hardware one when it can,
@@ -358,20 +357,20 @@ typealias LengthList = Array with Count
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
 
 function letters(count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for _ in 0 upto count 'eachLetter'
 		bytes.push(0x61)
 	end 'eachLetter'
 	return bytes
 end 'letters'
 
-function digestOf(digest Digest, chunk ByteArray, times Count) returns String
+function digestOf(mutates digest Digest, chunk ByteArray, times Count) returns String
 	for _ in 0 upto times 'eachChunk'
 		digest.update(chunk)
 	end 'eachChunk'
@@ -379,8 +378,10 @@ function digestOf(digest Digest, chunk ByteArray, times Count) returns String
 end 'digestOf'
 
 function report(name String, chunk ByteArray, times Count)
-	let hardware = digestOf(Digest.create(HashAlgorithm.sha256), chunk: chunk, times: times)
-	let software = digestOf(Digest.build(HashAlgorithm.sha256, software: true), chunk: chunk, times: times)
+	var digest = Digest.create(HashAlgorithm.sha256)
+	let hardware = digestOf(digest, chunk: chunk, times: times)
+	var digest2 = Digest.build(HashAlgorithm.sha256, software: true)
+	let software = digestOf(digest2, chunk: chunk, times: times)
 	print("{name} [{hardware}] agree: {hardware == software}\n")
 end 'report'
 
@@ -405,10 +406,12 @@ function main() returns ExitCode
 	var disagreements = 0 as Count
 	for length in lengths 'eachLength'
 		let message = letters(length)
-		let hardware = digestOf(Digest.create(HashAlgorithm.sha256), chunk: message, times: 1)
-		let software = digestOf(Digest.build(HashAlgorithm.sha256, software: true), chunk: message, times: 1)
+		var digest = Digest.create(HashAlgorithm.sha256)
+		let hardware = digestOf(digest, chunk: message, times: 1)
+		var digest2 = Digest.build(HashAlgorithm.sha256, software: true)
+		let software = digestOf(digest2, chunk: message, times: 1)
 		if hardware != software 'differs'
-			disagreements = disagreements + 1
+			disagreements = try disagreements + 1 otherwise panic("out of range")
 		end 'differs'
 	end 'eachLength'
 	print("boundary disagreements={disagreements}\n")

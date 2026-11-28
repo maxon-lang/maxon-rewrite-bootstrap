@@ -225,7 +225,11 @@ function sha256InitialState() returns Sha2State
 end 'sha256InitialState'
 
 function sha256HardwareAvailable() returns bool
-	return false
+	#if arch(x64) or arch(arm64)
+		return __Builtins.cpuHasSha()
+	#else
+		return false
+	#endif
 end 'sha256HardwareAvailable'
 
 function sha256HardwareInitialState(initial Sha2State) returns ByteArray
@@ -385,6 +389,12 @@ public type Digest
 	end 'buffer'
 
 	function compress(mutates self, padded ByteArray, blockOff ElementIndex, blocks Count)
+		#if arch(x64) or arch(arm64)
+			if usesHardware() 'hardware'
+				__Builtins.sha256Blocks(hardwareState, padded, blockOff, blocks)
+				return
+			end 'hardware'
+		#endif
 		let blockBytes = algorithm.blockBytes()
 		var offset = blockOff
 		for _ in 0 upto blocks 'eachBlock'

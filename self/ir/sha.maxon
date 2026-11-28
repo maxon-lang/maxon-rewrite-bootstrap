@@ -1,0 +1,10 @@
+// SHA-256 of maxon's library on the processor's instructions (__Builtins.cpuHasSha and sha256Blocks): each a call of its
+// runtime entry, whose source is runtime/sha.maxon, with the call's arguments as they are.
+
+function lowerCpuHasSha(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtCpuHasSha, kind: IrKind.kindScalar, args: RegList.create(0))
+end 'lowerCpuHasSha'
+
+function lowerSha256Blocks(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return cryptoEntryVoid(l, p: p, c: c, symbol: Rt.rtSha256Blocks, args: args)
+end 'lowerSha256Blocks'

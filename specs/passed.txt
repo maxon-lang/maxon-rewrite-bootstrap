@@ -1048,6 +1048,8 @@ builtins-cpu-features.md: builtins-cpu-features.a-native-host-has-hardware-aes
 builtins-cpu-features.md: builtins-cpu-features.a-program-that-asks-twice-from-different-functions-agrees
 builtins-cpu-features.md: builtins-cpu-features.error.arity-checked
 builtins-cpu-features.md: builtins-cpu-features.error.refused-outside-the-library-tiers
+builtins-cpu-features.md: builtins-cpu-features.error.sha-arity-checked
+builtins-cpu-features.md: builtins-cpu-features.sha-answer-is-a-bool-and-stable
 builtins-cpu-features.md: builtins-cpu-features.the-answer-is-a-bool
 builtins-cpu-features.md: builtins-cpu-features.the-answer-is-stable-across-calls
 builtins-cpu-parallel.md: builtins-cpu-parallel.a-pinned-green-thread-stays-on-its-machine-across-a-park

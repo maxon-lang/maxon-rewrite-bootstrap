@@ -359,6 +359,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryAesGcmOpen(vm, f: f, x: x)
 		return
 	end 'rtAesGcmOpen'
+	if symbol == ir.Rt.rtCpuHasSha 'rtCpuHasSha'
+		entryCpuHasSha(vm, f: f, x: x)
+		return
+	end 'rtCpuHasSha'
+	if symbol == ir.Rt.rtSha256Blocks 'rtSha256Blocks'
+		try entrySha256Blocks(vm, f: f, x: x)
+		return
+	end 'rtSha256Blocks'
 	if symbol == ir.Rt.rtBytesReadWord 'rtBytesReadWord'
 		try entryBytesReadWord(vm, f: f, x: x)
 		return
