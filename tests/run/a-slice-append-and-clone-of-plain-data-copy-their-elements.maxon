@@ -1,0 +1,70 @@
+// A slice, an append and a clone of an array whose elements are copied as their bytes (bytes, scalar words, records of
+// scalars held in place) are one copy of the span: each gives the elements of the span in order, an empty span gives none,
+// and the copy is the copy's own, so changing it leaves the source as it was.
+
+type Point
+	var x as Count
+	var y as Count
+
+	static function at(x Count, y Count) returns Point
+		return Point{x: x, y: y}
+	end 'at'
+end 'Point'
+
+function countsText(xs Array with Count) returns String
+	var text = ""
+	for i in 0 upto xs.count() 'each'
+		text = "{text}{xs[i]},"
+	end 'each'
+	return text
+end 'countsText'
+
+function pointsText(ps Array with Point) returns String
+	var text = ""
+	for i in 0 upto ps.count() 'each'
+		text = "{text}{ps[i].x}/{ps[i].y},"
+	end 'each'
+	return text
+end 'pointsText'
+
+function main() returns ExitCode
+	var counts = Array.create(0) as Array with Count
+	var points = Array.create(0) as Array with Point
+	var bytes = ByteArray.create(0)
+	for i in 0 upto 40 'fill'
+		counts.push(i * 3)
+		points.push(Point.at(i, y: 100 + i))
+		bytes.push((i + 65) as Byte)
+	end 'fill'
+	var mid = try counts.slice(5, endIndex: 9) otherwise return 1
+	let none = try counts.slice(7, endIndex: 7) otherwise return 2
+	print("{countsText(mid)} {none.count()}\n")
+	mid.append(try counts.slice(37, endIndex: 40) otherwise return 3)
+	mid[0] = 999
+	print("{countsText(mid)} {counts[5]}\n")
+	var some = try points.slice(38, endIndex: 40) otherwise return 4
+	some.append(try points.slice(0, endIndex: 1) otherwise return 5)
+	some[0].x = 777
+	print("{pointsText(some)} {points[38].x}\n")
+	var copy = points.clone()
+	copy[1].y = 0
+	var countsCopy = counts.clone()
+	countsCopy[39] = 0
+	print("{copy.count()} {copy[1].y} {points[1].y} {copy[39].y} {countsCopy[38]} {countsCopy[39]} {counts[39]}\n")
+	let letters = try bytes.slice(23, endIndex: 26) otherwise return 6
+	var more = letters.clone()
+	more.append(try bytes.slice(0, endIndex: 3) otherwise return 7)
+	print("{String.from(letters)} {String.from(more)}\n")
+	_ = try counts.slice(39, endIndex: 41) otherwise 'past'
+		print("past the end\n")
+		return 0
+	end 'past'
+	return 8
+end 'main'
+
+//> 15,18,21,24, 0
+//> 999,18,21,24,111,114,117, 15
+//> 777/138,39/139,0/100, 38
+//> 40 0 101 139 114 0 117
+//> XYZ XYZABC
+//> past the end

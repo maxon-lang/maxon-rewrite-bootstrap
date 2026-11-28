@@ -1652,6 +1652,7 @@ var entries = []entry{
 	{"RecsReserve", "rt.recs.reserve", "Arrays", roleCall, "(array of records held in place, count, bytes): makes the buffer hold count elements"},
 	{"RecsShrink", "rt.recs.shrink", "Arrays", roleCall, "(array of records held in place, length, bytes): sets the length to one that is not above it, keeping the buffer"},
 	{"ArrayShrink", "rt.array.shrink", "Arrays", roleCall, "(array or byte array, length): sets the length to one that is not above it, keeping the buffer; what was above it was moved out or needs no drop"},
+	{"ArrayAppendSpan", "rt.array.appendSpan", "Arrays", roleCall, "(array or byte array, other of the same type, start, count, bytes): appends the count elements of other from start, which the code checked lie in it, by copying their bytes, bytes an element: for an element whose copy is its bytes (ir.plainElementBytes); other may be the array"},
 
 	{"FrozenFreeze", "rt.frozen.freeze", "Shared", roleCall, "(value) -> frozen: moves the value into a new box with a count of 1; the backend stores a String's word after it"},
 	{"FrozenGet", "rt.frozen.get", "Shared", roleCall, "(frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is; the backend writes it in place, a load that leaves the count alone"},
@@ -1966,6 +1967,7 @@ var runtimeFunctions = []runtimeFunction{
 	{"RecsReserve", "recordsReserve(array Count, count Count, bytes Count)"},
 	{"RecsShrink", "recordsShrink(array Count, length Count, bytes Count)"},
 	{"ArrayShrink", "arrayShrink(array Count, length Count)"},
+	{"ArrayAppendSpan", "arrayAppendSpan(array Count, other Count, start Count, count Count, elementBytes Count)"},
 	{"BytesNew", "bytesNew() Count"},
 	{"BytesLen", "bytesLength(array Count) Count"},
 	{"BytesGet", "bytesGet(array Count, index Count) Byte"},

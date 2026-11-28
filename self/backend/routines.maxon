@@ -411,14 +411,13 @@ function emitCopy(mutates u CodeUnit, a ast.TargetArch, p ast.Project, mutates m
 		return
 	end 'union'
 	if kind == ast.TypeKind.builtinArray 'array'
-		match elementWay(p, ms: ms, ty: ty) 'way'
-			heldPacked then copyBytes(u, a: a)
-			heldInline(_) then copyArray(u, a: a, p: p, ms: ms, ty: ty)
-			heldString then copyArray(u, a: a, p: p, ms: ms, ty: ty)
-			heldWord then copyArray(u, a: a, p: p, ms: ms, ty: ty)
-			heldBox then copyArray(u, a: a, p: p, ms: ms, ty: ty)
-			heldAddress(_) panic("backend: an element held as the address of words elsewhere")
-		end 'way'
+		// An element whose copy is its bytes is copied with the rest of the buffer in one copy (ir.plainElementBytes).
+		let bytes = ir.plainElementBytes(ms.types, reads: p.types, b: p.builtins, t: elementType(ms.types, reads: p.types, array: ty))
+		if bytes > 0 'plain'
+			copyPlain(u, a: a, elementBytes: bytes)
+			return
+		end 'plain'
+		copyArray(u, a: a, p: p, ms: ms, ty: ty)
 		return
 	end 'array'
 	if kind == ast.TypeKind.builtinGroups 'groups'
@@ -1743,12 +1742,15 @@ function copyString(mutates u CodeUnit, a ast.TargetArch, checks bool)
 	routineReturn(u, a: a)
 end 'copyString'
 
-function copyBytes(mutates u CodeUnit, a ast.TargetArch)
+// copyPlain is a copy of an array whose elements are copied as their bytes, elementBytes each (ir.plainElementBytes): a
+// header, and a buffer of the length's elements with the source's bytes in one copy.
+function copyPlain(mutates u CodeUnit, a ast.TargetArch, elementBytes Count)
 	let header = routineLocal0
 	let length = routineLocal1
 	let buffer = routineLocal2
+	let bytes = routineLocal3
 	let done = u.asm.newLabel()
-	routinePrologue(u, a: a, locals: 3)
+	routinePrologue(u, a: a, locals: 4)
 	allocate(u, a: a, bytes: arrayHeaderBytes)
 	rStore(u, a: a, base: rFrame, disp: header, src: rWork)
 	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: routineArg)
@@ -1756,6 +1758,11 @@ function copyBytes(mutates u CodeUnit, a ast.TargetArch)
 	rStore(u, a: a, base: rFrame, disp: length, src: rWork)
 	rTest(u, a: a, left: rWork, right: rWork)
 	rBranch(u, a: a, cond: MCond.equal, label: done)
+	if elementBytes != 1 'scaled'
+		rMovImm(u, a: a, dst: rThird, imm: try elementBytes as FullRangeInt otherwise panic("routines: an element past memory"))
+		rMul(u, a: a, dst: rWork, src: rThird)
+	end 'scaled'
+	rStore(u, a: a, base: rFrame, disp: bytes, src: rWork)
 	callRuntimeWithWork(u, a: a, entry: ir.Rt.rtAlloc)
 	rStore(u, a: a, base: rFrame, disp: buffer, src: rWork)
 	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: header)
@@ -1767,9 +1774,9 @@ function copyBytes(mutates u CodeUnit, a ast.TargetArch)
 	rMov(u, a: a, dst: rCopyTo, src: rThird)
 	rLoad(u, a: a, dst: rCopyFrom, base: rFrame, disp: routineArg)
 	rLoad(u, a: a, dst: rCopyFrom, base: rCopyFrom, disp: arrayDataOffset)
-	rMov(u, a: a, dst: rSecond, src: rWork)
+	rLoad(u, a: a, dst: rSecond, base: rFrame, disp: bytes)
 	rCopyBytes(u, a: a)
 	u.asm.bind(done)
 	rLoad(u, a: a, dst: rWork, base: rFrame, disp: header)
 	routineReturn(u, a: a)
-end 'copyBytes'
+end 'copyPlain'

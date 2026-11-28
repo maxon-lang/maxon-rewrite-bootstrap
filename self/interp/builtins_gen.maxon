@@ -623,6 +623,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryArrayShrink(vm, f: f, x: x)
 		return
 	end 'rtArrayShrink'
+	if symbol == ir.Rt.rtArrayAppendSpan 'rtArrayAppendSpan'
+		try entryArrayAppendSpan(vm, f: f, x: x)
+		return
+	end 'rtArrayAppendSpan'
 	if symbol == ir.Rt.rtFrozenFreeze 'rtFrozenFreeze'
 		try entryFrozenFreeze(vm, f: f, x: x)
 		return

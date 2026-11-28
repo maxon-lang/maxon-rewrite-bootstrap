@@ -1932,6 +1932,10 @@ array's drop and copy routines move its buffer's words and nothing else. The ele
 is given, is a slot that holds the address of the words; the array's primitives take what they consume as its address,
 with no box, and the backend writes an element's address in place, an index shifted or multiplied by the size, which
 lowering gives as a constant. An array literal of such records is built where it is read, not laid out as data.
+An element whose copy is its bytes (`ir.plainElementBytes`: a byte, a word of nothing to drop, or such a record's words) is
+copied with the rest of its span in one copy of the bytes: a slice and an append (`ir.appendSpan`) call `rt.array.appendSpan`,
+which makes the room once, and the array's copy routine copies its buffer whole (`copyPlain`). Any other element, a String or
+a box, is copied one at a time, a slice's and an append's into room reserved for the span first.
 A record of any kind but a tuple keeps the words of a field held in place among its own, one after another in
 declaration order (`ir.inlineFieldWords`; `recordFieldOffset` counts them), so records nest at any depth up to
 `deepestInline`: a field read is the address of the field's words (`fieldaddr`, a borrow of the record), an assignment

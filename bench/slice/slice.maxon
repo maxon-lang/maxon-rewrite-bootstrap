@@ -1,0 +1,58 @@
+// The slice benchmark (bench/README.md, "slice"): what Array.slice costs a byte of a 64 KiB ByteArray and an element of an
+// array of 8192 Counts (64 KiB of words), against Go's make and copy of the same (bench/slice/gobench).
+//
+//	slice <rounds>
+//
+// Each lane slices the whole array rounds times and prints `result <lane> <ns a round> <ps a byte>`, and a checksum the
+// copies feed, so no lane is optimized away.
+typealias Rounds = int(1 to 100000000)
+
+let spanBytes = 65536 as Count
+
+let spanWords = 8192 as Count
+
+function lane(name String, rounds Rounds, started InstantNanos, sum Count)
+	let took = try Clock.nowNanos() - started otherwise 0
+	let perRound = took / (rounds as Count)
+	print("result {name} {perRound} ns {(try perRound * 1000 otherwise 0) / spanBytes} ps/byte  (sum {sum})\n")
+end 'lane'
+
+function digits(text String) returns Count
+	var value = 0 as Count
+	for i in 0 upto text.byteLength() 'each'
+		let digit = try (text.byteAt(i) as Count) - 48 otherwise return 0
+		if digit > 9 'other'
+			return 0
+		end 'other'
+		value = try value * 10 + digit otherwise return 0
+	end 'each'
+	return value
+end 'digits'
+
+function main() returns ExitCode
+	let args = CommandLine.args()
+	let rounds = try digits(args[1].clone() if args.count() > 1 else "0") as Rounds otherwise 100000
+	var bytes = ByteArray.create(0)
+	for i in 0 upto spanBytes 'bytes'
+		bytes.push((i mod 251) as Byte)
+	end 'bytes'
+	var words = Array.create(0) as Array with Count
+	for i in 0 upto spanWords 'words'
+		words.push(i)
+	end 'words'
+	var sum = 0 as Count
+	var started = Clock.nowNanos()
+	for r in 0 upto rounds as Count 'bytes'
+		let copy = try bytes.slice(0, endIndex: spanBytes as ElementIndex) otherwise panic("bench: the span lies in the array")
+		sum = try sum + copy[r mod spanBytes] as Count otherwise 0
+	end 'bytes'
+	lane("slice-bytes-64k", rounds: rounds, started: started, sum: sum)
+	sum = 0
+	started = Clock.nowNanos()
+	for r in 0 upto rounds as Count 'words'
+		let copy = try words.slice(0, endIndex: spanWords as ElementIndex) otherwise panic("bench: the span lies in the array")
+		sum = try sum + copy[r mod spanWords] otherwise 0
+	end 'words'
+	lane("slice-words-64k", rounds: rounds, started: started, sum: sum)
+	return 0
+end 'main'

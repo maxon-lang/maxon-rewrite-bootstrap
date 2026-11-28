@@ -152,6 +152,18 @@ function arrayShrink(array Count, length Count)
 	__Raw.storeWord(array, offset: arrayLengthOffset, value: length)
 end 'arrayShrink'
 
+// arrayAppendSpan appends the count elements of other from start, elementBytes bytes each, in one copy of their bytes: the
+// code calls it only for elements whose copy is their bytes, and checked that the span lies in other. Other may be the
+// array itself: its buffer is read after the room is made, since making it can move that buffer, and the span lies below
+// the old length, so it never overlaps the room.
+function arrayAppendSpan(array Count, other Count, start Count, count Count, elementBytes Count)
+	if count == 0 'empty'
+		return
+	end 'empty'
+	let tail = collectionExtend(array, count: count, elementBytes: elementBytes)
+	copyBytes(collectionPlace(other, index: start, elementBytes: elementBytes), target: tail, count: collectionBytes(count, elementBytes: elementBytes))
+end 'arrayAppendSpan'
+
 function collectionLength(box Count) returns Count
 	return __Raw.loadWord(box, offset: arrayLengthOffset)
 end 'collectionLength'

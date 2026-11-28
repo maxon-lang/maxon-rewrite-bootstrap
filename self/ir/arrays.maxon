@@ -622,26 +622,43 @@ end 'writeBack'
 // arrayAppendCopy pushes a copy of each element of other, which is only read. The length of other is read once, before
 // the first push.
 function arrayAppendCopy(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, other Reg)
-	match elementWay(p, ms: ms, box: box) 'way'
-		heldPacked then entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesAppend, args: argsOf2(arr, b: other))
-		heldInline(_) then appendCopies(l, p: p, ms: ms, box: box, arr: arr, other: other)
-		heldString then appendCopies(l, p: p, ms: ms, box: box, arr: arr, other: other)
-		heldWord then appendCopies(l, p: p, ms: ms, box: box, arr: arr, other: other)
-		heldBox then appendCopies(l, p: p, ms: ms, box: box, arr: arr, other: other)
-		heldAddress(_) panic("ir: an element held as the address of words elsewhere")
-	end 'way'
+	let n = arrayLength(l, p: p, ms: ms, box: box, arr: other)
+	let zero = konst(l, value: 0 as Word)
+	appendSpan(l, p: p, ms: ms, box: box, arr: arr, other: other, start: zero, span: n)
 end 'arrayAppendCopy'
 
-// appendCopies pushes a copy of each element of other one at a time, as arrayAppendCopy says.
-function appendCopies(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, other Reg)
-	let n = arrayLength(l, p: p, ms: ms, box: box, arr: other)
-	let loop = countedLoopBegin(l, limit: n)
-	let i = countedLoopIndex(l, loop: loop)
-	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: other, index: i)
+// appendSpan pushes a copy of each of the span elements of other from start, which lie in it, to arr, which may be other.
+// An element whose copy is its bytes (plainElementBytes) is copied with the rest of the span in one entry that makes the
+// room once; any other is copied one at a time, into room reserved for the span first. Every copy of a span of an array
+// goes through here, which is the one place that chooses.
+function appendSpan(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, box ArrayBox, arr Reg, other Reg, start Reg, span Reg)
+	let bytes = plainElementBytes(ms.types, reads: p.types, b: p.builtins, t: arrayElem(p, ms: ms, box: box))
+	if bytes > 0 and not slotsMayBeEmpty(p, ms: ms, box: box) 'plain'
+		let size = konst(l, value: try bytes as Word otherwise panic("lower: an element past a word"))
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayAppendSpan, args: spanArgs(arr, other: other, start: start, span: span, size: size))
+		return
+	end 'plain'
+	let length = arrayLength(l, p: p, ms: ms, box: box, arr: arr)
+	let total = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(total, op: BinOp.binAdd, left: length, right: span, unsigned: true, fail: noBlock))
+	arrayReserve(l, p: p, ms: ms, box: box, arr: arr, count: total)
+	let loop = countedLoopBegin(l, limit: span)
+	let offset = countedLoopIndex(l, loop: loop)
+	let index = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newBin(index, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
+	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: other, index: index)
 	let copy = elementCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
 	arrayPush(l, p: p, ms: ms, box: box, arr: arr, v: copy)
 	countedLoopEnd(l, loop: loop)
-end 'appendCopies'
+end 'appendSpan'
+
+// spanArgs are the arguments of rt.array.appendSpan.
+function spanArgs(arr Reg, other Reg, start Reg, span Reg, size Reg) returns RegList
+	var xs = argsOf3(arr, b: other, c: start)
+	xs.push(span)
+	xs.push(size)
+	return xs
+end 'spanArgs'
 
 // arrayPacked is whether the buffer of the array keeps each element in one byte.
 function arrayPacked(p ast.Project, ms ast.ModuleState, box ArrayBox) returns bool
@@ -811,14 +828,7 @@ function arraySlice(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState
 	let out = arrayNew(l, p: p, ms: ms, box: box)
 	let span = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newBin(span, op: BinOp.binSub, left: endIndex, right: start, unsigned: true, fail: noBlock))
-	let loop = countedLoopBegin(l, limit: span)
-	let offset = countedLoopIndex(l, loop: loop)
-	let index = newReg(l, kind: IrKind.kindScalar)
-	emit(l, i: newBin(index, op: BinOp.binAdd, left: start, right: offset, unsigned: true, fail: noBlock))
-	let element = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: index)
-	let copy = elementCopy(l, p: p, ms: ms, site: box.site, v: element, t: arrayElem(p, ms: ms, box: box))
-	arrayPush(l, p: p, ms: ms, box: box, arr: out, v: copy)
-	countedLoopEnd(l, loop: loop)
+	appendSpan(l, p: p, ms: ms, box: box, arr: out, other: arr, start: start, span: span)
 	return out
 end 'arraySlice'
 

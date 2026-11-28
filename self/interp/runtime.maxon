@@ -833,6 +833,39 @@ function entryBytesAppend(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Hal
 	vm.h.buffers[vm.h.oData[b]].append(from)
 end 'entryBytesAppend'
 
+// entryArrayAppendSpan appends copies of count elements of another array or byte array from start: an element of an array
+// is copied as copyCell copies a place, which for the elements the code calls it for, those whose copy is their bytes, is
+// the word or the record's words as they are. The size of an element, its last argument, is the native runtime's.
+function entryArrayAppendSpan(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let held = try live(vm, o: argRef(vm, f: f, x: x, i: 0), what: "an append of a span")
+	let kind = kindBytes if vm.h.oKind[held] == kindBytes else kindArray
+	let a = try collection(vm, o: held, kind: kind, what: "an append of a span")
+	let other = try collection(vm, o: argRef(vm, f: f, x: x, i: 1), kind: kind, what: "an append source")
+	let start = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 2))
+	let count = ir.bitsOfWord(argNum(vm, f: f, x: x, i: 3))
+	let source = vm.h.oData[other]
+	let length = vm.h.buffers[source].count() if kind == kindBytes else vm.h.elements[source].count()
+	if count > length or start > length - count 'outside'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'outside'
+	let stop = try start + count otherwise panic("interp: a span past memory")
+	if count == 0 'empty'
+		return
+	end 'empty'
+	try restructure(vm, o: a)
+	if kind == kindBytes 'bytes'
+		let span = try vm.h.buffers[source].slice(start, endIndex: stop) otherwise panic("interp: a span that lies in the buffer is outside it")
+		vm.h.buffers[vm.h.oData[a]].append(span)
+		return
+	end 'bytes'
+	let cells = try vm.h.elements[source].slice(start, endIndex: stop) otherwise panic("interp: a span that lies in the array is outside it")
+	for i in 0 upto count 'elements'
+		let dst = elementPlace(vm, a: a)
+		try copyCell(vm, dst: dst, source: cells[i])
+		vm.h.elements[vm.h.oData[a]].push(dst)
+	end 'elements'
+end 'entryArrayAppendSpan'
+
 function entryBytesAppendStr(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let b = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindBytes, what: "an appendString")
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "an appendString source")

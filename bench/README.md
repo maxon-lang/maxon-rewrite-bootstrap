@@ -168,17 +168,38 @@ net/http.
 - `bench/http/run.sh` builds the three and runs each; `ROUNDS` sets the requests a lane times (100000 by default).
 
 Measured on an Apple M3 (arm64 macOS), `ROUNDS=50000 bench/http/run.sh`, maxon's compiler `maxon dev (e1209d7b3 2026-11-17)`,
-ns a request:
+ns a request, the median of three runs:
 
 | lane | minimaxon | maxon | Go |
 |---|---|---|---|
-| parse-get | 2303 | 48481 | 1938 |
-| parse-post-64k | 126395 | 153665 | 10532 |
-| write-small | 1076 | 2898 | 755 |
-| write-64k | 16084 | 26562 | 11911 |
+| parse-get | 1090 | 48011 | 1935 |
+| parse-post-64k | 11589 | 153124 | 10464 |
+| write-small | 1128 | 2813 | 761 |
+| write-64k | 16856 | 26573 | 12089 |
 
-parse-get is 1.19 times Go's: the parser scans the head's bytes once, keeps its fields as ranges of one copy of the head and
-makes a String only of what the handler is handed; 46% of what is left is the copy of the head by `Array.slice`. parse-post-64k
-is 12 times Go's for one reason, the same: `Array.slice` copies a byte array an element at a time, a push each, about 1.9 ns
-a byte (`arraySlice` in `self/ir/arrays.maxon`), and the body's 64 KiB are 92% of the lane's samples. The writes are the
-converted codec's, 1.35 to 1.4 times Go's.
+parse-get is 0.56 times Go's: the parser scans the head's bytes once, keeps its fields as ranges of one copy of the head and
+makes a String only of what the handler is handed. parse-post-64k is 1.11 times Go's: the body's 64 KiB are copied twice, by
+`Array.slice` and by `String.from`, each one copy of the bytes. Before `Array.slice` copied a span of plain data in one copy
+(`rt.array.appendSpan`), it pushed a byte at a time, about 1.8 ns a byte, and these two lanes were 2293 and 126383. The writes
+are the converted codec's, 1.4 to 1.5 times Go's. write-64k measured alone, after no other lane, is the same before and after
+the slice's change (16838 and 16992); after the parse lanes it reads about 4% slower than it did, as the heap they leave lays
+the 64 KiB strings out differently.
+
+## slice: copying a span of an array
+
+What `Array.slice` costs a byte, against Go's `make` and `copy` of the same.
+
+- `bench/slice/slice.maxon <rounds>` slices the whole of a 64 KiB `ByteArray`, and of an `Array with Count` of 8192 elements
+  (64 KiB of words), `rounds` times each, and prints `result <lane> <ns a round> <ps a byte>`.
+- `bench/slice/gobench` (Go, `go build` only) makes a new slice of the length and copies the array into it.
+- `bench/slice/run.sh` builds both and runs each; `ROUNDS` sets the rounds (20000 by default).
+
+Measured on an Apple M3 (arm64 macOS), `ROUNDS=20000`, the median of three runs:
+
+| lane | minimaxon | Go |
+|---|---|---|
+| slice-bytes-64k | 2837 ns, 43 ps a byte | 2554 ns, 39 ps a byte |
+| slice-words-64k | 2922 ns, 44 ps a byte | 2544 ns, 38 ps a byte |
+
+Both are one allocation and one copy of the bytes (`rt.array.appendSpan`, then the runtime's `copyBytes`). Before, a slice of
+bytes pushed one element at a time, 1803 ps a byte, and a slice of words 275.

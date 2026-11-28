@@ -204,6 +204,21 @@ function elementHolding(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, t 
 	return formHolding(tt, reads: reads, t: t)
 end 'elementHolding'
 
+// plainElementBytes is the bytes an element of the type t takes in an array's buffer where its copy is those bytes as they
+// are: a byte, a word of nothing to drop, or the words of a record held in place, whose fields are such words; 0 for an
+// element whose copy is its own, a String's or a box's. A copy of a span of such elements (an array's slice, append and
+// clone) is then one copy of the span's bytes; any other is a copy of each element. Every one of them asks it here.
+export function plainElementBytes(tt ast.TypeSlot, reads ast.TypeTable, b ast.Builtins, t ast.TypeID) returns Count
+	return match elementHolding(tt, reads: reads, b: b, t: t) 'way'
+		heldPacked gives packedBytes
+		heldWord gives wordBytes
+		heldInline(words) gives wordOffset(words)
+		heldString gives 0
+		heldBox gives 0
+		heldAddress(_) gives panic("ir: an element held as the address of words elsewhere")
+	end 'way'
+end 'plainElementBytes'
+
 // heldAsScalar is whether a union of the form is held as a word of nothing to drop.
 export function heldAsScalar(form UnionForm) returns bool
 	return match form 'form'

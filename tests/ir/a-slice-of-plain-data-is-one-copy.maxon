@@ -1,0 +1,59 @@
+// A slice, an append and a clone of an array whose elements are copied as their bytes (a byte, a scalar word, a record of
+// scalars held in place) copy the span in one entry, rt.array.appendSpan, which makes the room once and copies the bytes:
+// no element is pushed one at a time. An array of Strings, whose element has a copy of its own, keeps its loop of pushes,
+// into room reserved for the span first.
+// expect-ir: bytesOf calls rt.array.appendSpan
+// expect-ir: bytesOf does not call rt.bytes.insert
+// expect-ir: countsOf calls rt.array.appendSpan
+// expect-ir: countsOf does not call rt.array.insert
+// expect-ir: pointsOf calls rt.array.appendSpan
+// expect-ir: pointsOf does not call rt.recs.open
+// expect-ir: joined calls rt.array.appendSpan
+// expect-ir: joined does not call rt.array.insert
+// expect-ir: namesOf does not call rt.array.appendSpan
+// expect-ir: namesOf calls rt.strs.reserve
+
+type Point
+	var x as Count
+	var y as Count
+
+	static function at(x Count, y Count) returns Point
+		return Point{x: x, y: y}
+	end 'at'
+end 'Point'
+
+function bytesOf(bytes ByteArray, start ElementIndex, upTo ElementIndex) returns ByteArray
+	return try bytes.slice(start, endIndex: upTo) otherwise ByteArray.create(0)
+end 'bytesOf'
+
+function countsOf(counts Array with Count, start ElementIndex, upTo ElementIndex) returns Array with Count
+	return try counts.slice(start, endIndex: upTo) otherwise Array.create(0)
+end 'countsOf'
+
+function pointsOf(points Array with Point, start ElementIndex, upTo ElementIndex) returns Array with Point
+	return try points.slice(start, endIndex: upTo) otherwise Array.create(0)
+end 'pointsOf'
+
+function joined(mutates counts Array with Count, more Array with Count)
+	counts.append(more)
+end 'joined'
+
+function namesOf(names Array with String, start ElementIndex, upTo ElementIndex) returns Array with String
+	return try names.slice(start, endIndex: upTo) otherwise Array.create(0)
+end 'namesOf'
+
+function main() returns ExitCode
+	var bytes = ByteArray.create(0)
+	var counts = Array.create(0) as Array with Count
+	var points = Array.create(0) as Array with Point
+	var names = Array.create(0) as Array with String
+	for i in 0 upto 6 'fill'
+		bytes.push(i as Byte)
+		counts.push(i)
+		points.push(Point.at(i, y: i * 2))
+		names.push("n{i}")
+	end 'fill'
+	joined(counts, more: countsOf(counts, start: 1, upTo: 3))
+	print("{bytesOf(bytes, start: 2, upTo: 5).count()} {counts.count()} {pointsOf(points, start: 0, upTo: 6).count()} {namesOf(names, start: 4, upTo: 6).count()}\n")
+	return 0
+end 'main'
