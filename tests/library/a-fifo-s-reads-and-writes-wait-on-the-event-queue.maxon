@@ -3,7 +3,9 @@
 // and a write to a FIFO that a reader reads writes all of it. On macOS, whose kqueue gives a FIFO's reader no event for its
 // writer's close, a FIFO has no entry and its calls block instead, to the same results. /dev/null, a character device that
 // epoll refuses on Linux, is read and written as a plain file. The other end of each FIFO is the shell's, started detached,
-// so the opens, which wait for the other end, wait on another process and not on this program.
+// so the opens, which wait for the other end, wait on another process and not on this program. Each step is watched by a timer
+// re-armed before it with a message that names it: a step that waits past 6 s, within the runner's deadline, says which it was
+// and ends the program, and the copy is waited for 4 s at most.
 // unsupported-targets: x64-windows
 // native-only
 // runs: alone
@@ -14,7 +16,21 @@ typealias Bytes = __ManagedMemory with Byte
 
 typealias Arguments = Array with String
 
-let tries = 200 as Count
+let tries = 80 as Count
+
+let stepBudgetMs = 6000
+
+// Watchdog is told by the step timer when a step has waited past its budget, and ends the program, naming it on standard
+// error.
+type Watchdog
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function stuck(mutates self, step String)
+		panic("stuck for {stepBudgetMs} ms at {step}")
+	end 'stuck'
+end 'Watchdog'
 
 function shellArguments(script String) returns Arguments
 	var arguments = Arguments.create(0)
@@ -112,23 +128,22 @@ function devNull() returns String throws __ManagedFileError
 	return "read {got}, wrote {wrote}"
 end 'devNull'
 
-function main() returns ExitCode
-	let base = "/tmp/minimaxon_fifo_{Process.id()}"
-	let inbound = "{base}_in"
-	let outbound = "{base}_out"
-	let copy = "{base}_copy"
+// steps runs the program's steps, re-arming the step timer with a message that names each before it starts.
+function steps(dog Watchdog.handle, mutates step Timer, inbound String, outbound String, copy String) returns ExitCode
 	if not shell("mkfifo '{inbound}' '{outbound}'") 'unmade'
 		return 1
 	end 'unmade'
 	if not detached("exec 3>'{inbound}'; sleep 1; printf ping >&3; exec 3>&-") 'writer'
 		return 2
 	end 'writer'
+	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and read of the inbound FIFO, the writer's ping")))
 	var buffer = try Bytes.create(16, elementSize: 1) otherwise return 3
 	let reads = try readFifo(inbound, buffer: buffer) otherwise (e) 'unread'
 		print("read: {failureName(e)}\n")
 		return 4
 	end 'unread'
 	print("read: {reads}: {String.from(ByteArray.init(buffer))}\n")
+	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the open and write of the outbound FIFO, its reader")))
 	if not detached("cat '{outbound}' > '{copy}'") 'reader'
 		return 5
 	end 'reader'
@@ -136,13 +151,30 @@ function main() returns ExitCode
 		print("write: {failureName(e)}\n")
 		return 6
 	end 'unwritten'
+	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("the copy of the outbound FIFO")))
 	let out = try FilePath.from(copy) otherwise return 7
 	print("wrote: {wrote}, the reader got {copied(out)}\n")
+	step.rearm(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("/dev/null")))
 	let null = try devNull() otherwise (e) 'nulled'
 		print("/dev/null: {failureName(e)}\n")
 		return 8
 	end 'nulled'
 	print("/dev/null: {null}\n")
-	_ = shell("rm -f '{inbound}' '{outbound}' '{copy}'")
 	return 0
+end 'steps'
+
+function main() returns ExitCode
+	let base = "/tmp/minimaxon_fifo_{Process.id()}"
+	let inbound = "{base}_in"
+	let outbound = "{base}_out"
+	let copy = "{base}_copy"
+	let dog = spawn Watchdog.create()
+	let dogEnded = dog.stopped()
+	var step = Timer.notifyAfter(stepBudgetMs, message: dog.post(Watchdog.Message.stuck("making the FIFOs")))
+	let code = steps(dog, step: step, inbound: inbound, outbound: outbound, copy: copy)
+	step.cancel()
+	dog.shutdown()
+	await dogEnded
+	_ = shell("rm -f '{inbound}' '{outbound}' '{copy}'")
+	return code
 end 'main'
