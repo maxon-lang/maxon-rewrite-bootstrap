@@ -58,7 +58,7 @@ function main() returns ExitCode
 	print("two Hosts: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\r\nHost: a\r\n\r\n")}\n")
 	print("two spaces: {answerTo(port, request: "GET  / HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
 	print("an asterisk on GET: {answerTo(port, request: "GET * HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
-	print("empty lines first: {answerTo(port, request: "\r\n\r\nGET /after HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	print("empty lines first: {answerTo(port, request: "\r\n\r\nGET /after HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
 	print("HTTP/1.0 with no Host: {answerTo(port, request: "GET /old HTTP/1.0\r\n\r\n")}\n")
 	serving.stop(1000)
 	print("stopped\n")

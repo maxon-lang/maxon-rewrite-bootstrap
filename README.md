@@ -6546,8 +6546,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   Transfer-Encoding, and an HTTP/1.1 request with no Host or two are each a 400; an unknown method and any transfer coding,
   chunked included, are a 501, a version other than 1 a 505, an expectation other than 100-continue a 417, a head past its caps
   a 431 and a body past its cap a 413, answered from the head. `Expect: 100-continue` is answered `100 Continue` before the body
-  is read, and the answer to a HEAD carries its head alone. Not yet: the handler (a stand-in answers with the request line and
-  the body's length), keep-alive and the linger at close; every answer closes its connection. maxon's `accept()`,
+  is read, and the answer to a HEAD carries its head alone. A connection is kept alive after an answer (RFC 9112 §9.3), idle
+  under `ServerConfig.idleTimeoutMs`, whose next request's head deadline runs from its first byte; it closes after the answer
+  only where the request said `Connection: close`, was HTTP/1.0 without `keep-alive` (an HTTP/1.0 one kept is answered
+  `Connection: keep-alive`), was refused, or the server is stopping, and a stop closes an idle connection at once. Pipelined
+  requests are answered in order: the bytes past a request are parsed as the next one in the same message, before the socket
+  is armed again. A connection that closes after an answer lingers first (RFC 9112 §9.6): it shuts its sending and reads and
+  drops what its client still sends, for at most `lingerMs` and `lingerBytes`, so the close does not reset the answer before
+  the client reads it. Not yet: the handler (a stand-in answers with the request line and the body's length), and the drain
+  of an unread body after an answer kept alive (`maxDrainBytes`), which waits for a handler that can answer before the body
+  is read: every body is read whole before the answer today, and a refusal from the head closes. maxon's `accept()`,
   `serve(handler)` and `HttpServerLimits` are not provided.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,

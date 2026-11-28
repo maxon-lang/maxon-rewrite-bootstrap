@@ -1,0 +1,127 @@
+// An HTTP/1.0 connection is not kept by default (RFC 9112 §9.3): a request without `Connection: keep-alive` is answered and
+// closed, and one with it is answered with `Connection: keep-alive`, the connection kept for the next.
+// native-only
+//> without keep-alive: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\nConnection: close\r\n\r\nGET /old HTTP/1.0
+//> then: [closed]
+//> with keep-alive: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 18\r\nConnection: keep-alive\r\n\r\nGET /kept HTTP/1.0
+//> the next: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 18\r\nConnection: close\r\n\r\nGET /next HTTP/1.0
+//> then: [closed]
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+// headEnd is where the head that starts the bytes ends, past its empty line, or 0 where it has not all come.
+function headEnd(bytes ByteArray) returns Count
+	// The last four bytes read, one to a byte of the word: CR LF CR LF ends the head.
+	var last = 0 as Count
+	for j in 0 upto bytes.count() 'seek'
+		last = try (last * 256 + bytes[j] as Count) mod 4294967296 otherwise 0
+		if last == 218762506 'found'
+			return j + 1
+		end 'found'
+	end 'seek'
+	return 0
+end 'headEnd'
+
+// statedLength is the Content-Length a head states.
+function statedLength(head String) returns Count
+	let name = "Content-Length: "
+	let at = try head.findFirst(name) otherwise return 0
+	var value = 0 as Count
+	let first = try at.bytePos() + name.byteLength() otherwise return 0
+	var i = first as Count
+	while i < head.byteLength() and head.byteAt(i) >= 48 and head.byteAt(i) <= 57 'digits'
+		value = try value * 10 + (head.byteAt(i) - 48) as Count otherwise return 0
+		i = i + 1
+	end 'digits'
+	return value
+end 'statedLength'
+
+// Answers reads answers off a kept connection one at a time, by the length each head states, and keeps what came past one
+// for the next.
+type Answers
+	var client as TcpClient
+	var held as ByteArray
+
+	static function over(consumes client TcpClient) returns Answers
+		return Answers{client: client, held: ByteArray.create(0)}
+	end 'over'
+
+	// next is the next whole answer, or what came of it and why it is not whole.
+	function next(mutates self) returns String
+		while true 'reading'
+			let past = headEnd(self.held)
+			if past > 0 'head'
+				let length = statedLength(String.from(try self.held.slice(0, endIndex: past as ElementIndex) otherwise ByteArray.create(0)))
+				let whole = try past + length otherwise 0
+				if self.held.count() >= whole 'whole'
+					let answer = try self.held.slice(0, endIndex: whole as ElementIndex) otherwise ByteArray.create(0)
+					self.held = try self.held.slice(whole as ElementIndex, endIndex: self.held.count() as ElementIndex) otherwise ByteArray.create(0)
+					return shown(String.from(answer))
+				end 'whole'
+			end 'head'
+			let chunk = try self.client.readSome(4096) otherwise return "{shown(String.from(self.held))} [the read failed]"
+			if chunk.isEmpty() 'closed'
+				return "{shown(String.from(self.held))}[closed]"
+			end 'closed'
+			self.held.append(chunk)
+		end 'reading'
+		return ""
+	end 'next'
+
+	// rest is what comes until the server closes the connection.
+	function rest(mutates self) returns String
+		let before = shown(String.from(self.held))
+		self.held = ByteArray.create(0)
+		return "{before}{readToEnd(self.client)}"
+	end 'rest'
+
+	function send(mutates self, text String)
+		_ = try self.client.send(text) otherwise 0
+	end 'send'
+
+	function close(destructs self)
+		try self.client.close() otherwise ignore
+	end 'close'
+end 'Answers'
+
+function connected(port NetworkPort) returns Answers
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	try client.setReadDeadline(5000) otherwise ignore
+	return Answers.over(client)
+end 'connected'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	let serving = server.serve(ServerConfig.create())
+	var plain = connected(port)
+	plain.send("GET /old HTTP/1.0\r\n\r\n")
+	print("without keep-alive: {plain.next()}\n")
+	print("then: {plain.next()}\n")
+	plain.close()
+	var kept = connected(port)
+	kept.send("GET /kept HTTP/1.0\r\nConnection: Keep-Alive\r\n\r\n")
+	print("with keep-alive: {kept.next()}\n")
+	kept.send("GET /next HTTP/1.0\r\n\r\n")
+	print("the next: {kept.next()}\n")
+	print("then: {kept.next()}\n")
+	kept.close()
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

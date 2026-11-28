@@ -35,7 +35,7 @@ function main() returns ExitCode
 	let port = server.port()
 	let serving = server.serve(ServerConfig.create())
 	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
-	_ = try client.send("POST /up HTTP/1.1\r\nHost: a\r\nContent-Length: 12\r\n\r\nfour") otherwise 0
+	_ = try client.send("POST /up HTTP/1.1\r\nHost: a\r\nConnection: close\r\nContent-Length: 12\r\n\r\nfour") otherwise 0
 	sleep(20)
 	_ = try client.send("four") otherwise 0
 	try client.setReadDeadline(100) otherwise ignore

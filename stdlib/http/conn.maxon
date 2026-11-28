@@ -1,8 +1,16 @@
 // A connection of a serving HttpServer: a service of its own, driven by the socket's readiness and one Timer, so no green
 // thread waits while its client is idle or slow. The acceptor spawns it with the accepted TcpClient and tells it to begin.
 //
-// Until the handler can be called from here (an interface value that crosses, and one that may be called in a message), a
-// request is answered by StandIn, which says what it read: one request per connection, and every answer closes it.
+// It keeps its connection alive between requests (RFC 9112 §9.3): after an answer it waits, idle, for the next request,
+// under ServerConfig.idleTimeoutMs, and closes after the answer only where the request said `Connection: close`, was
+// HTTP/1.0 without `keep-alive`, was refused, or the server is stopping. Requests sent one after another without waiting
+// (pipelined, RFC 9112 §9.3.2) are answered in order: the bytes past a request are read as the next one before the socket
+// is armed again. A connection that closes after an answer lingers first (RFC 9112 §9.6): it shuts its sending and reads and
+// drops what the client still sends, for at most ServerConfig.lingerMs and lingerBytes, so that the close does not reset
+// the answer before the client has read it.
+//
+// Until the handler can be called from here (an interface value that may be called in a message), a request is answered
+// by StandIn, which says what it read.
 
 // The most bytes one read takes from the socket.
 let ReadChunkBytes = 16384
@@ -30,9 +38,12 @@ union ConnTimer
 	none
 end 'ConnTimer'
 
+// Where a connection is: reading a request's head or its body, idle between requests, lingering before its close, or closed.
 enum ConnPhase
 	readingHead
 	readingBody
+	idle
+	lingering
 	closed
 end 'ConnPhase'
 
@@ -42,6 +53,12 @@ union PendingHead
 	none
 end 'PendingHead'
 
+// The Connection field of an answer: none where an HTTP/1.1 connection is kept, which is its default; keep-alive where an
+// HTTP/1.0 one is, which it is not (RFC 9112 §9.3); close where the connection closes after it.
+let KeptAliveField = "Connection: keep-alive\r\n"
+
+let ClosingField = "Connection: close\r\n"
+
 export type Conn implements service.Ends
 	var client as net.TcpClient
 	let handler as frozen with StandIn
@@ -50,9 +67,11 @@ export type Conn implements service.Ends
 	var phase as ConnPhase
 	var pending as PendingHead
 	var timer as ConnTimer
+	var stopping as bool
+	var lingered as Count
 
 	export static function create(consumes client net.TcpClient, handler frozen with StandIn, config frozen with ServerConfig) returns Self
-		return Self{client: client, handler: handler.clone(), config: config.clone(), arrived: ByteArray.create(0), phase: ConnPhase.readingHead, pending: PendingHead.none, timer: ConnTimer.none}
+		return Self{client: client, handler: handler.clone(), config: config.clone(), arrived: ByteArray.create(0), phase: ConnPhase.readingHead, pending: PendingHead.none, timer: ConnTimer.none, stopping: false, lingered: 0}
 	end 'create'
 
 	/// Arm the socket for the first request, and its head deadline.
@@ -70,21 +89,33 @@ export type Conn implements service.Ends
 		end 'over'
 	end 'readable'
 
+	// The timer of the phase has fired: an idle wait, a linger, or a head that never began ends in a close; a request that
+	// began and stalled is answered 408 first, and the connection lingers. The socket is armed in every phase that has a timer,
+	// so what the linger reads now is read without arming it.
 	export function timedOut(mutates self)
-		if (self.phase == ConnPhase.readingHead and self.arrived.count() > 0) or self.phase == ConnPhase.readingBody 'started'
-			self.answerStatus(StatusCode.requestTimeout)
-		end 'started'
-		self.close()
-		self.stop()
+		let begun = (self.phase == ConnPhase.readingHead and self.arrived.count() > 0) or self.phase == ConnPhase.readingBody
+		if not begun 'quiet'
+			self.close()
+			self.stop()
+			return
+		end 'quiet'
+		self.refuse(StatusCode.requestTimeout, me: self.handle)
+		if self.phase != ConnPhase.closed 'lingering'
+			self.readRequest(false, me: self.handle)
+		end 'lingering'
+		if self.phase == ConnPhase.closed 'over'
+			self.stop()
+		end 'over'
 	end 'timedOut'
 
 	/// The server stops: close at once while no request has begun to arrive, and otherwise after its answer.
 	export function stopGracefully(mutates self)
+		self.stopping = true
 		// What came before the stop is read first, so a request sent before it is answered.
 		if self.phase != ConnPhase.closed 'reading'
 			self.readRequest(false, me: self.handle)
 		end 'reading'
-		if self.phase == ConnPhase.readingHead and self.arrived.count() == 0 'idle'
+		if self.phase == ConnPhase.idle or (self.phase == ConnPhase.readingHead and self.arrived.count() == 0) 'idle'
 			self.close()
 		end 'idle'
 		if self.phase == ConnPhase.closed 'over'
@@ -98,10 +129,9 @@ export type Conn implements service.Ends
 		self.stop()
 	end 'closeNow'
 
-	// readRequest takes what has come, until the request is whole or a read finds nothing more, which arms the socket again
-	// where `arming` (the socket is armed already otherwise): an arm posts only on bytes that come after it, so bytes left
-	// unread would never be told of. The bytes are read into those the connection keeps of the request, so a read allocates
-	// nothing of its own.
+	// readRequest takes what has come, until a read finds nothing more, which arms the socket again where `arming` (the socket
+	// is armed already otherwise): an arm posts only on bytes that come after it, so bytes left unread would never be told of.
+	// The bytes are read into those the connection keeps of the request, so a read allocates nothing of its own.
 	function readRequest(mutates self, arming bool, me Conn.handle)
 		while self.phase != ConnPhase.closed 'reading'
 			var blocked = false
@@ -111,18 +141,13 @@ export type Conn implements service.Ends
 				wouldBlock then blocked = true
 				ended then ended = true
 			end 'read'
-			if self.phase == ConnPhase.readingHead 'head'
-				self.parseHead(me)
-			end 'head'
-			if self.phase == ConnPhase.readingBody 'body'
-				self.bodyIfWhole()
-			end 'body'
+			self.advance(me)
 			if self.phase == ConnPhase.closed 'done'
 				return
 			end 'done'
 			if ended 'cutShort'
-				if self.arrived.count() > 0 'partial'
-					self.answerStatus(StatusCode.badRequest)
+				if self.phase != ConnPhase.lingering and self.arrived.count() > 0 'partial'
+					_ = self.answerStatus(StatusCode.badRequest)
 				end 'partial'
 				self.close()
 				return
@@ -136,6 +161,50 @@ export type Conn implements service.Ends
 		end 'reading'
 	end 'readRequest'
 
+	// advance does what the bytes that have come allow: it begins a request where an idle connection has its first byte, parses
+	// a head once it is whole, answers a request once its body is, and goes on to the next request in the bytes past it; a
+	// lingering connection drops what came.
+	function advance(mutates self, me Conn.handle)
+		while true 'requests'
+			if self.phase == ConnPhase.idle 'idle'
+				if self.arrived.count() == 0 'nothing'
+					return
+				end 'nothing'
+				// The head deadline of a request after an idle wait runs from its first byte.
+				self.phase = ConnPhase.readingHead
+				self.arm(self.config.headDeadlineMs.clone(), me: me)
+			end 'idle'
+			if self.phase == ConnPhase.lingering 'lingering'
+				self.drop()
+				return
+			end 'lingering'
+			if self.phase == ConnPhase.readingHead 'head'
+				self.parseHead(me)
+				if self.phase == ConnPhase.readingHead 'more'
+					return
+				end 'more'
+			end 'head'
+			if self.phase == ConnPhase.readingBody 'body'
+				self.bodyIfWhole(me)
+				if self.phase == ConnPhase.readingBody 'more'
+					return
+				end 'more'
+			end 'body'
+			if self.phase == ConnPhase.closed 'closed'
+				return
+			end 'closed'
+		end 'requests'
+	end 'advance'
+
+	// drop drops what a lingering connection read, and closes it once it has dropped lingerBytes.
+	function drop(mutates self)
+		self.lingered = try self.lingered + self.arrived.count() otherwise self.config.lingerBytes as Count
+		self.arrived.truncate(0)
+		if self.lingered >= (self.config.lingerBytes as Count) 'enough'
+			self.close()
+		end 'enough'
+	end 'drop'
+
 	// parseHead reads the head out of what has come, once it is whole: a request with a body goes on to read it, under the body
 	// deadline, told to send it first where it asked to be (Expect: 100-continue), which it is only once its head passed the
 	// limits; one past the body's cap is a 413.
@@ -143,7 +212,7 @@ export type Conn implements service.Ends
 		match consumes parseRequestHead(self.arrived, maxHead: self.config.maxHeadBytes as Count, maxLine: self.config.maxRequestLineBytes as Count, maxFields: self.config.maxHeaderCount) 'parse'
 			parsed(head, through) then self.headParsed(head, through: through, me: me)
 			needsMore then return
-			refused(status) then self.refuse(status)
+			refused(status) then self.refuse(status, me: me)
 		end 'parse'
 	end 'parseHead'
 
@@ -153,7 +222,7 @@ export type Conn implements service.Ends
 			none gives 0 as Count
 		end 'framing'
 		if length > (self.config.maxBodyBytes as Count) 'tooLarge'
-			self.refuse(StatusCode.payloadTooLarge)
+			self.refuse(StatusCode.payloadTooLarge, me: me)
 			return
 		end 'tooLarge'
 		if length > 0 and head.expectsContinue and self.arrived.count() == through 'toldToSend'
@@ -175,7 +244,7 @@ export type Conn implements service.Ends
 	end 'headParsed'
 
 	// bodyIfWhole answers the request once its body has come.
-	function bodyIfWhole(mutates self)
+	function bodyIfWhole(mutates self, me Conn.handle)
 		let whole = match self.pending 'pending'
 			reading(_, _, bodyEnd) gives self.arrived.count() >= bodyEnd
 			none gives false
@@ -185,44 +254,74 @@ export type Conn implements service.Ends
 		end 'more'
 		let taken = exchange(self.pending, value: PendingHead.none)
 		match consumes taken 'pending'
-			reading(head, bodyStart, bodyEnd) then self.answer(head, bodyBytes: try bodyEnd - bodyStart otherwise 0)
+			reading(head, bodyStart, bodyEnd) then self.answer(head, bodyStart: bodyStart, bodyEnd: bodyEnd, me: me)
 			none then return
 		end 'pending'
 	end 'bodyIfWhole'
 
-	// answer answers a request in the handler's place: the answer to a HEAD is the head a GET would have, with no body (RFC
-	// 9110 §9.3.2).
-	function answer(mutates self, consumes head RequestHead, bodyBytes Count)
-		let body = self.handler.bodyFor(head, bodyBytes: bodyBytes)
+	// answer answers a request in the handler's place, and keeps the connection for the next one or lingers and closes it. The
+	// answer to a HEAD is the head a GET would have, with no body (RFC 9110 §9.3.2).
+	function answer(mutates self, consumes head RequestHead, bodyStart Count, bodyEnd Count, me Conn.handle)
+		let keeps = not head.closes and not self.stopping
+		let field = (KeptAliveField if head.minorVersion == 0 else "") if keeps else ClosingField
+		let body = self.handler.bodyFor(head, bodyBytes: try bodyEnd - bodyStart otherwise 0)
+		let sent = self.sendHead(StatusCode.ok, length: body.byteLength(), body: "" if head.method == HttpMethod.head else body, field: field)
+		if not sent 'gone'
+			self.close()
+			return
+		end 'gone'
+		if not keeps 'closes'
+			self.linger(me)
+			return
+		end 'closes'
+		let count = self.arrived.count()
+		if bodyEnd < count 'pipelined'
+			// The bytes past the request are the next one's, which has begun: its head deadline runs from now.
+			self.arrived = try self.arrived.slice(bodyEnd as ElementIndex, endIndex: count as ElementIndex) otherwise panic("Conn.answer: the bytes past a request lie in what has come")
+			self.phase = ConnPhase.readingHead
+			self.arm(self.config.headDeadlineMs.clone(), me: me)
+			return
+		end 'pipelined'
+		// An idle connection keeps no buffer.
 		self.arrived = ByteArray.create(0)
-		if head.method == HttpMethod.head 'headOnly'
-			self.sendHead(StatusCode.ok, length: body.byteLength(), body: "")
-		end 'headOnly' else 'whole'
-			self.send(StatusCode.ok, body: body)
-		end 'whole'
-		self.close()
+		self.phase = ConnPhase.idle
+		self.arm(self.config.idleTimeoutMs.clone(), me: me)
 	end 'answer'
 
-	function refuse(mutates self, code StatusCode)
-		self.answerStatus(code)
-		self.close()
+	// refuse answers a request the connection will not serve, and lingers and closes.
+	function refuse(mutates self, code StatusCode, me Conn.handle)
+		if not self.answerStatus(code) 'gone'
+			self.close()
+			return
+		end 'gone'
+		self.linger(me)
 	end 'refuse'
 
-	function answerStatus(mutates self, code StatusCode)
-		self.send(code, body: "")
+	// linger shuts the sending of a connection that is to close and reads and drops what its client still sends, until the
+	// client ends its own sending, lingerBytes have come or lingerMs have passed (RFC 9112 §9.6): a close with bytes unread
+	// would reset the connection, and the reset can destroy the answer before the client reads it.
+	function linger(mutates self, me Conn.handle)
+		try self.client.shutdownWrite() otherwise 'gone'
+			self.close()
+			return
+		end 'gone'
+		self.phase = ConnPhase.lingering
+		self.lingered = 0
+		self.arm(self.config.lingerMs.clone(), me: me)
+	end 'linger'
+
+	function answerStatus(mutates self, code StatusCode) returns bool
+		return self.sendHead(code, length: 0, body: "", field: ClosingField)
 	end 'answerStatus'
 
-	// send writes the answer's head and its body in one vectored send, so the body is never copied behind the head, under the
-	// write deadline, which is per send. A send that fails ends the connection, which the caller closes.
-	function send(mutates self, code StatusCode, body String)
-		self.sendHead(code, length: body.byteLength(), body: body)
-	end 'send'
-
-	// sendHead sends a head that states a body of `length` bytes, and then `body`.
-	function sendHead(mutates self, code StatusCode, length Count, body String)
-		let head = "HTTP/1.1 {code.number()} {reasonOf(code)}\r\nContent-Type: text/plain\r\nContent-Length: {length}\r\nConnection: close\r\n\r\n"
-		try self.client.setWriteDeadline(self.config.writeDeadlineMs) otherwise return
-		_ = try self.client.sendPair(head, body: body) otherwise return
+	// sendHead sends a head that states a body of `length` bytes and carries the Connection field `field`, and then `body`,
+	// in one vectored send, so the body is never copied behind the head, under the write deadline, which is per send. It says
+	// whether the send was whole: one that fails ends the connection, which the caller closes.
+	function sendHead(mutates self, code StatusCode, length Count, body String, field String) returns bool
+		let head = "HTTP/1.1 {code.number()} {reasonOf(code)}\r\nContent-Type: text/plain\r\nContent-Length: {length}\r\n{field}\r\n"
+		try self.client.setWriteDeadline(self.config.writeDeadlineMs) otherwise return false
+		_ = try self.client.sendPair(head, body: body) otherwise return false
+		return true
 	end 'sendHead'
 
 	function arm(mutates self, ms net.SocketDeadlineMs, me Conn.handle)

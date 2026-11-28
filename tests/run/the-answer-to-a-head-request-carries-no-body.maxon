@@ -35,8 +35,8 @@ function main() returns ExitCode
 	let port = server.port()
 	var config = ServerConfig.create()
 	let serving = server.serve(config)
-	print("GET: {answerTo(port, request: "GET /page HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
-	print("HEAD: {answerTo(port, request: "HEAD /page HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	print("GET: {answerTo(port, request: "GET /page HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
+	print("HEAD: {answerTo(port, request: "HEAD /page HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n")}\n")
 	serving.stop(1000)
 	print("stopped\n")
 	return 0

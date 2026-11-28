@@ -2,8 +2,8 @@
 // then two at once, each answered on its own connection. `stop` closes the listener and waits for every connection to end.
 // The answers say what the request line was, in the handler's place, until the handler is called from the connection.
 // native-only
-//> GET /one HTTP/1.1\r\nHost: a\r\n\r\n -> HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\nConnection: close\r\n\r\nGET /one HTTP/1.1
-//> GET /two HTTP/1.1\r\nHost: a\r\n\r\n -> HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\nConnection: close\r\n\r\nGET /two HTTP/1.1
+//> GET /one HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n -> HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\nConnection: close\r\n\r\nGET /one HTTP/1.1
+//> GET /two HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n -> HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\nConnection: close\r\n\r\nGET /two HTTP/1.1
 //> first of two at once: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\nGET /first HTTP/1.1
 //> second of two at once: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 20\r\nConnection: close\r\n\r\nGET /second HTTP/1.1
 //> stopped
@@ -38,15 +38,15 @@ function main() returns ExitCode
 	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
 	let port = server.port()
 	let serving = server.serve(ServerConfig.create())
-	for request in ["GET /one HTTP/1.1\r\nHost: a\r\n\r\n", "GET /two HTTP/1.1\r\nHost: a\r\n\r\n"] 'each'
+	for request in ["GET /one HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n", "GET /two HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n"] 'each'
 		print("{shown(request)} -> {answerTo(port, request: request)}\n")
 	end 'each'
 	var first = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
 	var second = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
 	try first.setReadDeadline(5000) otherwise ignore
 	try second.setReadDeadline(5000) otherwise ignore
-	_ = try second.send("GET /second HTTP/1.1\r\nHost: a\r\n\r\n") otherwise 0
-	_ = try first.send("GET /first HTTP/1.1\r\nHost: a\r\n\r\n") otherwise 0
+	_ = try second.send("GET /second HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n") otherwise 0
+	_ = try first.send("GET /first HTTP/1.1\r\nHost: a\r\nConnection: close\r\n\r\n") otherwise 0
 	print("first of two at once: {readToEnd(first)}\n")
 	print("second of two at once: {readToEnd(second)}\n")
 	try first.close() otherwise ignore
