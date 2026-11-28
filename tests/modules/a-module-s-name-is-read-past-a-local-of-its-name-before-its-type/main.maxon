@@ -1,0 +1,20 @@
+// A value cannot qualify a type, so a module's name written before a type of the module names the module, where a parameter or
+// a local of the same name is in scope: in a parameter's and a result's type, a cast, a generic argument, and a static call
+// of the type, `geo.Point.parse(geo)`.
+typealias Points = Array with geo.Point
+
+function parsed(geo String) returns geo.Point
+	return geo.Point.parse(geo)
+end 'parsed'
+
+function main() returns ExitCode
+	let geo = "four"
+	var points = Points.create(0)
+	points.push(geo.Point.parse(geo))
+	points.push(parsed("seven!!"))
+	points.push(geo.Point.origin())
+	print("{points[0].x} {points[1].x} {points[2].x} {geo.byteLength()}\n")
+	return 0
+end 'main'
+
+//> 4 7 0 4

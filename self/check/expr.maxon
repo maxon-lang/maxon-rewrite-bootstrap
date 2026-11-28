@@ -298,8 +298,36 @@ function isQualifiedName(c Checker, p ast.Project, ms ast.ModuleState, e ast.Nod
 	return ast.resolutionOf(p, ms: ms).becomeNames.has(e as Count) or ms.tables.memberDecl(e as Count).isSome()
 end 'isQualifiedName'
 
+// checkShadowedQualifier refuses a type written after a module's name that a local or a parameter of that name has a member
+// of too (resolve's namesModuleTypeMember read the qualifier as the module): `url.URL.parse(s)` where the local url's type has
+// a member URL could mean either, so neither is chosen.
+function checkShadowedQualifier(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, name String, mutates errs diag.ErrorList) returns bool
+	match ast.resolutionOf(p, ms: ms).shadowingLocals.get(e as Count) 'shadowing'
+		some(module) then return not localHasMember(c, p: p, ms: ms, e: e, local: module, member: name, errs: errs)
+		none then return true
+	end 'shadowing'
+end 'checkShadowedQualifier'
+
+function localHasMember(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, local String, member String, mutates errs diag.ErrorList) returns bool
+	let id = lookupLocal(c, name: local)
+	if id == ast.noLocal 'notLocal'
+		return false
+	end 'notLocal'
+	let t = ast.contentType(ms.types, reads: p.types, t: c.typing.locals[id as Count].ty)
+	let isField = typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.record) and ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: t)).findField(member).isSome()
+	let isMethod = typeIsNominal(ms.types, reads: p.types, t: t) and methodNamed(p, ms: ms, t: t, name: member) != ast.noFunc
+	if not isField and not isMethod 'none'
+		return false
+	end 'none'
+	failAt(c, p: p, ms: ms, node: e, code: diag.errAmbiguousQualifier, msg: "'{local}.{member}' is ambiguous: '{local}' names the module that declares the type '{member}' and a local whose type '{nameOfType(p, ms: ms, t: t)}' has a member '{member}'; rename the local", errs: errs)
+	return true
+end 'localHasMember'
+
 function checkQualifiedName(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = ast.nameExprName(ms.tree(), id: e).clone()
+	if not checkShadowedQualifier(c, p: p, ms: ms, e: e, name: name, errs: errs) 'ambiguous'
+		return ast.noType
+	end 'ambiguous'
 	match consumes ast.nodeDecl(p, ms: ms, node: e as Count) 'bound'
 		some(ref) then return checkDeclaredName(c, p: p, ms: ms, e: e, ref: ref, name: name, errs: errs)
 		none then panic("a qualified name '{name}' was resolved to no declaration")

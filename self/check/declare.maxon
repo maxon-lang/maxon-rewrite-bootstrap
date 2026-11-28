@@ -405,6 +405,9 @@ end 'requiresBuiltinClone'
 // else. A typealias of an instance names the instance. It reports why a 'Self' outside a type names none.
 function typeNamed(c Checker, p ast.Project, ms ast.ModuleState, name ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let spelling = ast.nameExprName(ms.tree(), id: name)
+	if not checkShadowedQualifier(c, p: p, ms: ms, e: name, name: spelling, errs: errs) 'ambiguous'
+		return ast.noType
+	end 'ambiguous'
 	if spelling == "Self" 'selfName'
 		if c.owner == ast.noType 'noOwner'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: name), code: diag.errUnknownType, msg: "'Self' names a type only inside one", errs: errs)

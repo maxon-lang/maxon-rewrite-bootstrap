@@ -998,12 +998,16 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 		return
 	end 'notName'
 	let headName = ast.nameExprName(r.tree, id: cur).clone()
-	if isNameBound(r, name: headName) or headName == "Self" or r.typeParams.has(headName) 'bound'
+	let shadowed = isNameBound(r, name: headName) and namesModuleTypeMember(r, p: p, head: headName, segs: segs)
+	if not shadowed and (isNameBound(r, name: headName) or headName == "Self" or r.typeParams.has(headName)) 'bound'
 		resolveExpr(r, p: p, ms: ms, id: ast.memberExprObj(r.tree, id: id), errs: errs)
 		return
 	end 'bound'
+	if shadowed 'shadowed'
+		r.res.shadowingLocals.insert(segs[0].node as Count, value: headName.clone())
+	end 'shadowed'
 	let bare = bareLookup(r, p: p, name: headName)
-	if bare.found 'hasBare'
+	if bare.found and not shadowed 'hasBare'
 		let isConst = ast.declNodeID(p, ref: bare.decl) != 0 and ast.declIsConst(p, ref: bare.decl)
 		let isTy = isRefType(p, ref: bare.decl)
 		if isTy 'typeHead'
@@ -1047,6 +1051,21 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState
 		none then break
 	end 'hit'
 end 'resolveMemberExpr'
+
+// namesModuleTypeMember is whether `head.T.m...`, with head a local, a parameter or a field, names a member of the type T of the
+// module head: a value cannot qualify a type, so the qualifier names the module, as it does wherever a type is written. The
+// check refuses the name where the local's own type has a member T too (E3964, checkShadowedQualifier).
+function namesModuleTypeMember(mutates r Resolver, p ast.Project, head String, segs SegmentList) returns bool
+	if segs.count() < 2 or not isModuleRoot(p, module: r.modID, name: head) 'noModule'
+		return false
+	end 'noModule'
+	var rest = ast.StringList.create(0)
+	rest.push(segs[0].name.clone())
+	match consumes qualifiedDeclRef(p, module: r.modID, head: head, rest: rest) 'decl'
+		some(ref) then return isRefType(p, ref: ref)
+		none then return false
+	end 'decl'
+end 'namesModuleTypeMember'
 
 function rewriteStatic(mutates r Resolver, targetNode ast.NodeID, headNode ast.NodeID, consumes target ast.DeclRef) returns bool
 	rewriteMemberToName(r, targetNode: targetNode, headNode: headNode, targetDecl: target)
