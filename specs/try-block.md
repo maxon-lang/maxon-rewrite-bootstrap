@@ -1256,7 +1256,6 @@ end 'main'
 ```
 
 <!-- test: try-block.inline-managed-arg-throws -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A bare throwing call inside a try-block whose argument is an
 inline allocation (`workFunc(IntArray.create(0))`) releases the
 argument's allocation when the call throws. The argument is owned by
@@ -1272,7 +1271,7 @@ enum MyError implements Error
 	failed
 end 'MyError'
 
-function workFunc(arr IntArray) throws MyError
+function workFunc(mutates arr IntArray) throws MyError
 	if arr.count() == 0 'empty'
 		throw MyError.failed
 	end 'empty'
@@ -1282,7 +1281,8 @@ end 'workFunc'
 function main() returns ExitCode
 	var sum = 0 as Idx
 	try 'work'
-		workFunc(IntArray.create(0))
+		var array = IntArray.create(0)
+		workFunc(array)
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			failed then sum = 42

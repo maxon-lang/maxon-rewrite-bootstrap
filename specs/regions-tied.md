@@ -1226,12 +1226,12 @@ type Handler
 	let port as Tally
 
 	static function create(port Tally, server Server) returns Handler
-		return Self{server: server, port: port}
+		return Self{server: server.clone(), port: port}
 	end 'create'
 
-	static function serve(handler Handler) returns Tally
+	static function serve(mutates handler Handler) returns Tally
 		sleep(1)
-		handler.server.n = handler.server.n + 1
+		handler.server.n = try handler.server.n + 1 otherwise panic("out of range")
 		return handler.server.n
 	end 'serve'
 end 'Handler'
@@ -1239,7 +1239,8 @@ end 'Handler'
 function main() returns ExitCode
 	var server = Server.create(1)
 	var wakes = TallyPromises.create(0)
-	wakes.push(async Handler.serve(Handler.create(3, server: server)))
+	var handler = Handler.create(3, server: server)
+	wakes.push(async Handler.serve(handler))
 	let ready = wakes.awaitAny()
 	let woken = try wakes.remove(ready) otherwise panic("main: awaitAny answered a slot of this array")
 	let n = await woken

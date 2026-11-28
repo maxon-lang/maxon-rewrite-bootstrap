@@ -1,0 +1,27 @@
+// A temporary that a condition guards is not bound before it when it is no factory's value: binding it would compute it
+// where the program does not.
+// expect-error: E2013 at 23:25
+type Counter
+	var n as Count
+
+	static function from(n Count) returns Counter
+		return Counter{n: n}
+	end 'from'
+
+	function copied() returns Counter
+		return Counter{n: self.n}
+	end 'copied'
+
+	function bump(mutates self) returns Count
+		self.n = try self.n + 1 otherwise panic("out of range")
+		return self.n
+	end 'bump'
+end 'Counter'
+
+function main() returns ExitCode
+	let base = Counter.from(3)
+	if base.n > 2 and base.copied().bump() == 4 'four'
+		return 1
+	end 'four'
+	return 0
+end 'main'

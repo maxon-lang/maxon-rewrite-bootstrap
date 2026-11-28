@@ -31,28 +31,11 @@ public union TlsError implements Error
 	invalidCertificate
 	invalidPrivateKey
 	invalidPem
-	certificateRejected(reason X509VerifyError)
+	certificateRejected(reason x509.X509VerifyError)
 	protocolError(alert TlsAlert)
 	peerAlert(alert TlsAlert)
 	peerAlertUnrecognised(code Byte)
 end 'TlsError'
-
-/// Why `X509.verify` refused a chain.
-public enum X509VerifyError implements Error
-	invalidCertificate
-	unsupportedAlgorithm
-	expired
-	notYetValid
-	incompatibleKeyUsage
-	hostnameMismatch
-	unknownAuthority
-	notAuthorizedToSign
-	pathLengthExceeded
-	nameConstraintViolation
-	badSignature
-	signatureCheckLimitExceeded
-	invalidArgument
-end 'X509VerifyError'
 
 /// A TLS alert description (RFC 8446 section 6), with its code point as the raw value.
 public enum TlsAlert

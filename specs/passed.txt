@@ -5140,6 +5140,7 @@ model-regions.md: model-hand-al-ca-let-cond-alias
 model-regions.md: model-hand-al-ca-push-cond
 model-regions.md: model-hand-al-nl-for-for-read
 model-regions.md: model-hand-am-cl-array-closed
+model-regions.md: model-hand-ao-f2-onecall-open-cond-path
 model-regions.md: model-hand-fa15-h2-no-try
 model-regions.md: model-hand-fa17-m-plain-mutable
 model-regions.md: model-hand-fa17-r-assign
@@ -6040,6 +6041,7 @@ parameter-mutation.md: parameter-passed-on-to-mutating-param-ok
 parameter-mutation.md: read-only-param-let-array-ok
 parameter-mutation.md: recursive-let-array-ok
 parameter-mutation.md: self-to-sibling-mutating-method-ok
+parameter-mutation.md: temporary-arg-to-mutating-param-ok
 parameter-mutation.md: transitive-let-array-ok
 parameter-mutation.md: transitive-let-field-write-ok
 parameter-mutation.md: var-alias-of-parameter-to-mutating-param-ok
@@ -6666,6 +6668,7 @@ regions-byref-order.md: if-condition-before
 regions-byref-order.md: inner-call-writes-while-the-outer-lends
 regions-byref-order.md: keyword-named-root-before
 regions-byref-order.md: let-alias-moved-var-aliased-again
+regions-byref-order.md: let-alias-sibling-field-after
 regions-byref-order.md: let-alias-source-moved-to-a-var-and-rebound-nested-path
 regions-byref-order.md: let-alias-source-rebound-through-a-call-on-the-source
 regions-byref-order.md: let-alias-source-rebound-to-a-call-that-returns-the-alias
@@ -6973,6 +6976,7 @@ regions-soundness.md: a-function-parameter-forwarded-to-a-coroutine-ties-its-pro
 regions-soundness.md: a-method-that-notes-its-receiver-leaves-the-local-readable
 regions-soundness.md: a-parameter-that-must-be-frozen-and-a-fresh-argument-give-a-read-only-result
 regions-soundness.md: a-user-equals-reached-by-an-operator-takes-a-handed-back-result-beside-clean-operands
+regions-soundness.md: an-async-over-an-expression-carrying-mutable-data-is-tied
 regions-soundness.md: an-isolated-list-or-map-field-hands-out-copies-and-values
 regions-soundness.md: an-isolated-local-read-through-its-source-after-an-isolated-rebind-is-refused
 regions-soundness.md: an-isolated-local-rebound-as-isolated-is-read-through-the-new-name
@@ -6994,6 +6998,7 @@ regions-tied.md: a-tied-promise-never-awaited-is-refused
 regions-tied.md: a-tied-promise-passed-to-a-function-is-refused
 regions-tied.md: a-tied-promise-pushed-into-an-array-is-refused
 regions-tied.md: a-tied-promise-returned-is-refused
+regions-tied.md: an-async-over-a-construction-that-embeds-the-callers-mutable-local-is-tied
 regions-tied.md: an-isolated-two-field-reader-handed-to-a-coroutine-stays-untied
 regions-unique.md: a-bound-cond-of-unique-locals-releases-the-other-arm
 regions-unique.md: a-bound-try-fallback-of-a-unique-local-releases-it-on-either-edge
@@ -7035,6 +7040,7 @@ regions-unique.md: a-unique-parameter-assigned-to-the-discard-runs
 regions-unique.md: a-unique-parameter-bound-to-a-second-name-twice-is-refused
 regions-unique.md: a-unique-parameter-discarded-in-a-loop-is-refused
 regions-unique.md: a-unique-parameter-discarded-with-let-underscore-runs
+regions-unique.md: a-unique-parameter-handed-to-a-mutable-parameter-stays-readable
 regions-unique.md: a-unique-parameter-kept-by-a-call-is-refused-when-read-afterwards
 regions-unique.md: a-unique-popped-from-an-array-is-handed-to-a-keeping-parameter
 regions-unique.md: a-unique-union-arm-lent-to-a-reading-parameter-stays-readable
@@ -7232,6 +7238,7 @@ returned-and-local-holders.md: a-clone-of-a-parameter-held-by-a-returned-record-
 returned-and-local-holders.md: a-closure-building-a-record-from-its-capture-runs-on-mutable-data-outside-a-window
 returned-and-local-holders.md: returned-holder-built-from-a-callee-result-holds-the-frozen-argument
 returned-and-local-holders.md: returned-holder-built-from-a-frozen-argument-is-read
+returned-parameters.md: a-call-nested-in-a-call-of-the-same-function-balances
 returned-parameters.md: a-closure-that-returns-its-parameter-balances-through-a-rebound-var
 returned-parameters.md: a-function-that-returns-a-parameter-on-one-path-only-still-balances
 returned-parameters.md: a-generic-instantiation-of-a-returning-function-balances
@@ -8390,6 +8397,7 @@ temporary-borrow-lifetime.md: both-ternary-arms-give-a-borrow-out-of-their-own-t
 temporary-borrow-lifetime.md: control-a-borrow-out-of-a-match-arms-payload-binding
 temporary-borrow-lifetime.md: control-a-trivial-element-out-of-a-temporary-is-copied
 temporary-borrow-lifetime.md: control-an-element-borrowed-out-of-a-bound-container
+temporary-borrow-lifetime.md: control-pop-out-of-a-temporary-is-an-owned-move-out
 temporary-borrow-lifetime.md: element-borrowed-out-of-a-temporary-array
 temporary-borrow-lifetime.md: every-match-arm-gives-a-borrow-out-of-its-own-temporary
 temporary-borrow-lifetime.md: first-borrowed-out-of-a-temporary-array
@@ -8616,6 +8624,7 @@ try-block.md: try-block.array-narrow-signed
 try-block.md: try-block.bare-throw-in-nested-if
 try-block.md: try-block.bare-throw-routed
 try-block.md: try-block.explicit-try-otherwise-shadows
+try-block.md: try-block.inline-managed-arg-throws
 try-block.md: try-block.nested
 try-block.md: try-block.routed-union-result-is-released
 try-block.md: try-block.single-enum-assoc-value
@@ -8645,6 +8654,7 @@ try-otherwise-value-flow.md: try-otherwise-value-flow.propagation-success
 try-otherwise-value-flow.md: try-otherwise-value-flow.success-path-returns-call-result
 try-otherwise-value-flow.md: try-otherwise-value-flow.try-in-call-arg-in-if-condition
 try-postfix-target.md: a-parenthesized-receiver-calls-a-method-as-a-statement
+try-postfix-target.md: a-parenthesized-try-receiver-reaches-a-method-through-a-field-as-a-statement
 try-postfix-target.md: chained-error-edge-drops-receiver
 try-postfix-target.md: chained-error-edge-drops-two-temps
 try-postfix-target.md: chained-on-array-literal
@@ -9513,3 +9523,13 @@ x25519.md: x25519.wycheproof-shared-secrets-1
 x25519.md: x25519.wycheproof-shared-secrets-2
 x25519.md: x25519.wycheproof-shared-secrets-3
 x25519.md: x25519.wycheproof-shared-secrets-4
+x509.md: x509.parse-errors-1
+x509.md: x509.parse-errors-2
+x509.md: x509.parse-successes-1
+x509.md: x509.parse-successes-2
+x509.md: x509.verify-client-auth-errors
+x509.md: x509.verify-client-auth-successes
+x509.md: x509.verify-errors-1
+x509.md: x509.verify-errors-2
+x509.md: x509.verify-go
+x509.md: x509.verify-successes-1

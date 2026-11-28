@@ -3742,7 +3742,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ao-f2-onecall-open-cond-path -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-onecall-open-cond-path` of redteamAO/hand_ao1.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
 ```maxon
@@ -3764,14 +3763,15 @@ type Hi is noncopyable
 	end 'create'
 end 'Hi'
 
-function wr(x Bx)
+function wr(mutates x Bx)
 	x.n = 5
 end 'wr'
 
 function main() returns ExitCode
 	let h = Hi.create(Bx.create(1))
 	let g = Hi.create(Bx.create(2))
-	wr((h if 1 != 0 else g).b)
+	var bx = (h if 1 != 0 else g).b.clone()
+	wr(bx)
 	return 0
 end 'main'
 ```

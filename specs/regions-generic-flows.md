@@ -1004,7 +1004,6 @@ error E3197: <fragment>:17:2: cannot write 'n' through 'pair.0', which is immuta
 ```
 
 <!-- test: a-tuple-parameter-with-an-immutable-item-takes-a-frozen-item-and-runs -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `(immutable Box, Box)` spells the item capabilities; the first item reads, the second item is written.
 
 ```maxon
@@ -1018,15 +1017,16 @@ type Box
 	end 'create'
 end 'Box'
 
-function weigh(pair (Box, Box)) returns Tally
-	pair.1.n = pair.1.n + 1
-	return pair.0.n + pair.1.n
+function weigh(mutates pair (Box, Box)) returns Tally
+	pair.1.n = try pair.1.n + 1 otherwise panic("out of range")
+	return try pair.0.n + pair.1.n otherwise panic("out of range")
 end 'weigh'
 
 function main() returns ExitCode
 	let a = freeze(Box.create(1))
 	let b = Box.create(2)
-	print("{weigh((a, b))} {b.n}\n")
+	var value = (thaw(a), b.clone())
+	print("{weigh(value)} {b.n}\n")
 	return 0
 end 'main'
 ```

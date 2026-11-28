@@ -1,0 +1,24 @@
+// A temporary that a mutates self method changes is bound to a var on the line before its statement, and a factory's
+// value is bound so even where a condition guards it.
+type Counter
+	var n as Count
+
+	static function from(n Count) returns Counter
+		return Counter{n: n}
+	end 'from'
+
+	function bump(mutates self) returns Count
+		self.n = try self.n + 1 otherwise panic("out of range")
+		return self.n
+	end 'bump'
+end 'Counter'
+
+function main() returns ExitCode
+	let start = 4 as Count
+	let a = Counter.from(start).bump()
+	let b = Counter.from(a).bump()
+	if a > 0 and Counter.from(b).bump() == 7 'seven'
+		print("{a} {b}\n")
+	end 'seven'
+	return 0
+end 'main'

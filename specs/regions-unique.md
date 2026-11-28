@@ -458,7 +458,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-parameter-handed-to-a-mutable-parameter-stays-readable -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 Handing a unique parameter to a `mutable` parameter lends it for the call, so the parameter is read again afterwards, including in the handler of the `try` that made the call.
 
 ```maxon
@@ -499,7 +498,7 @@ function report(token Token, fault Fault) returns Tally
 	return token.peek()
 end 'report'
 
-function dispatch(token Token, handler Handler) returns Tally
+function dispatch(mutates token Token, handler Handler) returns Tally
 	try handler.handle(token) otherwise (fault) 'threw'
 		return report(token, fault: fault)
 	end 'threw'
@@ -508,7 +507,8 @@ end 'dispatch'
 
 function main() returns ExitCode
 	let quiet = Quiet.create()
-	let total = dispatch(Token.create(3), handler: quiet)
+	var token = Token.create(3)
+	let total = dispatch(token, handler: quiet)
 	print("{total}\n")
 	return 0
 end 'main'

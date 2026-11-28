@@ -184,15 +184,6 @@ export function missingFacility(name String, system TargetSystem) returns String
 	if system == TargetSystem.macos and name == "TlsAlert" 'TlsAlertmacOS'
 		return "TLS is not brought over yet"
 	end 'TlsAlertmacOS'
-	if system == TargetSystem.windows and name == "X509VerifyError" 'X509VerifyErrorWindows'
-		return "TLS is not brought over yet"
-	end 'X509VerifyErrorWindows'
-	if system == TargetSystem.linux and name == "X509VerifyError" 'X509VerifyErrorLinux'
-		return "TLS is not brought over yet"
-	end 'X509VerifyErrorLinux'
-	if system == TargetSystem.macos and name == "X509VerifyError" 'X509VerifyErrormacOS'
-		return "TLS is not brought over yet"
-	end 'X509VerifyErrormacOS'
 	if system == TargetSystem.windows and name == "TlsIdentity" 'TlsIdentityWindows'
 		return "TLS is not brought over yet"
 	end 'TlsIdentityWindows'
@@ -244,7 +235,6 @@ export function facilityTypes() returns StringList
 	names.push("Tls12CipherSuite")
 	names.push("TlsApplicationProtocol")
 	names.push("TlsAlert")
-	names.push("X509VerifyError")
 	names.push("TlsIdentity")
 	names.push("TlsClient")
 	names.push("TlsListener")

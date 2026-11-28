@@ -2496,7 +2496,6 @@ error E3207: <fragment>:27:36: 'take' is spawned with `async`, and 'a' is isolat
 ```
 
 <!-- test: a-swap-through-a-two-source-call-result-holder-is-judged-once-the-call-settles -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `either` may hand back `a` or `b`, so `swap` through its result is judged by what the call settles: both arguments are mutable locals, so the swap is accepted.
 
 ```maxon
@@ -2519,13 +2518,14 @@ type Pair
 end 'Pair'
 
 function either(a Pair, b Pair, flag bool) returns Pair
-	return a if flag else b
+	return a.clone() if flag else b.clone()
 end 'either'
 
 function main() returns ExitCode
 	let x = Pair.create()
 	let y = Pair.create()
-	let old = exchange(either(x, b: y, flag: true).part, value: Box.create(1))
+	var box = either(x, b: y, flag: true).part.clone()
+	let old = exchange(box, value: Box.create(1))
 	print("{old.n} {x.part.n}\n")
 	return 0
 end 'main'

@@ -123,7 +123,7 @@ var Facilities = []Facility{
 	// names, and maxon's sessions are named here too, so that a spec test that names one is skipped as unsupported.
 	{Name: "TLS", Types: []string{
 		"TlsError", "TlsClientOptions", "TlsServerOptions", "TlsProtocol", "TlsCipherSuite", "Tls13CipherSuite", "Tls12CipherSuite",
-		"TlsApplicationProtocol", "TlsAlert", "X509VerifyError", "TlsIdentity", "TlsClient", "TlsListener", "TlsStream",
+		"TlsApplicationProtocol", "TlsAlert", "TlsIdentity", "TlsClient", "TlsListener", "TlsStream",
 	}, Missing: []OS{Windows, Linux, MacOS}, Why: "TLS is not brought over yet"},
 }
 

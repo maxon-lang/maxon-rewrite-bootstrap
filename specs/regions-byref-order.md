@@ -3527,7 +3527,6 @@ ok
 ```
 
 <!-- test: let-alias-sibling-field-before -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A `let` alias of a parameter is another name for the record a field cell lends, and the hold on `h2.f` keeps the old string alive across the write of `h.f`: `p.first` is the string `h.f` held before the call.
 
 ```maxon
@@ -3547,7 +3546,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -3556,15 +3555,16 @@ function put(mutates text String) returns Tally
 	return 1
 end 'put'
 
-function run(h Holder) returns ExitCode
-	let h2 = h
+function run(mutates h Holder) returns ExitCode
+	let h2 = h.clone()
 	let p = PA.build(h2.f, second: put(h.f))
 	print("{p.first} {h.f}\n")
 	return 0
 end 'run'
 
 function main() returns ExitCode
-	return run(Holder.create())
+	var holder = Holder.create()
+	return run(holder)
 end 'main'
 ```
 ```stdout
@@ -3602,7 +3602,6 @@ mm_free Holder #1
 ```
 
 <!-- test: let-alias-sibling-field-after -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A `let` alias of a parameter is read after the write.
 
 ```maxon
@@ -3622,7 +3621,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -3631,15 +3630,16 @@ function put(mutates text String) returns Tally
 	return 1
 end 'put'
 
-function run(h Holder) returns ExitCode
-	let h2 = h
+function run(mutates h Holder) returns ExitCode
+	let h2 = h.clone()
 	let p = PB.build(put(h.f), second: h2.g)
 	print("{p.second} {h.f}\n")
 	return 0
 end 'run'
 
 function main() returns ExitCode
-	return run(Holder.create())
+	var holder = Holder.create()
+	return run(holder)
 end 'main'
 ```
 ```stdout

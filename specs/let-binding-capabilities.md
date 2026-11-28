@@ -1143,7 +1143,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-tuple-of-let-fields-passed-to-a-function-that-writes-it-is-accepted -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `bump` writes through its tuple parameter, and the tuple holding `p`'s `let` fields may be passed to it.
 
 ```maxon
@@ -1162,21 +1161,22 @@ type Pair
 	export let right as Box
 
 	static function create(left Box, right Box) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function ends(p Pair) returns (Box, Box)
-	return (p.left, p.right)
+	return (p.left.clone(), p.right.clone())
 end 'ends'
 
-function bump(t (Box, Box))
+function bump(mutates t (Box, Box))
 	t.0.n = 9
 end 'bump'
 
 function main() returns ExitCode
 	let p = Pair.create(Box.create(1), right: Box.create(2))
-	bump(ends(p))
+	var value = ends(p)
+	bump(value)
 	print("{p.left.n}\n")
 	return 0
 end 'main'

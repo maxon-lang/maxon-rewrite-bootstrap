@@ -4279,7 +4279,7 @@ t.1=99 p.1=2
 ```
 
 <!-- test: a-let-field-array-through-a-merge-into-a-writing-callee-is-written -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
+<!-- skip: language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count -->
 ### A `let` field's array handed through a merge to a callee that writes it is written, as the bare read is
 
 ```maxon

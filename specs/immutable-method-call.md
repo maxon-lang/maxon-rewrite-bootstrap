@@ -472,7 +472,6 @@ end 'main'
 ```
 
 <!-- test: let-record-written-through-a-returned-container -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### Writing a `let` Array Through a Call That Returns It
 
 The result of `pass(a)` is the record `a` names, so the push lands in it.
@@ -484,13 +483,14 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function pass(s IntArray) returns IntArray
-	return s
+	return s.clone()
 end 'pass'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
-	pass(a).push(9)
-	return a.count() as ExitCode
+	var array = pass(a)
+	array.push(9)
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -394,7 +394,6 @@ end 'main'
 ```
 
 <!-- test: temporary-arg-to-mutating-param-ok -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 A temporary has no binding to be immutable: it may be written freely.
 
 ```maxon
@@ -402,13 +401,14 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray) returns Integer
+function grow(mutates d IntArray) returns Integer
 	d.push(9)
-	return d.count()
+	return try d.count() as Integer otherwise panic("out of range")
 end 'grow'
 
 function main() returns ExitCode
-	return grow(IntArray.create(0)) as ExitCode
+	var array = IntArray.create(0)
+	return try grow(array) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

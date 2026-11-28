@@ -875,7 +875,6 @@ retaken=yes ran=7
 ```
 
 <!-- test: a-blocking-kernel-call-on-main-hands-its-processor-off -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
 **THE SAME READ, MADE BY `main` ITSELF.** `main` is a green thread like any other, so a kernel call it blocks
@@ -886,7 +885,7 @@ processor that `main`'s read kept would leave the sentinel unrun and the runner 
 ```maxon
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives ""
 	end 'read'
 end 'textOf'
@@ -910,7 +909,8 @@ function main() returns ExitCode
 	let sentinel = spawn Sentinel.create()
 	print("M: reading\n")
 	let tailReply = try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
-	let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+	var streamReader = Console.stdin()
+	let line = textOf(try streamReader.readLine() otherwise LineOrEnd.ended)
 	print("M: read returned\n")
 	let tail = await tailReply
 	print("done sibling={tail} read={line.count()}\n")

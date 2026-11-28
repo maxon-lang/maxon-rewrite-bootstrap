@@ -34,6 +34,7 @@ helpers/crypto/FixedBaseComb.maxon curves
 helpers/crypto/CombCache.maxon curves
 Curve25519.maxon curves
 NistCurves.maxon curves
+X509.maxon x509
 Slot.maxon cell Cell.maxon
 Clock.maxon clock
 Sleep.maxon sleep

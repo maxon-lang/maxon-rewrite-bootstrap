@@ -1823,7 +1823,6 @@ error E3005: <fragment>:11:2: argument type mismatch for 'k': expected 'Real', g
 ```
 
 <!-- test: pass-by-reference.an-expression-handed-to-a-mutable-record-parameter-reaches-the-shared-record -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 ### `mutable` on a record parameter is the write-through capability, not a reference to the caller's variable
 The record is shared, not copied, so the callee's field store reaches the caller's object and no variable is needed for the write to land: a call's result is accepted where a `var` is required for a value-type `mutable` parameter.
 ```maxon
@@ -1845,7 +1844,7 @@ type Shelf
 	end 'create'
 
 	function first() returns Row
-		return self.row
+		return self.row.clone()
 	end 'first'
 
 	function total() returns Count
@@ -1859,7 +1858,8 @@ end 'fill'
 
 function main() returns ExitCode
 	let shelf = Shelf.create()
-	fill(shelf.first())
+	var row = shelf.first()
+	fill(row)
 	print("{shelf.total()}\n")
 	return 0
 end 'main'

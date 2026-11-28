@@ -22,6 +22,8 @@ export let fixKindEnding = "ending"
 
 export let fixKindBound = "bound"
 
+let fixKindBind = "bind"
+
 export let fixKindInterpolation = "interpolation"
 
 export let fixKindMatchConsumes = "match consumes"
@@ -59,6 +61,22 @@ let tabByte = 9 as Byte
 let apostropheBeforeName = 1 as Count
 
 let spaceByte = 32 as Byte
+
+let dotByte = 46 as Byte
+
+let upperA = 65 as Byte
+
+let upperZ = 90 as Byte
+
+let lowerA = 97 as Byte
+
+let lowerZ = 122 as Byte
+
+let digit0 = 48 as Byte
+
+let digit9 = 57 as Byte
+
+let underscoreByte = 95 as Byte
 
 let openBraceByte = 123 as Byte
 
@@ -360,6 +378,136 @@ export function varFix(t ast.Tree, stmt ast.NodeID) returns diag.Fix
 	end 'notLet'
 	return letToVar(t, start: t.startOf(stmt) as Count)
 end 'varFix'
+
+// HoistWord is what a word before a temporary on its statement's line, or after it, says of binding the temporary to a var
+// on the line before.
+enum HoistWord
+	// neutral is any word that leaves the temporary computed whenever the line runs.
+	neutral
+	// conditional is a word that computes it on some runs of the line only (the right of 'and' or 'or', a branch of a
+	// conditional, a try's fallback): binding it first computes it on every run, which only a factory may (isFactoryOfPlaces).
+	conditional
+	// misplaced is a word that makes the line no statement of its own, or one run again for each turn of a loop: the line
+	// before is no place to bind it.
+	misplaced
+end 'HoistWord'
+
+function hoistWord(word String, first bool, before bool) returns HoistWord
+	if word == "while" or word == "until" or word == "end" or word == "gives" or word == "then" or word == "function" 'misplaced'
+		return HoistWord.misplaced
+	end 'misplaced'
+	if word == "if" and not (first and before) or before and (word == "and" or word == "or" or word == "else" or word == "otherwise") 'conditional'
+		return HoistWord.conditional
+	end 'conditional'
+	return HoistWord.neutral
+end 'hoistWord'
+
+// bindFix binds the temporary e, which a mutates parameter or a mutates self method changes, to a new var on the line before
+// its statement, named base or base followed by a number, the skip-th such name no local of the function has, so that the
+// change has a variable to land in, as the message asks: `X509Reader.over(b).sequenceElements()` becomes
+// `var x509Reader = X509Reader.over(b)` and `x509Reader.sequenceElements()`. A statement is one line; a temporary that the
+// line computes only on some of its runs is bound only where it is a factory's value (factory).
+export function bindFix(t ast.Tree, e ast.NodeID, base String, locals ast.LocalEntryList, ids ast.LocalIDList, factory bool, skip Count) returns diag.Fix
+	let found = ast.exprExtent(t, e: e)
+	if not found.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	let extent = found.unwrap()
+	let begin = extent.begin as Count
+	var start = ast.lineBegin(t.text, at: begin)
+	while start < begin and t.text.byteAt(start) == tabByte 'indent'
+		start = start + 1
+	end 'indent'
+	let indent = t.text.sliceBytes(ast.lineBegin(t.text, at: begin), endPos: start)
+	let before = hoistWords(t, from: start, until: begin, before: true)
+	let after = hoistWords(t, from: extent.until as Count, until: ast.lineAfter(t.text, at: begin), before: false)
+	if before == HoistWord.misplaced or after == HoistWord.misplaced or not factory and (before == HoistWord.conditional or after == HoistWord.conditional) 'unbound'
+		return diag.Fix.none()
+	end 'unbound'
+	let name = unusedName(locals, ids: ids, base: base, skip: skip)
+	let value = t.text.sliceBytes(begin, endPos: extent.until as Count)
+	var edits = diag.FixEdits.create(0)
+	if begin == start 'statement'
+		edits.push(diag.FixEdit.make(t.module, begin: extent.begin, until: extent.until, text: "{varKeyword} {name} = {value}\n{indent}{name}"))
+	end 'statement' else 'operand'
+		edits.push(diag.FixEdit.insert(t.module, at: at32(start), text: "{varKeyword} {name} = {value}\n{indent}"))
+		edits.push(diag.FixEdit.make(t.module, begin: extent.begin, until: extent.until, text: name))
+	end 'operand'
+	return fixOf(fixKindBind, edits: edits)
+end 'bindFix'
+
+// hoistWords is the strongest of what the words of the text from from until until say (hoistWord), before the temporary
+// or after it.
+function hoistWords(t ast.Tree, from Count, until Count, before bool) returns HoistWord
+	var held = HoistWord.neutral
+	var at = from
+	while at < until 'words'
+		let past = ast.wordEnd(t.text, at: at)
+		if past == at 'punctuation'
+			at = at + 1
+			continue 'words'
+		end 'punctuation'
+		let word = hoistWord(t.text.sliceBytes(at, endPos: past), first: at == from, before: before)
+		if word == HoistWord.misplaced 'misplaced'
+			return word
+		end 'misplaced'
+		if word == HoistWord.conditional 'conditional'
+			held = word
+		end 'conditional'
+		at = past
+	end 'words'
+	return held
+end 'hoistWords'
+
+// bindingName is the name of a var that holds a value of the type named typeName: the name without its module and its
+// type arguments, its first letter lower case (`x509.X509Reader` is `x509Reader`), or `value` where that leaves no name.
+export function bindingName(typeName String) returns String
+	var first = 0 as Count
+	var until = typeName.byteLength()
+	for i in 0 upto typeName.byteLength() 'bytes'
+		let b = typeName.byteAt(i)
+		if b == dotByte 'qualified'
+			first = i + 1
+		end 'qualified' else if not isNameByte(b) 'arguments'
+			until = i
+			break 'bytes'
+		end 'arguments'
+	end 'bytes'
+	if first >= until or typeName.byteAt(first) < upperA or typeName.byteAt(first) > upperZ 'unnamed'
+		return "value"
+	end 'unnamed'
+	return "{typeName.sliceBytes(first, endPos: first + 1).toLower()}{typeName.sliceBytes(first + 1, endPos: until)}"
+end 'bindingName'
+
+function isNameByte(b Byte) returns bool
+	return b >= upperA and b <= upperZ or b >= lowerA and b <= lowerZ or b >= digit0 and b <= digit9 or b == underscoreByte
+end 'isNameByte'
+
+// unusedName is base, or base and a number from 2, the skip-th of them (from 0) that no local of locals that ids names is named.
+function unusedName(locals ast.LocalEntryList, ids ast.LocalIDList, base String, skip Count) returns String
+	var left = skip
+	var n = 1 as Count
+	while true 'candidates'
+		let name = base.clone() if n == 1 else "{base}{n}"
+		if not isLocalName(locals, ids: ids, name: name) 'unused'
+			if left == 0 'chosen'
+				return name
+			end 'chosen'
+			left = left - 1
+		end 'unused'
+		n = try n + 1 otherwise panic("fixes: more names than a module holds")
+	end 'candidates'
+	panic("fixes: no unused name")
+end 'unusedName'
+
+function isLocalName(locals ast.LocalEntryList, ids ast.LocalIDList, name String) returns bool
+	for i in 0 upto ids.count() 'each'
+		if locals[ids[i] as Count].name == name 'named'
+			return true
+		end 'named'
+	end 'each'
+	return false
+end 'isLocalName'
 
 // letFieldFix declares the field that an assignment changes with var, in the module that declares its type: another
 // module's source is not the one being checked, so a field of its types has no fix.

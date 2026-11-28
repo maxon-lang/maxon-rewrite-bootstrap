@@ -278,18 +278,19 @@ type Row
 	end 'create'
 end 'Row'
 
-function bump(row Row) returns Tally
+function bump(mutates row Row) returns Tally
 	sleep(1)
-	row.n = row.n + 1
+	row.n = try row.n + 1 otherwise panic("out of range")
 	return row.n
 end 'bump'
 
 function same(row Row) returns Row
-	return row
+	return row.clone()
 end 'same'
 
 function start(row Row) returns TallyPromise
-	return async bump(same(row))
+	var row2 = same(row)
+	return async bump(row2)
 end 'start'
 
 function main() returns ExitCode

@@ -1152,13 +1152,55 @@ function mutatesArgument(mutates o Ownership, p ast.Project, mutates ms ast.Modu
 		return out
 	end 'temporary'
 	if not path.isPlace() 'fresh'
-		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "the 'mutates' parameter '{dest.name}' changes its argument, so pass a variable, or a field or an element of one")
+		if o.bindingsFn != o.fn 'otherFunction'
+			o.bindingsFn = o.fn
+			o.bindings = 0 as Count
+		end 'otherFunction'
+		let fix = bindFix(ms.tree(), e: e, base: bindingName(ast.typeName(ms.types, reads: p.types, t: ownType(o, node: e))), locals: o.c.typing.locals, ids: functionLocalIDs(o, p: p, ms: ms), factory: isFactoryOfPlaces(o, p: p, ms: ms, e: e), skip: o.bindings)
+		if fix.isSome() 'bound'
+			o.bindings = try o.bindings + 1 otherwise panic("ownership: more bind fixes than a function holds")
+		end 'bound'
+		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "the 'mutates' parameter '{dest.name}' changes its argument, so pass a variable, or a field or an element of one", fix: fix)
 		return out
 	end 'fresh'
 	requireWritable(o, p: p, ms: ms, site: site, path: path)
 	requireUnlent(o, p: p, ms: ms, root: path.root, site: site, s: out)
 	return out
 end 'mutatesArgument'
+
+// isFactoryOfPlaces is whether the temporary e is a call of a static function that makes a value of its own type and throws
+// nothing, from arguments that are places (`X509Reader.over(bytes)`): a factory, which only builds the value, so that
+// binding it before a condition that guards it computes nothing the program depends on.
+function isFactoryOfPlaces(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+	if ms.tree().kindOf(e) != ast.NodeKind.callExpr or not o.c.typing.calls.has(e as Count) 'notCall'
+		return false
+	end 'notCall'
+	let info = ownCall(o, node: e)
+	if info.kind != ast.CallKind.callStatic or info.fn == ast.noFunc 'notStatic'
+		return false
+	end 'notStatic'
+	let made = ast.originOf(ms.types, reads: p.types, t: ownType(o, node: e))
+	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).errTy != ast.noType or ast.originOf(ms.types, reads: p.types, t: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).ownerTy) != made 'notFactory'
+		return false
+	end 'notFactory'
+	for i in 0 upto info.ordered.count() 'arguments'
+		if not pathOf(o, p: p, ms: ms, e: info.ordered[i]).isPlace() 'computed'
+			return false
+		end 'computed'
+	end 'arguments'
+	return true
+end 'isFactoryOfPlaces'
+
+// functionLocalIDs are the locals that the function being checked declares.
+function functionLocalIDs(o Ownership, p ast.Project, ms ast.ModuleState) returns ast.LocalIDList
+	if o.fn == ast.noFunc 'outside'
+		return ast.LocalIDList.create(0)
+	end 'outside'
+	return match o.c.typing.funcLocals.get(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: o.fn).nodeID as Count) 'locals'
+		some(ids) gives ids.clone()
+		none gives ast.LocalIDList.create(0)
+	end 'locals'
+end 'functionLocalIDs'
 
 // initialise is an argument for a sets parameter: a variable that has no value yet, which has one afterwards.
 function initialise(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, dest OwnDest, consumes s OwnState) returns OwnState

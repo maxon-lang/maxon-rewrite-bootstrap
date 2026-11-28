@@ -441,7 +441,6 @@ end 'main'
 ```
 
 <!-- test: a-call-nested-in-a-call-of-the-same-function-balances -->
-<!-- skip: language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name -->
 `touch(touch(last))` hands the record of the inner call to the outer one, and `last` takes the outer
 result; every step of the chain is a counted reference to one record.
 ```maxon
@@ -449,22 +448,23 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function fill(cells TallyArray, count Tally)
+function fill(mutates cells TallyArray, count Tally)
 	for i in 0 upto count 'each'
 		cells.push(i)
 	end 'each'
 end 'fill'
 
-function touch(cells TallyArray) returns TallyArray
+function touch(mutates cells TallyArray) returns TallyArray
 	fill(cells, count: 1)
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
 	var last = TallyArray.create(0)
 	var other = TallyArray.create(0)
 	for _ in 0 upto 5 'each'
-		last = touch(touch(last))
+		var array = touch(last)
+		last = touch(array)
 		other = touch(other)
 	end 'each'
 	print("{last.count()} {other.count()}\n")

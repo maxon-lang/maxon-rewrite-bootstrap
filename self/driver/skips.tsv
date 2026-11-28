@@ -898,3 +898,7 @@ native	aes-hardware.md	aes-hardware.gcm-large-messages-match-the-software-backin
 native	x25519.md	*	every test multiplies curve points in field arithmetic of 64-bit limbs, which the interpreter runs in 5 to 15 seconds a test where the executable takes under a tenth of a second
 native	ed25519.md	*	the tests sign and verify with Edwards-curve point arithmetic, which the interpreter runs in 3 to 15 seconds a test where the executable takes about a tenth of a second
 native	ecdsa.md	*	the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second
+native	x509.md	x509.verify-successes-1	a verify test checks certificate chains' RSA and ECDSA signatures, which the interpreter runs in 21 to 29 seconds where the executable takes under a tenth of a second
+native	x509.md	x509.verify-errors-1	a verify test checks certificate chains' RSA and ECDSA signatures, which the interpreter runs in 21 to 29 seconds where the executable takes under a tenth of a second
+native	x509.md	x509.verify-go	a verify test checks certificate chains' RSA and ECDSA signatures, which the interpreter runs in 21 to 29 seconds where the executable takes under a tenth of a second
+native	x509.md	x509.verify-client-auth-successes	a verify test checks certificate chains' RSA and ECDSA signatures, which the interpreter runs in 21 to 29 seconds where the executable takes under a tenth of a second

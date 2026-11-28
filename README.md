@@ -6106,6 +6106,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   only forbids rebinding the name and the record it names is written through it. `fix` declares a `let` local `var`
   where that is enough; the spec tests that write through a match binding, a `let` field or a parameter are skipped
   with that reason.
+- **A temporary is not changed** by a `mutates self` method or a `mutates` argument (`E2013`), as in Swift and Hylo,
+  where maxon changes the temporary and drops it: `X509Reader.over(b).sequenceElements()`. `fix` (kind `bind`) binds it to a
+  `var` on the line before its statement (`var x509Reader = X509Reader.over(b)`, then `x509Reader.sequenceElements()`),
+  where the line computes it whenever it runs, or where it is a factory's value from places (a static function that makes
+  its own type and throws nothing) under a condition (`a and X509Reader.over(b).readBoolean()`).
 - **No two names reach one place in a call** (see "Ownership"): a place passed `mutates`, `consumes` or `sets` overlaps
   no other argument, and a place that a call, an operand or an assignment holds while the rest of it is evaluated is
   not changed meanwhile (`E3186`), where maxon's call shares the place by its reference count. The spec tests that
@@ -6461,7 +6466,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   Not yet: a service whose state holds a socket (who closes it when the service ends is undecided), and the 1M-connection benchmark.
 - **TLS is not brought over yet.** maxon's TLS sessions (`TlsClient`, `TlsListener`, `TlsStream`) are not in the library:
   `stdlib/tls` declares only what maxon's HTTP library names (`TlsError` and the types of its cases, `TlsClientOptions`,
-  `TlsServerOptions`, and what a TLS connection reports of its session), with maxon's names and cases, and each of them and of
+  `TlsServerOptions`, and what a TLS connection reports of its session; `TlsError`'s `certificateRejected` names the `x509`
+  module's `X509VerifyError`), with maxon's names and cases, and each of them and of
   maxon's session types is a row of the facility table that every system lacks, so a program that names one is refused at the
   name (`E3104`) and a spec test that does is skipped as unsupported.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
