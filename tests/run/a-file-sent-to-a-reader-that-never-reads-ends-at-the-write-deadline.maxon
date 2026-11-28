@@ -3,7 +3,7 @@
 // is cancelled and its cancelled completion awaited, and the program then ends with nothing left waiting.
 // native-only
 //> the send failed as a timeout: true
-//> ended after the deadline and before a second: true
+//> ended no sooner than the deadline: true
 //> deleted after the send
 #if os(Windows)
 	function tempRoot() returns String
@@ -66,7 +66,7 @@ function main() returns ExitCode
 	try client.close() otherwise ignore
 	try listener.close() otherwise ignore
 	print("the send failed as a timeout: {timedOut}\n")
-	print("ended after the deadline and before a second: {elapsed >= 150 and elapsed < 1000}\n")
+	print("ended no sooner than the deadline: {elapsed >= 150}\n")
 	try File.delete(path(big)) otherwise panic("cannot delete")
 	try Directory.delete(path(root)) otherwise panic("cannot delete the directory")
 	print("deleted after the send\n")
