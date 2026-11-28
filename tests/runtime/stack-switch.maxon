@@ -11,16 +11,19 @@ let testRounds = 1000 as Count
 
 let testStackBytes = 1048576 as Count
 
-// The record the two stacks share: the green stack's count and sum, and the two stacks' switch records.
+// The record the two stacks share: the green stack's count and sum, and the two pairs of switch records that
+// rt.stackSwitch takes, main's then the green stack's to go on the green stack, and the reverse to come back. The pairs
+// are the test's own, not the thread context's, which the runtime's park of main's green thread writes: the monitor may
+// stop main between a write of the context's pair and the switch, and the switch would then take the park's records.
 let testCountOffset = 0 as Count
 
 let testSumOffset = 8 as Count
 
-let testMainSwitchOffset = 16 as Count
+let testToGreenOffset = 16 as Count
 
-let testGreenSwitchOffset = 24 as Count
+let testToMainOffset = 32 as Count
 
-let testRecordBytes = 32 as Count
+let testRecordBytes = 48 as Count
 
 // The record of a stop, past the stopped thread's context, where both threads find it: 1 once the thread spins, what it
 // is stopped by (its handle or its thread id), the address it was stopped at and the word that rt.asyncPreempt returns
@@ -61,8 +64,10 @@ function testSwitching()
 	let record = alloc(testRecordBytes)
 	let mainSwitch = alloc(switchBytes)
 	let greenSwitch = alloc(switchBytes)
-	__Raw.storeWord(record, offset: testMainSwitchOffset, value: mainSwitch)
-	__Raw.storeWord(record, offset: testGreenSwitchOffset, value: greenSwitch)
+	__Raw.storeWord(record, offset: testToGreenOffset, value: mainSwitch)
+	__Raw.storeWord(record, offset: __Raw.wrappingAdd(testToGreenOffset, right: wordBytes), value: greenSwitch)
+	__Raw.storeWord(record, offset: testToMainOffset, value: greenSwitch)
+	__Raw.storeWord(record, offset: __Raw.wrappingAdd(testToMainOffset, right: wordBytes), value: mainSwitch)
 	let low = testStack()
 	let top = __Raw.wrappingAdd(low, right: testStackBytes)
 	let sp = __Raw.wrappingSub(top, right: __Raw.wrappingAdd(wordBytes, right: wordBytes))
@@ -74,7 +79,7 @@ function testSwitching()
 	__Raw.storeWord(greenSwitch, offset: switchStackLimitOffset, value: low)
 	__Raw.storeWord(greenSwitch, offset: switchStackLowOffset, value: low)
 	for i in 0 upto testRounds 'rounds'
-		testSwitch(mainSwitch, onto: greenSwitch)
+		testSwitch(__Raw.wrappingAdd(record, right: testToGreenOffset))
 		if __Raw.loadWord(record, offset: testCountOffset) != __Raw.wrappingAdd(i, right: 1) 'count'
 			panic("the green stack did not run once for each switch to it")
 		end 'count'
@@ -95,16 +100,13 @@ function testGreenBody(record Count)
 		let count = __Raw.wrappingAdd(__Raw.loadWord(record, offset: testCountOffset), right: 1)
 		__Raw.storeWord(record, offset: testCountOffset, value: count)
 		__Raw.storeWord(record, offset: testSumOffset, value: __Raw.wrappingAdd(__Raw.loadWord(record, offset: testSumOffset), right: count))
-		testSwitch(__Raw.loadWord(record, offset: testGreenSwitchOffset), onto: __Raw.loadWord(record, offset: testMainSwitchOffset))
+		testSwitch(__Raw.wrappingAdd(record, right: testToMainOffset))
 	end 'rounds'
 end 'testGreenBody'
 
-// testSwitch leaves the running stack for the one of a switch record, through the pair of the thread's context.
-function testSwitch(from Count, onto Count)
-	let context = __Raw.threadContext()
-	__Raw.storeWord(context, offset: contextSwitchFromOffset, value: from)
-	__Raw.storeWord(context, offset: contextSwitchToOffset, value: onto)
-	_ = __Raw.callCode1(__Raw.stackSwitchAddress(), arg1: __Raw.wrappingAdd(context, right: contextSwitchFromOffset))
+// testSwitch leaves the running stack for the one of the second switch record of a pair, saving it into the first.
+function testSwitch(pair Count)
+	_ = __Raw.callCode1(__Raw.stackSwitchAddress(), arg1: pair)
 end 'testSwitch'
 
 // testStack is the lowest address of testStackBytes of committed memory, which the process keeps.
