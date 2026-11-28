@@ -107,6 +107,57 @@ func TestFocusedChoosesTheRegenerationForTheConversionsInputs(t *testing.T) {
 	}
 }
 
+// builtins_gen.go is rewritten by builtingen for any row of the table of built-ins, a runtime-only __Raw one included, and the
+// conversion of the specs reads none of it (TestSpecConversionNeverReadsTheBuiltinTables): its change alone calls for neither
+// the regeneration nor the spec step under the interpreter, and the plan says why.
+func TestFocusedSkipsTheRegenerationForTheBuiltinTablesAlone(t *testing.T) {
+	changed := []string{libraryOnlyTables, "internal/builtingen/table.go"}
+	run, notNeeded, _ := plan(testCandidates(false), changed, focusedOptions{})
+	for _, p := range run {
+		if p.name == specsRegenerates {
+			t.Fatalf("a change of %s chose the regeneration: %s", libraryOnlyTables, p.why)
+		}
+		if p.name == "specs" && !strings.Contains(p.why, "without --interpret") {
+			t.Errorf("the spec step says %q, want it without --interpret", p.why)
+		}
+	}
+	var skipped string
+	for _, n := range notNeeded {
+		if strings.HasPrefix(n, specsRegenerates) {
+			skipped = n
+		}
+	}
+	if !strings.Contains(skipped, "builtins_gen.go does not count: "+libraryOnlyWhy) {
+		t.Errorf("the plan's line for the regeneration is %q, want it to say why the change does not count", skipped)
+	}
+	if len(matching(changed, interpretChange)) > 0 {
+		t.Errorf("a change of %s puts --interpret on the spec step", libraryOnlyTables)
+	}
+}
+
+// Anything else that the conversion reads still calls for the regeneration, with the tables' file beside it too.
+func TestFocusedRegeneratesWhenTheTablesChangeWithAnInputOfTheConversion(t *testing.T) {
+	for _, other := range []string{"cmd/convert/convert.go", "cmd/convert/reserved_gen.go", "self/driver/skips.tsv", "stdlib/bytes/bytes.maxon", "specs/ints.md"} {
+		changed := []string{libraryOnlyTables, other}
+		run, _, _ := plan(testCandidates(false), changed, focusedOptions{})
+		var why string
+		for _, p := range run {
+			if p.name == specsRegenerates {
+				why = p.why
+			}
+		}
+		if !strings.HasPrefix(why, "changed: "+other) || !strings.Contains(why, "builtins_gen.go does not count") {
+			t.Errorf("%s with %s: the regeneration's line is %q, want it to run for %s and say that the tables do not count", libraryOnlyTables, other, why, other)
+		}
+		if len(matching(changed, interpretChange)) != 1 {
+			t.Errorf("%s with %s: the interpreter's paths are %v, want only %s", libraryOnlyTables, other, matching(changed, interpretChange), other)
+		}
+	}
+	if len(matching([]string{libraryOnlyTables}, goChange)) != 1 || len(matching([]string{libraryOnlyTables}, generatorChange)) != 1 {
+		t.Errorf("the tables' file is a Go file that a generator writes: it still calls for the Go steps and the generators")
+	}
+}
+
 // The regeneration runs before the spec step that replays its results.
 func TestFocusedRegeneratesBeforeTheSpecStep(t *testing.T) {
 	got := chosenNames(t, "specs/ints.md")

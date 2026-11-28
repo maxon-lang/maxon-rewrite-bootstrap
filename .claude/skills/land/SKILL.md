@@ -55,7 +55,9 @@ and darwin and `go test ./...`; `internal/`, a generator's input (`codes.tsv`, `
 `runtime/hashfold.maxon`, `runtime/textops.maxon`) or a `*_gen.*` file adds the generators, which fail on a stale generated file; `runtime/`, `self/backend/`, `self/ir/`, `self/interp/` or a test program that uses the scheduler adds the
 behaviours (`--worker-counts=1,2,4`); `cmd/convert/`, `self/driver/skips*`, `stdlib/` or `specs/` adds the regeneration of
 `specs/` (`gate specs`); `specs/`, `stdlib/`, `cmd/convert/`, `self/interp/` or `self/driver/` puts `--interpret` on the spec
-step; `stdlib/` adds the check that it regenerates from maxon's. The run prints which steps it chose and the paths that
+step; `cmd/convert/builtins_gen.go` alone counts for neither (the converter reads its tables only for the library's files,
+never for a spec, whichever row builtingen changed: `TestSpecConversionNeverReadsTheBuiltinTables`), and the plan's line says
+so; `stdlib/` adds the check that it regenerates from maxon's. The run prints which steps it chose and the paths that
 called for them, then each step's time, then `gate time: total X min; slowest: ...`. Not in it, and named in one line:
 the cross-target lanes and compiles, fuzz, debug info and the cache. CI runs them. The
 self-build comparison (`cmd/selfab`) is not a step either: run it by hand when a layout, a lock or a hot path of the back end,

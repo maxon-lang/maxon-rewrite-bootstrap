@@ -33,18 +33,29 @@ type trigger struct {
 	// about says what the paths are, for the line that tells why a step was left out.
 	about   string
 	matches func(path string) bool
+	// exempt is the paths of the trigger that the step does not read after all, and why: a change of one of them alone calls
+	// for nothing, and the plan says so. It is nil for a trigger without an exemption.
+	exempt    func(path string) bool
+	exemptWhy string
+}
+
+// except is the trigger without the paths that the step does not read, whose change the plan names as not counting.
+func except(t trigger, why string, paths ...string) trigger {
+	t.exempt = func(path string) bool { return slices.Contains(paths, path) }
+	t.exemptWhy = why
+	return t
 }
 
 // under is the paths below the directories, or the files of that name.
 func under(names ...string) trigger {
-	return trigger{strings.Join(names, ", "), func(path string) bool {
+	return trigger{about: strings.Join(names, ", "), matches: func(path string) bool {
 		return slices.ContainsFunc(names, func(n string) bool { return strings.HasPrefix(path, n) })
 	}}
 }
 
 // suffixed is the paths that end in one of the suffixes.
 func suffixed(about string, suffixes ...string) trigger {
-	return trigger{about, func(path string) bool {
+	return trigger{about: about, matches: func(path string) bool {
 		return slices.ContainsFunc(suffixes, func(s string) bool { return strings.HasSuffix(path, s) })
 	}}
 }
@@ -55,7 +66,7 @@ func either(triggers ...trigger) trigger {
 	for _, t := range triggers {
 		about = append(about, t.about)
 	}
-	return trigger{strings.Join(about, ", "), func(path string) bool {
+	return trigger{about: strings.Join(about, ", "), matches: func(path string) bool {
 		return slices.ContainsFunc(triggers, func(t trigger) bool { return t.matches(path) })
 	}}
 }
@@ -66,7 +77,7 @@ func either(triggers ...trigger) trigger {
 var schedulerWords = []string{"when", "async", "sleep", "Scheduler", "parallel", "spawn", "post", "notifyAfter", "Timer"}
 
 // schedulerTest is a program or a test of the corpus (tests/) that has one of the words of a program that schedules behaviours.
-var schedulerTest = trigger{"a program of tests/ that uses the scheduler", func(path string) bool {
+var schedulerTest = trigger{about: "a program of tests/ that uses the scheduler", matches: func(path string) bool {
 	if !strings.HasPrefix(path, "tests/") || !strings.HasSuffix(path, ".maxon") {
 		return false
 	}
@@ -75,17 +86,25 @@ var schedulerTest = trigger{"a program of tests/ that uses the scheduler", func(
 }}
 
 var (
-	goChange         = either(under("internal/", "cmd/"), suffixed("any .go file", ".go"), trigger{"go.mod, go.sum", func(p string) bool { return p == "go.mod" || p == "go.sum" }})
+	goChange         = either(under("internal/", "cmd/"), suffixed("any .go file", ".go"), trigger{about: "go.mod, go.sum", matches: func(p string) bool { return p == "go.mod" || p == "go.sum" }})
 	schedulerChange  = either(under("runtime/", "self/backend/", "self/ir/", "self/interp/"), schedulerTest)
-	conversionChange = under("cmd/convert/", "self/driver/skips", "stdlib/", "specs/")
-	interpretChange  = under("specs/", "stdlib/", "cmd/convert/", "self/interp/", "self/driver/")
+	conversionChange = except(under("cmd/convert/", "self/driver/skips", "stdlib/", "specs/"), libraryOnlyWhy, libraryOnlyTables)
+	interpretChange  = except(under("specs/", "stdlib/", "cmd/convert/", "self/interp/", "self/driver/"), libraryOnlyWhy, libraryOnlyTables)
 	stdlibChange     = under("stdlib/")
 	// generatorChange is a change to a generator (internal/) or to a file one reads outside it, or to a generated file itself:
 	// the inputs are the ones the generators of internal/ name by path.
-	generatorChange = either(under("internal/"), trigger{"a generator's input or a *_gen.* file", func(path string) bool {
+	generatorChange = either(under("internal/"), trigger{about: "a generator's input or a *_gen.* file", matches: func(path string) bool {
 		return slices.Contains(generatorInputs, path) || strings.Contains(path, "_gen.")
 	}})
 )
+
+// libraryOnlyTables is the file that builtingen writes from the table of built-ins, whose three maps (builtinNames,
+// builtinMethods, libraryRawMembers) the converter consults only for a source file of maxon's library (stdlib.ps1), never for
+// a spec test: a change of it, whichever row, writes the same specs/. TestSpecConversionNeverReadsTheBuiltinTables holds the
+// converter to that.
+const libraryOnlyTables = "cmd/convert/builtins_gen.go"
+
+const libraryOnlyWhy = "the specs' conversion never reads its tables, only the library's does"
 
 // generatorInputs are the files outside internal/ that a generator reads (internal/*gen name them by path).
 var generatorInputs = []string{
@@ -192,10 +211,11 @@ func plan(all []candidate, changed []string, o focusedOptions) (run []plannedSte
 			}
 			run = append(run, plannedStep{c.step, why})
 		default:
-			if hit := matching(changed, c.rule.when); len(hit) > 0 {
-				run = append(run, plannedStep{c.step, "changed: " + summarize(hit)})
+			hit, ignored := matching(changed, c.rule.when), exempted(changed, c.rule.when)
+			if len(hit) > 0 {
+				run = append(run, plannedStep{c.step, "changed: " + summarize(hit) + notCounting(ignored, c.rule.when)})
 			} else {
-				notNeeded = append(notNeeded, c.name+" (needs a change under "+c.rule.when.about+")")
+				notNeeded = append(notNeeded, c.name+" (needs a change under "+c.rule.when.about+")"+notCounting(ignored, c.rule.when))
 			}
 		}
 	}
@@ -203,14 +223,32 @@ func plan(all []candidate, changed []string, o focusedOptions) (run []plannedSte
 }
 
 func specsInterpretWhy(changed []string, interpret bool) string {
+	ignored := notCounting(exempted(changed, interpretChange), interpretChange)
 	if !interpret {
-		return ", without --interpret: nothing under " + interpretChange.about + " changed"
+		return ", without --interpret: nothing under " + interpretChange.about + " changed" + ignored
 	}
-	return ", with --interpret: changed " + summarize(matching(changed, interpretChange))
+	return ", with --interpret: changed " + summarize(matching(changed, interpretChange)) + ignored
 }
 
+// matching is the changed paths that the trigger's step reads.
 func matching(changed []string, t trigger) []string {
-	return slices.DeleteFunc(slices.Clone(changed), func(p string) bool { return !t.matches(p) })
+	return slices.DeleteFunc(slices.Clone(changed), func(p string) bool { return !t.matches(p) || t.exempt != nil && t.exempt(p) })
+}
+
+// exempted is the changed paths of the trigger that its step does not read after all.
+func exempted(changed []string, t trigger) []string {
+	if t.exempt == nil {
+		return nil
+	}
+	return slices.DeleteFunc(slices.Clone(changed), func(p string) bool { return !t.matches(p) || !t.exempt(p) })
+}
+
+// notCounting says, for the plan's line, which changed paths do not call for the step and why.
+func notCounting(ignored []string, t trigger) string {
+	if len(ignored) == 0 {
+		return ""
+	}
+	return "; " + summarize(ignored) + " does not count: " + t.exemptWhy
 }
 
 // summarize names the first of the paths and counts the rest.

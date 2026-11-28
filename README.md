@@ -360,9 +360,12 @@ windows, linux and darwin and `go test ./...`; `internal/`, a generator's input 
 `self/driver/skips.tsv`, `self/syntax/Maxon.g4`, `runtime/hashfold.maxon`, `runtime/textops.maxon`) or a `*_gen.*` file adds the generators,
 which fail on a stale generated file; `runtime/`, `self/backend/`, `self/ir/`, `self/interp/` or a test program that uses the scheduler adds the behaviours under
 1, 2 and 4 workers; `cmd/convert/`, `self/driver/skips*`, `stdlib/` or `specs/` adds the regeneration of `specs/` (`gate specs`, from maxon's specs
-directory, which `--maxon-specs` or `MAXON_SPECS` names), after which the spec step replays the regeneration's saved results with `--require-passed`
+directory, which `--maxon-specs` or `MAXON_SPECS` names), except that `cmd/convert/builtins_gen.go`, which builtingen rewrites for any row of
+the table of built-ins (a runtime-only `__Raw` one too), counts for neither it nor `--interpret`: the converter consults its three maps only
+for a source file of maxon's library, never for a spec test (`TestSpecConversionNeverReadsTheBuiltinTables` holds it to that), and the plan
+says so on the step's line; after a regeneration the spec step replays the regeneration's saved results with `--require-passed`
 instead of running every test again (a listed test that stopped passing is `LOST` there, which the regeneration's record mode does not fail); `specs/`,
-`stdlib/`, `cmd/convert/`, `self/interp/` or `self/driver/` puts `--interpret` on the spec step; `stdlib/` adds the check that it regenerates from maxon's
+`stdlib/`, `cmd/convert/` (but not `builtins_gen.go`), `self/interp/` or `self/driver/` puts `--interpret` on the spec step; `stdlib/` adds the check that it regenerates from maxon's
 (`--maxon-stdlib` or `MAXON_STDLIB`). The run prints the steps it chose and the paths that called for each, names the steps it leaves out in one line (the
 other targets' lanes and compiles, fuzz, debug info and the cache: CI runs them), prints each step's time, ends with
 `gate time: total X min; slowest: ...` and the time of every step, prints main's last finished CI run as a NOTE when it is red (a red main with a known owner
