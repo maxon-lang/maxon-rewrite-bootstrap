@@ -72,6 +72,11 @@ type suiteRun struct {
 	// recordSpecs is maxon's specs directory when the run converts the specs and records the list of the tests that pass
 	// (recordSpecsFlag), and empty for a run that only requires the list.
 	recordSpecs string
+	// onlyHostTarget has the checks of the runtime and the library run for the host's target alone: a focused gate's
+	// (focused.go), the other targets' being CI's.
+	onlyHostTarget bool
+	// plainSpecs has the spec step run without the interpreter (a focused gate's, when nothing it reads changed).
+	plainSpecs bool
 }
 
 // laneStep is a step and the lane it runs in.
@@ -147,10 +152,14 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		{step{"selftest", func() error { return mm("selftest") }}, "checks"},
 		// Nothing compiles the runtime's source until a program is built, so this is what holds it to the language and to the
 		// signatures the compiler calls, for each target, whose branches of the source differ.
-		{step{"runtime", func() error { return eachTarget(func(t string) error { return mm("check", "runtime", "--target="+t) }) }}, "checks"},
+		{step{"runtime", func() error {
+			return r.eachCheckedTarget(func(t string) error { return mm("check", "runtime", "--target="+t) })
+		}}, "checks"},
 		// A program compiles only the library modules it names, so this is what holds the whole standard library to the
 		// language, for each target.
-		{step{"stdlib", func() error { return eachTarget(func(t string) error { return mm("check", "stdlib", "--target="+t) }) }}, "checks"},
+		{step{"stdlib", func() error {
+			return r.eachCheckedTarget(func(t string) error { return mm("check", "stdlib", "--target="+t) })
+		}}, "checks"},
 		// The compiler's own source is a program too: a rule that it breaks would otherwise show only when the seed is renewed.
 		{step{"self", func() error { return mm("check", "self", "--tests", "--verify-reads") }}, "checks"},
 		{step{"TMPDIR unset", func() error { return compilesWithoutTmpdir(r.h, r.compiler) }}, "checks"},
@@ -172,7 +181,7 @@ func (r suiteRun) steps() ([]laneStep, [][]string) {
 		{step{"self compiles for arm64", func() error { return selfCompilesForArm64(r.compiler) }}, "builds"},
 		{step{"cache", func() error { return cacheTest(r.h, r.compiler) }}, "builds"},
 		{step{"debug info", func() error { return debugInfo(r.h, r.compiler) }}, "builds"},
-		{step{"specs", func() error { return specsRequired(r.compiler, r.recordSpecs != "") }}, "specs"},
+		{step{"specs", func() error { return specsRequired(r.compiler, r.recordSpecs != "", !r.plainSpecs) }}, "specs"},
 		// Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: run gives none.
 		{step{"corpus", func() error {
 			return quiet(nil, r.compiler, slices.Concat([]string{"test"}, verifyFlags(r.h.target), r.testArgs)...)
@@ -342,6 +351,14 @@ func buildEnvRunner() error {
 		return err
 	}
 	return quiet(nil, "go", "build", "-o", envRunnerPath(), "./cmd/envrun")
+}
+
+// eachCheckedTarget runs f for each target whose branches of the runtime and the library the run checks.
+func (r suiteRun) eachCheckedTarget(f func(t string) error) error {
+	if r.onlyHostTarget {
+		return f(r.h.target)
+	}
+	return eachTarget(f)
 }
 
 func eachTarget(f func(t string) error) error {
@@ -616,12 +633,12 @@ var (
 // listed are counted (the line "NEW file.md: test"), so that the list can be extended. A run that records also writes the
 // list again in the same run, as `gate specs` does: the new passes are added, a listed test that the conversion now skips is
 // dropped (the line "DROPPED"), and a listed test that fails stays, so the gate fails on it until it is fixed.
-func specsRequired(compiler string, record bool) error {
+func specsRequired(compiler string, record, interpret bool) error {
 	flags := []string{"--require-passed"}
 	if record {
 		flags = append(flags, "--record-passed")
 	}
-	out, replayed, runErr := specRun(compiler, flags...)
+	out, replayed, runErr := specRun(compiler, interpret, flags...)
 	if replayed != "" {
 		defer fmt.Println(replayed)
 	}
@@ -668,7 +685,7 @@ var specStampEnvironment = []string{"MAXON_MAX_PROCS", "MAXON_HASH_SEED", cacheV
 // runner and finds the runtime and the library beside itself, the spec files (the conversion's skips are lines of them),
 // the skip table the conversion reads, the sources that every test is compiled with, and the environment. The list of the
 // tests that passed is read again by every run, which is why it is left out.
-func specStampOf(compiler string) (string, error) {
+func specStampOf(compiler string, flags []string) (string, error) {
 	compilerSum, err := fileDigest(compiler)
 	if err != nil {
 		return "", err
@@ -681,19 +698,23 @@ func specStampOf(compiler string) (string, error) {
 	for _, name := range specStampEnvironment {
 		env = append(env, name+"="+os.Getenv(name))
 	}
-	return fmt.Sprintf("compiler %s\ninputs %s\nflags %s\nenvironment %s", compilerSum, inputs, specInterpretFlag, strings.Join(env, " ")), nil
+	return fmt.Sprintf("compiler %s\ninputs %s\nflags %s\nenvironment %s", compilerSum, inputs, strings.Join(flags, " "), strings.Join(env, " ")), nil
 }
 
-// specRun runs every spec test with the flags that say what the run makes of the results (--require-passed, --record-passed
-// or both), replaying the kept results when their stamp is the current one, and gives what the runner wrote, the
+// specRun runs every spec test, under the interpreter too when interpret, with the flags that say what the run makes of the
+// results (--require-passed, --record-passed or both), replaying the kept results when their stamp is the current one, and gives what the runner wrote, the
 // line that says it replayed, and whether it ended as required. cmd/envrun sets the environment a test's directives ask for
 // (procs, preempt) for its program alone.
-func specRun(compiler string, classifying ...string) (string, string, error) {
+func specRun(compiler string, interpret bool, classifying ...string) (string, string, error) {
 	if err := buildEnvRunner(); err != nil {
 		return "", "", err
 	}
+	var runFlags []string
+	if interpret {
+		runFlags = []string{specInterpretFlag}
+	}
 	classifying = append(classifying, "--env-runner="+abs(envRunnerPath()))
-	stamp, err := specStampOf(compiler)
+	stamp, err := specStampOf(compiler, runFlags)
 	if err != nil {
 		return "", "", err
 	}
@@ -717,11 +738,11 @@ func specRun(compiler string, classifying ...string) (string, string, error) {
 	if err := os.MkdirAll("bin", 0o755); err != nil {
 		return "", "", err
 	}
-	out, runErr := output(nil, dir, compiler, slices.Concat([]string{"test", specs, specInterpretFlag, "--save-results=" + abs(specResults)}, classifying)...)
+	out, runErr := output(nil, dir, compiler, slices.Concat([]string{"test", specs}, runFlags, []string{"--save-results=" + abs(specResults)}, classifying)...)
 	// A run ends with the runner's code 0 (all as required) or 1 (a test did not pass); another code is a crash or a refusal.
 	var exit *exec.ExitError
 	ended := runErr == nil || errors.As(runErr, &exit) && exit.ExitCode() == 1
-	if after, err := specStampOf(compiler); ended && err == nil && after == stamp && isFile(specResults) {
+	if after, err := specStampOf(compiler, runFlags); ended && err == nil && after == stamp && isFile(specResults) {
 		if err := os.WriteFile(specStamp, []byte(stamp), 0o644); err != nil {
 			return out, "", err
 		}

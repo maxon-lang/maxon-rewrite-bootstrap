@@ -226,7 +226,7 @@ func regenerateSpecs(h host, maxonSpecs string, advance bool) error {
 	if err := convertSpecsIfStale(compiler, maxonSpecs, advance); err != nil {
 		return err
 	}
-	out, replayed, err := specRun(compiler, "--record-passed")
+	out, replayed, err := specRun(compiler, true, "--record-passed")
 	fmt.Print(out)
 	if replayed != "" {
 		fmt.Println(replayed)

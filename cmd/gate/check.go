@@ -17,20 +17,7 @@ import (
 // renewed (gate seed), and by a host-only gate on Windows. Go builds and tests only the generators and the tools.
 func check(h host, testArgs []string) error {
 	compiler := h.compiler("minimaxon")
-	steps := []step{
-		// Only this checkout's Go: gofmt walks dot directories too, and .claude/worktrees holds other checkouts that
-		// agents are editing.
-		{"format", func() error {
-			return quiet(nil, "gofmt", "-w", "cmd", "internal", filepath.Join("tests", "bench", "go"))
-		}},
-		{"go fix", func() error { return quiet(nil, "go", "fix", "./...") }},
-		{"vet", func() error { return quiet(nil, "go", "vet", "./...") }},
-		{"generators", checkGenerated},
-		{"compiler from the seed", func() error { return buildCompiler(h, bySeed) }},
-		// Needs maxon's checkout, which the gate cannot assume (maxonStdlibVariable).
-		{"library regenerates", func() error { return checkStdlibIfMaxon(h) }},
-	}
-	if err := runSteps(steps); err != nil {
+	if err := runSteps(checkSteps(h, nil)); err != nil {
 		return err
 	}
 	if err := suites(h, compiler, testArgs); err != nil {
@@ -39,11 +26,48 @@ func check(h host, testArgs []string) error {
 	// A seed renewal is the one place that proves a compiler reproduces itself, and a host-only gate on Windows has no renewal
 	// to run it: the seed builds C1, C1 builds C2 and C2 builds C3, the same bytes as C2.
 	if h.hostOnly && h.windows() {
-		return runSteps([]step{{"compiler reproduces itself", func() error {
-			return chain(abs(h.seed), h.compiler("c1"), h.compiler("c2"), h.compiler("c3"), nil)
-		}}})
+		return runSteps([]step{chainStep(h)})
 	}
 	return nil
+}
+
+// checkSteps are the steps that come before the suites: the Go of the generators and tools, the generated files, the compiler
+// from the seed and the library that regenerates as committed. vetFor are the GOOS values that go vet runs for, none for the
+// host's own.
+func checkSteps(h host, vetFor []string) []step {
+	return []step{
+		// Only this checkout's Go: gofmt walks dot directories too, and .claude/worktrees holds other checkouts that
+		// agents are editing.
+		{"format", func() error {
+			return quiet(nil, "gofmt", "-w", "cmd", "internal", filepath.Join("tests", "bench", "go"))
+		}},
+		{"go fix", func() error { return quiet(nil, "go", "fix", "./...") }},
+		{"vet", func() error { return vet(vetFor) }},
+		{"generators", checkGenerated},
+		{"compiler from the seed", func() error { return buildCompiler(h, bySeed) }},
+		// Needs maxon's checkout, which the gate cannot assume (maxonStdlibVariable).
+		{"library regenerates", func() error { return checkStdlibIfMaxon(h) }},
+	}
+}
+
+// vet runs go vet for each of the systems, or for the host's own when there are none.
+func vet(systems []string) error {
+	if len(systems) == 0 {
+		return quiet(nil, "go", "vet", "./...")
+	}
+	for _, goos := range systems {
+		if err := quiet([]string{"GOOS=" + goos}, "go", "vet", "./..."); err != nil {
+			return fmt.Errorf("GOOS=%s: %w", goos, err)
+		}
+	}
+	return nil
+}
+
+// chainStep proves that the compiler reproduces itself: the seed builds C1, C1 builds C2 and C2 builds C3, the same bytes as C2.
+func chainStep(h host) step {
+	return step{"compiler reproduces itself", func() error {
+		return chain(abs(h.seed), h.compiler("c1"), h.compiler("c2"), h.compiler("c3"), nil)
+	}}
 }
 
 // generatedRoots are where the generated files are, each named *_gen.*.
