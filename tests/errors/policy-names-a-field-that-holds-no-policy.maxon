@@ -1,4 +1,4 @@
-type Sink
+service Sink
 	var seen as Count
 
 	static function create() returns Self

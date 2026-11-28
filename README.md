@@ -5173,11 +5173,11 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   on another party (`E3221`, "Coroutines: async and await"); and the policies of its messages (`E3946` to `E3951`, `E3957`, see "Overload
   policies") are read from the declaration whoever spawns it. A `spawn` of a `service` of another module checks nothing of it
   again: it only holds the factory it calls to what crosses (`E3217`, `E3140`). A service takes no type parameters yet
-  (`E2015`). `service` is a reserved word (see "Where it differs from Maxon"). Until `spawn` takes only a `service`, `spawn` also
-  starts a `type`, whose rules are checked at the first spawn in the module, as maxon checks them.
-- `spawn T.f(args)` starts a service of the type `T`, declared with `service` or, until `spawn` takes only a `service`, with
-  `type`, and with no type parameters, whose static factory
-  `f` returns `T`, and gives its handle, a `T.handle` (`E3134` for any other target). A mailbox has no capacity. A factory
+  (`E2015`). `service` is a reserved word (see "Where it differs from Maxon"). A `type` has no messages: `self.handle`, `self.stop()`,
+  `reply.later()` and `@policy` are valid in a service alone (`E3222`, `E3946`).
+- `spawn T.f(args)` starts the `service` `T`, whose static factory
+  `f` returns `T`, and gives its handle, a `T.handle` (`E3134` for any other target, a type declared with `type` among them,
+  whose fix declares it `service` where a file of the program holds the declaration). A mailbox has no capacity. A factory
   that cannot throw runs as the service's first message; one that throws runs where the spawn is, and the spawn fails
   with its error (`try spawn ...`).
 - A call through the handle of an export instance method of `T` is a **message** (`E3136` for any other method): the
@@ -5248,7 +5248,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   so only the newest that has not run is handled, at the place in the queue of the first it replaced. The send of a kind
   with a policy takes its place by `rt.service.tryReserve`, which is `rt.service.reserve` while the service is not
   behind, so it costs what any send does then: a plain send's IR is unchanged. `@policy` on a function that is no export
-  instance method of the type's body is `E3946`, a type that implements no `OverloadPolicy` `E3947`, one that reads another
+  instance method of a service's body is `E3946`, a type that implements no `OverloadPolicy` `E3947`, one that reads another
   type's message union `E3950`, and `Latest`, `DropNewest` or another
   coalescing policy on a kind with a reply `E3948`, since the reply would never come; a shedding policy on such a kind is
   answered `busy` at the sender's await (see "Stops"). A send of a kind with a reply and a
@@ -5258,7 +5258,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   queue bound one message longer for each), and its oracles hold under every schedule; `fuzz --services` sends the walks
   of each graph as a kind of each policy of the menu in turn, and of a policy with state of its own.
 - **The message union** (`messageUnionDecl` in `self/syntax/parser.maxon`, `arrivingMessage` in `self/ir/services.maxon`):
-  a type a message of which names a policy, or whose module writes its name before `.Message` (`Conn.Message.readable()`, as a
+  a service a message of which names a policy, or whose module writes its name before `.Message` (`Conn.Message.readable()`, as a
   posted message is named), has `T.Message`, a union the parser declares with a case for each of its message
   kinds, its export instance methods in source order, whose payload is the message's parameters, so `Api.Message` of
   `handle(request Request)` and `data(sample Sample)` is `handle(request Request)` and `data(sample Sample)`. A policy reads
@@ -5442,8 +5442,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   that holds one widened to an interface type. `await` of a Reply is `E3005`. The interpreter models a Reply as an object of
   the promise row it answers, whose free fails it, and its oracles hold every reply to one answer; `fuzz --services` parks
   replies of a deferring kind and answers some, so the stops of its graphs drop the others. A deferring message of a
-  `service` is checked at its declaration, whether or not a module spawns it. Not yet: refusing `reply.later()` in a `type`
-  that no module spawns, which maxon reports (`E3222`); it comes with `spawn` taking only a `service`.
+  `service` is checked at its declaration, whether or not a module spawns it, and `reply.later()` in any other function, a method of a
+  `type` among them, is `E3222`, since only an export instance method of a `service` is a message.
 - A handler that returns or throws **replies**: the send gives `Promise with R` (or `Promise with (R, E)`), which the
   sender awaits as an async call's promise (`try await h.total() otherwise 0`, or `let p = try h.total()` and `await p`);
   `_ = try h.total() ...` drops the reply on the service, and a reply sent as a statement is `E3190`. A reply's promise is
@@ -5709,7 +5709,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   the conversion warns of a Maxon name `service`, and writes `service` for the `type` of each type that a converted program
   spawns, by its name (the files of one run are all read for the spawns, and the code of a spec test is one program), a generic
   type excepted, which a service cannot be yet.
-  `spawn` also still starts a `type`, as maxon does.
+  `spawn` starts a `service` alone, where maxon's starts any type, so a `spawn` of a `type` is `E3134`.
 - **A mailbox has no capacity.** A program writes `spawn T.create()` where maxon writes `spawn(capacity: n) T.create()`,
   sends with no `sendTimeout:`, and matches only `serviceStopped`, the one case of `SendError`, where maxon matches
   `mailboxFull` too: a send never fails or waits for room, and fails only once the service has stopped. The runtime slows

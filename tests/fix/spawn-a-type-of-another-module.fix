@@ -1,0 +1,20 @@
+// A spawn of a type of another module declares that type a service, in the file of its module.
+// --- file: main.maxon
+function main() returns ExitCode
+	let counter = spawn lib.Counter.create()
+	return 0
+end 'main'
+// --- file: lib/lib.maxon
+export typealias Amount = int(0 to 1000000)
+
+export type Counter
+	var n as Amount
+
+	export static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function value() returns Amount
+		return self.n
+	end 'value'
+end 'Counter'

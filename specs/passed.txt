@@ -1868,6 +1868,7 @@ deferred-reply.md: error.a-reply-sent-to-a-service-is-moved-whether-or-not-the-s
 deferred-reply.md: error.reply-later-inside-a-block-is-refused
 deferred-reply.md: error.reply-later-is-the-whole-initializer-of-a-let
 deferred-reply.md: error.reply-later-needs-the-stopped-clause
+deferred-reply.md: error.reply-later-outside-a-service-message-is-refused
 der.md: der.constructed
 der.md: der.headers
 der.md: der.integers

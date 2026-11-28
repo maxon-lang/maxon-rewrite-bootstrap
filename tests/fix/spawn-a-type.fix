@@ -1,0 +1,19 @@
+// A spawn of a type declares it a service, which is where a spawn starts one.
+typealias Amount = int(0 to 1000000)
+
+type Counter
+	var n as Amount
+
+	static function create() returns Self
+		return Self{n: 0}
+	end 'create'
+
+	export function value() returns Amount
+		return self.n
+	end 'value'
+end 'Counter'
+
+function main() returns ExitCode
+	let counter = spawn Counter.create()
+	return 0
+end 'main'

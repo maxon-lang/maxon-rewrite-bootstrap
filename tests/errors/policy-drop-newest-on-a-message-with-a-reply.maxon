@@ -2,7 +2,7 @@ export enum Rejected implements Error
 	invalid
 end 'Rejected'
 
-type Store
+service Store
 	var last as Count
 
 	static function create() returns Self

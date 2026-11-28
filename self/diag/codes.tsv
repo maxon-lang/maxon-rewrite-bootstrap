@@ -105,7 +105,7 @@ ErrHeldBindingNotConforming	E3126	heldAssociatedTypeBindingNotConforming	A value
 ErrMatchArmPayloadBindingConflict	E3129	matchArmPayloadBindingConflict	An arm that binds a payload covers more than one case, so on another case's path the arm would read a value no pattern bound.
 ErrCastTargetIsAContainer	E3131	castTargetIsAContainer	A cast to an instance of a generic that the value's type does not retag to: the elements have a layout of their own.
 ErrBoundBindingDisagrees	E3133	semanticWhereConstraintBindingDisagreement	A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
-ErrSpawnTarget	E3134	semanticServiceNotASpawnTarget	A spawn names no static factory of a type that returns the type.
+ErrSpawnTarget	E3134	semanticServiceNotASpawnTarget	A spawn names no static factory of a type that returns the type, or of a type that is not a service.
 ErrNotAMessage	E3136	semanticServiceNotAMessage	A call through a service handle names no export instance method of the service's type.
 ErrReplyNotCarriable	E3140	semanticServiceReplyNotCarriable	A message replies with what cannot cross back to the sender.
 ErrPromiseBorrowed	E3141	semanticPromiseCannotBeBorrowed	A promise is lent where it would have to be taken: an async call or an await that only borrows it.
@@ -170,7 +170,7 @@ ErrAmbiguousExtension	E3942	-	A call names a method, or a type names a typealias
 ErrLentToCoroutine	E3943	-	A place that an async call lent its coroutine to read is changed or moved before the promise is awaited (README, "Where it differs from Maxon").
 ErrNeedlessTry	E3944	-	A 'try', a 'try' block or an 'if try' covers nothing that can fail: an operation the range analysis proves cannot, an access it proves inside its collection, or a call of a function that does not throw (README, "Where it differs from Maxon").
 ErrLoopInvariant	E3945	-	A while loop's invariant, after 'requires', is not a conjunction of comparisons of integer places, counts and constants, or the range analysis cannot prove it where the loop is entered, at the end of its body or at a 'continue' (README, "Where it differs from Maxon").
-ErrPolicyMisplaced	E3946	-	An '@policy' annotation stands before a function that is no export instance method of a type, the only function a send runs.
+ErrPolicyMisplaced	E3946	-	An '@policy' annotation stands before a function that is no export instance method of a service, the only function a send runs.
 ErrPolicyNotAPolicy	E3947	-	The type an '@policy' annotation names does not implement OverloadPolicy.
 ErrPolicyWithReply	E3948	-	A message that has a reply names a policy that throws messages away unanswered or replaces them: Latest, DropNewest or another CoalescingPolicy.
 ErrPolicyStateNotHeld	E3949	-	An '@policy' annotation names a SheddingPolicy type that has fields: the state its shed changes is a field of the service, named by '@policy(self.field)'.

@@ -270,16 +270,11 @@ export type Checker
 	// pendingPolicies are the messages of the module whose '@policy' is declared once every type of the module is (policies.maxon).
 	export var pendingPolicies as PendingPolicyList
 	// partyWaitNow is whether the function being checked waits on another party: a reply it keeps, or the start of a service
-	// whose factory throws; spawned are the types the module spawns services of, each once, whose messages E3221 asks it of
-	// (services.maxon), at the first spawn of each (spawnSites), servicesChecked the types whose service rules were checked at a
-	// spawn, services the services the module declares, whose rules are checked once at their declarations (checkServiceDecl),
-	// and discardedSend the send that the discard being checked drops the reply of. acts counts the calls (a union case's
-	// construction is none), sends, awaits, async calls, spawns and panics checked, outside a closure's body, by which a
-	// discard tells a value made by doing something from one that already exists (E3067).
+	// whose factory throws; services are the services the module declares, whose rules are checked once at their declarations
+	// (checkServiceDecl, services.maxon), and discardedSend the send that the discard being checked drops the reply of. acts
+	// counts the calls (a union case's construction is none), sends, awaits, async calls, spawns and panics checked, outside a
+	// closure's body, by which a discard tells a value made by doing something from one that already exists (E3067).
 	export var partyWaitNow as bool
-	export var spawned as ast.TypeIDList
-	export var spawnSites as ast.NodeIDList
-	export var servicesChecked as ast.TypeIDList
 	export var services as ast.TypeIDList
 	export var discardedSend as ast.NodeID
 	export var acts as Count
@@ -293,7 +288,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingHandles: PendingHandleList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waitCallArgs: ast.TypeIDLists.create(0), waitBounds: ast.BoundCallList.create(0), instanceWaits: InstanceWaits.new(), waits: WaitFacts.new(), waitSends: UnpolicedSends.create(0), sendsUnpoliced: false, posted: PostedKindList.create(0), pendingAsyncs: PendingAsyncList.create(0), pendingPolicies: PendingPolicyList.create(0), partyWaitNow: false, spawned: ast.TypeIDList.create(0), spawnSites: ast.NodeIDList.create(0), servicesChecked: ast.TypeIDList.create(0), services: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID, acts: 0 as Count, functionBody: 0 as diag.U32, soleStatement: false, armAction: 0 as ast.NodeID}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBorrowFree: PendingBorrowFreeList.create(0), pendingBoxes: PendingBoxList.create(0), pendingHandles: PendingHandleList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", constNamesParams: false, deferredNames: ast.NodeIDList.create(0), deferredHeads: ast.NodeIDList.create(0), inRawValue: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0), waitNow: false, waitCalls: ast.FuncIDList.create(0), waitCallArgs: ast.TypeIDLists.create(0), waitBounds: ast.BoundCallList.create(0), instanceWaits: InstanceWaits.new(), waits: WaitFacts.new(), waitSends: UnpolicedSends.create(0), sendsUnpoliced: false, posted: PostedKindList.create(0), pendingAsyncs: PendingAsyncList.create(0), pendingPolicies: PendingPolicyList.create(0), partyWaitNow: false, services: ast.TypeIDList.create(0), discardedSend: 0 as ast.NodeID, acts: 0 as Count, functionBody: 0 as diag.U32, soleStatement: false, armAction: 0 as ast.NodeID}
 	end 'make'
 end 'Checker'
 

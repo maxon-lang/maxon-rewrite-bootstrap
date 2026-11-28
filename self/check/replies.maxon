@@ -110,19 +110,27 @@ function callReplyLater(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	if f.deferredErrTy == ast.noType or not ast.isLibraryServiceType(p, tt: ms.types, reads: p.types, t: f.deferredErrTy, name: replyStoppedName) 'noStoppedClause'
 		return refuseReplyLater(c, p: p, ms: ms, call: call, why: "a message that defers its reply declares `throws ReplyStopped`: the caller's `await` receives it when the Reply is dropped unanswered", errs: errs)
 	end 'noStoppedClause'
-	if ast.visibilityOf(f.visibility) == ast.Visibility.unexported 'notMessage'
-		return refuseReplyLater(c, p: p, ms: ms, call: call, why: "`reply.later()` appears in '{f.name}', which is not a message of a service: only an `export` or `public` method of a type a `spawn` starts can defer its reply", errs: errs)
+	if not isMessage(p, ms: ms, method: c.rootFn) 'notMessage'
+		// Maxon names the function that is no message, where the `reply.later()` that it holds would be a statement.
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.nodeID), code: diag.errReplyDeferralRefused, msg: notAMessageText(f), errs: errs)
+		return ast.noType
 	end 'notMessage'
 	var given = ast.TypeIDList.create(0)
 	given.push(f.deferredTy)
 	return callFunction(c, p: p, ms: ms, call: call, kind: ast.CallKind.callStatic, target: p.builtins.replyLaterFunc, hasGiven: true, given: given, errs: errs)
 end 'callReplyLater'
 
+// notAMessageText is why `reply.later()` is refused in the function f, which is no message: only an `export` or `public`
+// instance method of a `service` can defer its reply.
+function notAMessageText(f ast.FuncEntry) returns String
+	return "`reply.later()` appears in '{f.name}', which is not a message of a service: only an `export` or `public` method of a type declared `service` can defer its reply"
+end 'notAMessageText'
+
 // whyNoDeferral is why a function whose body is shaped to defer its reply does not, which defersReply decided at its
 // declaration.
 function whyNoDeferral(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncEntry) returns String
 	if f.ownerTy == ast.noType or f.isStatic 'notMethod'
-		return "`reply.later()` appears in '{f.name}', which is not a message of a service: only an `export` or `public` method of a type a `spawn` starts can defer its reply"
+		return notAMessageText(f)
 	end 'notMethod'
 	if f.retTy == p.builtins.voidTy 'noReply'
 		return "a message with no `returns` clause has no reply to defer: give it one, or send the answer another way"

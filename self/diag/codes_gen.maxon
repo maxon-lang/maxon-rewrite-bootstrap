@@ -297,7 +297,7 @@ export let errCastTargetIsAContainer = "E3131"
 // A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
 export let errBoundBindingDisagrees = "E3133"
 
-// A spawn names no static factory of a type that returns the type.
+// A spawn names no static factory of a type that returns the type, or of a type that is not a service.
 export let errSpawnTarget = "E3134"
 
 // A call through a service handle names no export instance method of the service's type.
@@ -492,7 +492,7 @@ export let errNeedlessTry = "E3944"
 // A while loop's invariant, after 'requires', is not a conjunction of comparisons of integer places, counts and constants, or the range analysis cannot prove it where the loop is entered, at the end of its body or at a 'continue' (README, "Where it differs from Maxon").
 export let errLoopInvariant = "E3945"
 
-// An '@policy' annotation stands before a function that is no export instance method of a type, the only function a send runs.
+// An '@policy' annotation stands before a function that is no export instance method of a service, the only function a send runs.
 export let errPolicyMisplaced = "E3946"
 
 // The type an '@policy' annotation names does not implement OverloadPolicy.

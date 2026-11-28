@@ -36,9 +36,9 @@ function placePolicy(mutates c Checker, p ast.Project, mutates ms ast.ModuleStat
 		checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "Unknown annotation '@{f.annotation}' (expected '@policy')", errs: errs)
 		return
 	end 'word'
-	if nt == ast.noType or ast.typeKind(ms.types, reads: p.types, t: nt) != ast.TypeKind.record or f.isStatic or f.visibility != "export" 'misplaced'
+	if nt == ast.noType or ast.typeKind(ms.types, reads: p.types, t: nt) != ast.TypeKind.record or not ast.typeEntry(ms.types, reads: p.types, t: ast.originOf(ms.types, reads: p.types, t: nt)).isService or f.isStatic or f.visibility != "export" 'misplaced'
 		let name = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).name.clone()
-		checkFail(c.modID, off: off, code: diag.errPolicyMisplaced, msg: "'@policy' says what becomes of a message's work while its service is behind, and '{name}' is no message: put it before an 'export function' of a service, or of a type that is spawned, which a send runs", errs: errs)
+		checkFail(c.modID, off: off, code: diag.errPolicyMisplaced, msg: "'@policy' says what becomes of a message's work while its service is behind, and '{name}' is no message: put it before an 'export function' of a service, which a send runs", errs: errs)
 		return
 	end 'misplaced'
 	c.pendingPolicies.push(PendingPolicy.make(f.clone(), fid: fid, nt: nt))

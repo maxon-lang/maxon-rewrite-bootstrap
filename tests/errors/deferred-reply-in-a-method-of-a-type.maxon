@@ -1,0 +1,19 @@
+// An export instance method is a message only of a service: a type that is no service has none, whether or not it is spawned.
+type Plain
+	static function create() returns Self
+		return Self{}
+	end 'create'
+
+	export function ask() returns Count throws ReplyStopped
+		let pending = reply.later()
+		pending.answer(1)
+		return
+	end 'ask'
+end 'Plain'
+
+function main() returns ExitCode
+	let plain = Plain.create()
+	return 0
+end 'main'
+
+// expect-error: E3222 at 7:18

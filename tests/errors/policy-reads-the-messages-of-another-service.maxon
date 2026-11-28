@@ -1,5 +1,5 @@
 // A policy is lent the messages of its own service: one written for another service's message union is refused.
-type Other
+service Other
 	var seen as Count
 
 	static function create() returns Self
@@ -17,7 +17,7 @@ type ForOther implements OverloadPolicy with Other.Message
 	end 'admit'
 end 'ForOther'
 
-type Sink
+service Sink
 	var seen as Count
 
 	static function create() returns Self

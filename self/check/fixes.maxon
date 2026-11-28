@@ -34,6 +34,13 @@ let fixKindDiscard = "no discard"
 
 let fixKindEnds = "ends"
 
+let fixKindService = "service"
+
+// typeKeyword and serviceKeyword are the words that open the declaration of a type and of a service.
+let typeKeyword = "type"
+
+let serviceKeyword = "service"
+
 let fixKindUnrequire = "no requires"
 
 let fixKindThaw = "thaw"
@@ -825,6 +832,36 @@ function endsDeclFix(t ast.Tree, td ast.TypeDecl, calls ast.StringList) returns 
 	edits.push(diag.FixEdit.insert(t.module, at: at32(endLine), text: "\n{indent}function finish(consumes self)\n{body}{indent}end 'finish'\n"))
 	return fixOf(fixKindEnds, edits: edits)
 end 'endsDeclFix'
+
+// serviceHeaderFix writes `service` for the `type` that opens the declaration of the type that ref names, where a file of
+// the program declares it: a type of the library or of the runtime is no file that a fix may edit.
+function serviceHeaderFix(p ast.Project, ref ast.DeclRef) returns diag.Fix
+	if ref.module == diag.stdlibID or ast.isLibraryModule(p, modID: ref.module) or ast.isRuntimeModule(p, modID: ref.module) 'notProgram'
+		return diag.Fix.none()
+	end 'notProgram'
+	for declaring in p.modules 'modules'
+		if declaring.id == ref.module 'declares'
+			return serviceHeaderEdit(declaring.tree, nameAt: declaring.tree.reportStartOf(ast.declNodeID(p, ref: ref)) as Count)
+		end 'declares'
+	end 'modules'
+	return diag.Fix.none()
+end 'serviceHeaderFix'
+
+// serviceHeaderEdit is the fix that writes `service` for the word `type` before the name at nameAt in the text of t, and is no
+// fix where that word does not stand there.
+function serviceHeaderEdit(t ast.Tree, nameAt Count) returns diag.Fix
+	var wordEnd = nameAt
+	while wordEnd > 0 and isBlank(t.text.byteAt(wordEnd - 1)) 'blanks'
+		wordEnd = wordEnd - 1
+	end 'blanks'
+	let wordStart = try wordEnd - typeKeyword.byteLength() otherwise return diag.Fix.none()
+	if t.text.sliceBytes(wordStart, endPos: wordEnd) != typeKeyword 'other'
+		return diag.Fix.none()
+	end 'other'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.make(t.module, begin: at32(wordStart), until: at32(wordEnd), text: serviceKeyword.clone()))
+	return fixOf(fixKindService, edits: edits)
+end 'serviceHeaderEdit'
 
 // boundFix gives the type parameter named param the bound in the where clause of the function or the type declared at decl,
 // a type parameter of its own or, for a function, of the type it is a method of: what "add the bound 'where T implements

@@ -74,7 +74,7 @@ export function verifyHandles(mutates c Checker, p ast.Project, mutates ms ast.M
 		match consumes ast.conformanceSource(p, ms: ms, from: c.modID, t: state, iface: iface) 'source'
 			found(_) then requireHandleMessages(c, p: p, ms: ms, off: handles[i].off, state: state, iface: iface, errs: errs)
 			ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: handles[i].off, typeName: stateName, ifaceName: ifaceName, first: first, second: second, errs: errs)
-			absent then checkFail(c.modID, off: handles[i].off, code: diag.errTypeMismatch, msg: "'{stateName}' does not implement '{ifaceName}', so a '{stateName}.handle' is no '{ifaceName}.handle': declare 'type {stateName} implements {ifaceName}'", errs: errs)
+			absent then checkFail(c.modID, off: handles[i].off, code: diag.errTypeMismatch, msg: "'{stateName}' does not implement '{ifaceName}', so a '{stateName}.handle' is no '{ifaceName}.handle': declare 'service {stateName} implements {ifaceName}'", errs: errs)
 		end 'source'
 	end 'each'
 end 'verifyHandles'
@@ -95,7 +95,7 @@ function requireHandleMessages(mutates c Checker, p ast.Project, mutates ms ast.
 			none gives ast.noFunc
 		end 'own'
 		if not isMessage(p, ms: ms, method: method) 'notMessage'
-			checkFail(c.modID, off: off, code: diag.errNotAMessage, msg: "`interface {ifaceName}` requires `{name}`, and `type {stateName}` implements it, but not as an `export` instance method — so it is not a message of `{stateName}`, and `{ifaceName}.handle` cannot send it to every service behind it. Declare `{name}` on `{stateName}` as an `export` instance method", errs: errs)
+			checkFail(c.modID, off: off, code: diag.errNotAMessage, msg: "`interface {ifaceName}` requires `{name}`, and `service {stateName}` implements it, but not as an `export` instance method — so it is not a message of `{stateName}`, and `{ifaceName}.handle` cannot send it to every service behind it. Declare `{name}` on `{stateName}` as an `export` instance method", errs: errs)
 			continue 'requirements'
 		end 'notMessage'
 		let why = messageDisagreement(p, ms: ms, method: method)

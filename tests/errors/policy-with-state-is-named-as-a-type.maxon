@@ -10,7 +10,7 @@ type Every implements SheddingPolicy with Sink.Message
 	end 'shed'
 end 'Every'
 
-type Sink
+service Sink
 	var seen as Count
 
 	static function create() returns Self

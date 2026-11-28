@@ -8,7 +8,7 @@ type Both implements CoalescingPolicy with Sink.Message, SheddingPolicy with Sin
 	end 'shed'
 end 'Both'
 
-type Sink
+service Sink
 	var seen as Count
 
 	static function create() returns Self

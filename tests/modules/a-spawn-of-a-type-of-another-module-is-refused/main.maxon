@@ -1,0 +1,7 @@
+// A spawn starts a service: Peer is declared with type in lib, so the spawn is refused here, where it is written.
+function main() returns ExitCode
+	let peer = spawn lib.Peer.create()
+	return 0
+end 'main'
+
+// expect-error: E3134 at 3:13
