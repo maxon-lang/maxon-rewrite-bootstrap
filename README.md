@@ -4063,6 +4063,15 @@ end 'main'
   the body calls through the bound. A call with a value of the concrete type is an instance of its own, monomorphized as
   any instance is. A parameter written with an interface type is a value of it, whatever the argument: a method and a
   requirement take no type parameters of their own, so one mechanism serves functions, methods and requirements.
+- **Crossing.** An interface value crosses between threads as the value in its box does: it is frozen, sent in a message
+  or a reply, held by a cown, taken by a behaviour and read by the iterations of a `parallel for`. Putting a value in one
+  asks what a message's argument asks (`ast.unsendable`, see "Services"), so a value that holds a promise is `E3919`, as
+  one that holds a borrow is `E3927`; what the box holds is judged there and never again, and a function value in it
+  crosses, which a message can call only through the interface's methods (`E3221`). A frozen interface value is read as
+  any frozen value is: a call of a method whose receiver is `let` reads the frozen box and writes nothing. In generic
+  code the check cannot see what a type parameter holds, so each instance is judged at its own type arguments where it
+  boxes a value of a type that mentions one (`ir.requireBoxCrossing`), as `freeze` and `cown` are, and refused there as
+  `E3919`.
 
 ### Tuples
 
@@ -4964,8 +4973,7 @@ end 'transfer'
   value moves in at the `when`**, so using it afterwards is `E3102` (a loop that schedules a behaviour that takes a
   variable declared outside it fails the same way); a frozen value and a cown reference are owned values too, so one
   that the enclosing code keeps is shared first (`let own = share(f)`). The behaviour runs on another thread, so what it
-  takes crosses by the rule of a message's arguments (`ast.unsendable`, see "Services"): a promise or a value at an
-  interface type is `E3909`, and in generic code each instance is judged at its own type arguments, where the lower finds
+  takes crosses by the rule of a message's arguments (`ast.unsendable`, see "Services"): a promise is `E3909`, and in generic code each instance is judged at its own type arguments, where the lower finds
   it (`ir.requireCrossings`). A borrow cannot be captured, because the
   behaviour outlives it: a `let`, `mutates` or `sets` parameter, the receiver and its fields, a `match` binding, and `x`
   or `y` of an enclosing behaviour are `E3909`, with the fix named (`share` for a shared value, `clone()` for the rest).
@@ -5049,8 +5057,8 @@ maxon's surface, on the green threads of the runtime (see "Green threads"):
   of one slot is maxon's run-time abort 118 (`promiseSlotConsumedTwice`). `pop` and `remove` give a promise outright. A
   drop cancels every promise of an array or a record before it waits for any, so none of them that has not started
   starts. A value that holds a promise is not
-  put in an interface value (`E3919`), where the rules of what crosses could not see it, and does not cross (`E3171`,
-  `E3216`, `E3217`).
+  put in an interface value (`E3919`), which crosses with what its box holds, and does not cross (`E3171`, `E3216`,
+  `E3217`).
 - **`promises.awaitAny()`** on an `Array with Promise with ...` gives the `ElementIndex` of the first promise that has
   finished, an empty slot holding none, and else waits, registered as the waiter of every one through one selector, as
   Go's select shares one sudog among its cases (`rt.async.awaitAny`); it consumes none. It is a wait on another party
@@ -5078,8 +5086,8 @@ What the body may do is proved by the checker from the borrow rules, with no run
   `mutates self` call, an await of a promise from around it.
 - It does not name the array whose elements it lends to be changed (`E3962`): another iteration is changing it.
 - What it reads from around it is read from several threads at once, so it is what crosses (`ast.unsharable`: as
-  `ast.unsendable`, borrows allowed, since the loop ends before what they borrow from does): no promise, no value at an
-  interface type (`E3963`).
+  `ast.unsendable`, borrows allowed, since the loop ends before what they borrow from does): no promise (`E3963`); an
+  interface value is read freely, since what its box holds crossed when it was put there.
 - `continue` of the loop ends one iteration; `break` of it, a jump to a loop around it, and `return` are `E3961`,
   which says to throw an error to stop the loop or to record what was found in the element. A `break` or `continue`
   of a loop inside the body is a plain one.
@@ -5412,8 +5420,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
 - **What crosses** is one predicate, `ast.unsendable` (`self/ast/crossing.maxon`), for every parameter of a message and of
   the factory, every reply and every error a message throws, at the spawn, and for what a behaviour takes: a scalar, a
   float, a `String`, an enum, a value that owns its parts and holds only what crosses, a `frozen with T` of such a value, a
-  cown, a handle and a function value cross; a borrow, a promise, a value at an interface type, and anything that holds
-  one do not (`E3217`, `E3140` for a reply). A function value crosses as a frozen value does: its closure owns what it
+  cown, a handle, an interface value and a function value cross; a borrow, a promise, and anything that holds one do
+  not (`E3217`, `E3140` for a reply). A function value crosses as a frozen value does: its closure owns what it
   captured and only reads it, or has one owner where it changes it, its count is atomic, and a closure that borrows never
   escapes (`E3925`) nor captures a promise (`E3141`). A service still refuses one, as maxon does (`E3217`,
   `ast.unsendableToService`): a message could call it only by waiting on what the check cannot see (`E3221`). A
@@ -6082,8 +6090,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   behaviour's captures follow too, so `E3200`, `E3207` and `E3214` do not exist and a value that cannot cross is `E3217`
   at the spawn, or `E3140` for a reply. What `freeze` and `cown` are given follows the same rule (`E3171`, maxon's code
   for a value that cannot be shared), since a frozen value is read by every thread that holds it and a cown's value by
-  its behaviours: a value at an interface type is refused there, where maxon walks the conformers the program converts to
-  the interface (the spec tests that freeze one are skipped with that reason). A message that calls through a function value or an interface is `E3221`, where
+  its behaviours. A message that calls through a function value or an interface is `E3221`, where
   maxon's inference counts such a call as no wait: the check cannot see what it runs, so it cannot show that the holder
   never waits on another party (the spec tests that run one are skipped with that reason); and so a method that waits may
   meet a requirement, where maxon refuses it (`E3210`, a requirement never waits; the spec tests that expect that are

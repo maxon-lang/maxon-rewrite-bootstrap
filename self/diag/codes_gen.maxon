@@ -534,7 +534,7 @@ export let errParallelJump = "E3961"
 // A parallel for's body changes or moves what it did not declare, or names the array whose elements it lends to its iterations: an iteration writes only its own element and what it declares.
 export let errParallelWrite = "E3962"
 
-// A parallel for's body reads a variable whose value cannot be read from several threads at once: a promise, a value at an interface type, or one that holds either.
+// A parallel for's body reads a variable whose value cannot be read from several threads at once: a promise, or a value that holds one.
 export let errParallelCapture = "E3963"
 
 // A type written after a module's name, `url.URL.parse(s)`, is also a member of the type of a local or a parameter of the module's name, so the name could mean either.

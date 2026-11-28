@@ -171,9 +171,9 @@ end 'holdsTypeID'
 // a value that owns its parts and holds only parts that cross, a frozen value of one, a cown, a handle and a function value
 // cross. A function value crosses as a frozen value does: its closure owns what it captured and only reads it, or has one
 // owner where it changes it, its count is stepped atomically, and a closure that borrows never escapes (E3925) nor captures
-// a promise (E3141). A borrow ends with a frame of the sender; a promise belongs to the strand that started its coroutine;
-// and a value at an interface type is of a type the send does not know. A value at a type parameter is judged at each
-// instance of the code that sends it: t mentions none there.
+// a promise (E3141). A borrow ends with a frame of the sender; a promise belongs to the strand that started its coroutine.
+// A value at an interface type crosses, since what goes into its box is judged where it is put there (boxCrossingText), by
+// this same rule. A value at a type parameter is judged at each instance of the code that sends it: t mentions none there.
 export function unsendable(mutates tt TypeSlot, reads TypeTable, t TypeID) returns String
 	var visiting = TypeIDList.create(0)
 	return unsendableWithin(tt, reads: reads, t: t, functions: true, borrows: false, visiting: visiting)
@@ -224,7 +224,7 @@ function unsendableWithin(mutates tt TypeSlot, reads TypeTable, t TypeID, functi
 		builtinCursor gives "" if borrows else "'{name}' borrows the buffer it walks"
 		builtinPromise gives "'{name}' is a promise, whose coroutine belongs to the strand that started it"
 		typeParam gives "'{name}' is a type parameter, whose layout the send does not know"
-		interfaceTy gives "'{name}' holds a value of a type the send does not know, which may hold what cannot cross"
+		interfaceTy gives ""
 		funcTy gives "" if functions else "'{name}' is a function value, a closure that a message could call only by waiting on what it cannot see"
 		record gives partsUnsendable(tt, reads: reads, t: t, functions: functions, borrows: borrows, visiting: visiting)
 		unionTy gives partsUnsendable(tt, reads: reads, t: t, functions: functions, borrows: borrows, visiting: visiting)
@@ -283,6 +283,13 @@ export function sharedCrossingText(name String, why String, frozen bool) returns
 	end 'frozen'
 	return "'{name}' cannot be the value of a cown: {why}; a cown's value is used by its behaviours on whichever thread runs them, so it may hold only what crosses between threads. Keep that part out of the cown"
 end 'sharedCrossingText'
+
+// boxCrossingText is the refusal of a value put in an interface value that cannot cross between threads, why being the
+// reason: the interface value is sent, frozen and read from several threads whole, so what its box holds is judged where it
+// goes in.
+export function boxCrossingText(name String, iface String, why String) returns String
+	return "a value of '{name}' cannot be put in a '{iface}' value, which crosses between threads with what it holds: {why}; keep it at '{name}'"
+end 'boxCrossingText'
 
 // behaviourCrossingText is the refusal of a value a behaviour takes that cannot cross to the thread that runs it, why being
 // the reason.

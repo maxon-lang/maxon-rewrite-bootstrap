@@ -300,6 +300,7 @@ function visitSites(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 		let boxed = ast.boxedTo(p.typings[ast.modIndex(module)], node: site)
 		let boxedTy = ast.substituteType(ms.types, reads: p.types, t: exprType(p, module: module, node: site), params: bindParams, args: bindArgs)
 		if boxed != ast.noType and not standsForInterface(p, ms: ms, t: boxedTy) 'box'
+			requireBoxCrossing(p, ms: ms, module: module, site: site, iface: boxed, written: exprType(p, module: module, node: site), t: boxedTy, errs: errs)
 			if not noteTable(p, ms: ms, module: module, site: site, iface: boxed, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, found: found, errs: errs) 'deepTable'
 				return false
 			end 'deepTable'
@@ -423,6 +424,21 @@ function requireShareable(p ast.Project, mutates ms ast.ModuleState, module diag
 		pushInstanceError(p, module: module, site: arg, code: diag.errValueNotShareable, message: ast.sharedCrossingText(name, why: why, frozen: info.intrinsic == ast.Intrinsic.intrFreeze), errs: errs)
 	end 'refused'
 end 'requireShareable'
+
+// requireBoxCrossing refuses, in an instance of generic code, a value put in an interface value at site that cannot cross
+// between threads at the instance's type arguments, which an interface value does whole: the check judged every other box
+// where it was written (check.boxInto). t is the type the value has at the instance, written the type it is written with.
+function requireBoxCrossing(p ast.Project, mutates ms ast.ModuleState, module diag.ModuleID, site ast.NodeID, iface ast.TypeID, written ast.TypeID, t ast.TypeID, mutates errs diag.ErrorList)
+	if not ast.mentionsTypeParam(ms.types, reads: p.types, t: written) 'judged'
+		return
+	end 'judged'
+	let why = ast.unsendable(ms.types, reads: p.types, t: t)
+	if why != "" 'refused'
+		let name = ast.typeName(ms.types, reads: p.types, t: t)
+		let ifaceName = ast.typeName(ms.types, reads: p.types, t: iface)
+		pushInstanceError(p, module: module, site: site, code: diag.errNotDroppable, message: ast.boxCrossingText(name, iface: ifaceName, why: why), errs: errs)
+	end 'refused'
+end 'requireBoxCrossing'
 
 // runsFunction is whether a call of the kind runs a function that can be an instance. A site is recorded for a use that
 // is not the call itself, such as the value that is put in an interface value, which can be a union case or a copy.

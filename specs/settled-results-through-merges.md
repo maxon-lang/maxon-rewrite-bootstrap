@@ -1506,7 +1506,7 @@ error E3197: <fragment>:28:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-conformer-reached-through-an-interface-field-of-a-frozen-holder-is-not-writable -->
-<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The call dispatches through a witness table, so the caller cannot see which conformer answers, and the holder is frozen all the same.
 
@@ -1555,7 +1555,6 @@ error E3197: <fragment>:36:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-conformer-declared-mutable-self-reached-through-a-frozen-holder-is-not-writable -->
-<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1573,8 +1572,8 @@ type Shelf implements Parted
 		return Self{items: Digits.create(0)}
 	end 'create'
 
-	function part() returns Digits
-		return self.items
+	function part(mutates self) returns Digits
+		return self.items.clone()
 	end 'part'
 end 'Shelf'
 
@@ -1588,7 +1587,7 @@ end 'Cabinet'
 
 function main() returns ExitCode
 	let c = freeze(Cabinet.create())
-	let d = c.parted.part()
+	var d = c.parted.part()
 	d.push(1)
 	return 0
 end 'main'

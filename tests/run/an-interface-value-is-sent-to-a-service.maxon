@@ -1,0 +1,105 @@
+// An interface value crosses into a service and back as the value in its box does (ast.unsendable): a message takes one it
+// owns or one lent for the call, a frozen one that both sides share, and replies with one. A function value in the box
+// crosses with it, though a message could call it only through the interface's methods, which a message that holds its
+// service may not do (E3221). Each box is dropped once, on whichever thread ends it.
+typealias Shapes = Array with Shape
+
+typealias Step = function(Count) returns Count
+
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+type Square implements Shape
+	var side as Count
+
+	static function make(side Count) returns Self
+		return Self{side: side}
+	end 'make'
+
+	function area() returns Count
+		return try side * side otherwise 0
+	end 'area'
+end 'Square'
+
+type Rule implements Shape
+	var apply as Step
+	var input as Count
+
+	static function make(consumes apply Step, input Count) returns Self
+		return Self{apply: apply, input: input}
+	end 'make'
+
+	function area() returns Count
+		return self.apply(input)
+	end 'area'
+end 'Rule'
+
+function triple(n Count) returns Count
+	return try n * 3 otherwise 0
+end 'triple'
+
+type Shelf
+	var held as Shapes
+	var seen as Count
+	var shared as Array with frozen with Shape
+
+	static function create() returns Self
+		return Self{held: Shapes.create(0), seen: 0, shared: Array.create(0)}
+	end 'create'
+
+	export function keep(mutates self, consumes shape Shape)
+		self.held.push(shape)
+	end 'keep'
+
+	export function glance(mutates self, shape Shape)
+		self.seen = try self.seen + 1 otherwise 0
+	end 'glance'
+
+	export function keepFrozen(mutates self, consumes table frozen with Shape)
+		self.shared.push(table)
+	end 'keepFrozen'
+
+	export function take(mutates self) returns Shape
+		return try self.held.pop() otherwise (e) 'empty'
+			return Square.make(0) as Shape
+		end 'empty'
+	end 'take'
+
+	export function seenCount() returns Count
+		return self.seen
+	end 'seenCount'
+
+	export function sharedCount() returns Count
+		return self.shared.count()
+	end 'sharedCount'
+end 'Shelf'
+
+function main() returns ExitCode
+	let shelf = spawn Shelf.create()
+	try shelf.keep(Square.make(6) as Shape) otherwise ignore
+	try shelf.keep(Rule.make(triple, input: 11) as Shape) otherwise ignore
+	try shelf.glance(Square.make(2)) otherwise ignore
+	let table = freeze(Square.make(5) as Shape)
+	try shelf.keepFrozen(share(table)) otherwise ignore
+	print("{table.area()}\n")
+	let first = try await shelf.take() otherwise (e) 'stopped'
+		return 1
+	end 'stopped'
+	let second = try await shelf.take() otherwise (e) 'stopped'
+		return 1
+	end 'stopped'
+	let third = try await shelf.take() otherwise (e) 'stopped'
+		return 1
+	end 'stopped'
+	print("{first.area()} {second.area()} {third.area()}\n")
+	let seen = try await shelf.seenCount() otherwise 0
+	let frozenCount = try await shelf.sharedCount() otherwise 0
+	print("{seen} {frozenCount}\n")
+	shelf.shutdown()
+	return 0
+end 'main'
+
+//> 25
+//> 33 36 0
+//> 1 1

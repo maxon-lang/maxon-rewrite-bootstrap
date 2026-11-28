@@ -1,6 +1,6 @@
-// A value that holds a promise may be dropped with its holder, which cancels the promise, but it is not put in an
-// interface value: the promise belongs to the strand that started its coroutine, and the rules of what crosses between
-// threads could not see it there.
+// A value that holds a promise may be dropped with its holder, which cancels the promise, but it is not put in an interface
+// value: the promise belongs to the strand that started its coroutine, and an interface value crosses between threads with
+// what its box holds (ast.unsendable).
 typealias Tag = int(0 to 100)
 
 interface Shape

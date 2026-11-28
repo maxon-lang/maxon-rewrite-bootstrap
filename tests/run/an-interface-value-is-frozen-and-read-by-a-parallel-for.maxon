@@ -1,0 +1,121 @@
+// An interface value crosses between threads as the value in its box does (ast.unsendable, README "Interface values"): it is
+// frozen, and the frozen box is read by every iteration of a parallel for, through a let receiver that writes nothing; a
+// function value in the box crosses too, and is called only through the interface's methods. Each box is dropped once, through
+// its table's drop entry.
+typealias Shapes = Array with Shape
+
+typealias Results = Array with Count
+
+typealias Step = function(Count) returns Count
+
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+type Square implements Shape
+	var side as Count
+
+	static function make(side Count) returns Self
+		return Self{side: side}
+	end 'make'
+
+	function area() returns Count
+		return try side * side otherwise 0
+	end 'area'
+end 'Square'
+
+type Named implements Shape
+	var name as String
+	var scale as Count
+
+	static function make(consumes name String, scale Count) returns Self
+		return Self{name: name, scale: scale}
+	end 'make'
+
+	function area() returns Count
+		return try name.byteLength() * scale otherwise 0
+	end 'area'
+end 'Named'
+
+type Rule implements Shape
+	var apply as Step
+	var input as Count
+
+	static function make(consumes apply Step, input Count) returns Self
+		return Self{apply: apply, input: input}
+	end 'make'
+
+	function area() returns Count
+		return self.apply(input)
+	end 'area'
+end 'Rule'
+
+// boxed puts a value of a type parameter in an interface value, which each instance judges at its own type argument.
+function boxed(consumes value T) uses T returns Shape where T implements Shape and Droppable
+	return value as Shape
+end 'boxed'
+
+function triple(n Count) returns Count
+	return try n * 3 otherwise 0
+end 'triple'
+
+function line(results Results) returns String
+	var out = ""
+	for r in results 'each'
+		out = "{out} {r}"
+	end 'each'
+	return out
+end 'line'
+
+// total is the area of every shape of a frozen array, read from the thread that runs the iteration.
+function total(shapes frozen with Shapes) returns Count
+	var sum = 0 as Count
+	for s in shapes 'each'
+		sum = try sum + s.area() otherwise 0
+	end 'each'
+	return sum
+end 'total'
+
+function main() returns ExitCode
+	let square = freeze(Square.make(7) as Shape)
+	let named = freeze(Named.make("pentagon", scale: 5) as Shape)
+	let rule = freeze(Rule.make(triple, input: 14) as Shape)
+	print("{square.area()} {named.area()} {rule.area()}\n")
+	let again = share(square)
+	print("{again.area()}\n")
+	var results = Results.filled(4, value: 0)
+	parallel for (i, r) in results.enumerated() 'each'
+		r = try square.area() * ((i as Count) + 1) + named.area() + rule.area() otherwise 0
+	end 'each'
+	print("{line(results)}\n")
+	var shapes = Shapes.create(0)
+	shapes.push(Square.make(2))
+	shapes.push(Named.make("ab", scale: 3))
+	shapes.push(Rule.make(triple, input: 5))
+	let frozenShapes = freeze(shapes)
+	var sums = Results.filled(3, value: 0)
+	parallel for (i, s) in sums.enumerated() 'sums'
+		s = try total(frozenShapes) + (i as Count) otherwise 0
+	end 'sums'
+	print("{line(sums)}\n")
+	let own = Square.make(3) as Shape
+	var plain = Results.filled(3, value: 0)
+	parallel for (i, p) in plain.enumerated() 'plain'
+		p = try own.area() + (i as Count) otherwise 0
+	end 'plain'
+	print("{line(plain)}\n")
+	let generic = freeze(boxed(Square.make(4)))
+	var viaGeneric = Results.filled(2, value: 0)
+	parallel for (i, g) in viaGeneric.enumerated() 'generic'
+		g = try generic.area() + (i as Count) otherwise 0
+	end 'generic'
+	print("{line(viaGeneric)}\n")
+	return 0
+end 'main'
+
+//> 49 40 42
+//> 49
+//>  131 180 229 278
+//>  25 26 27
+//>  9 10 11
+//>  16 17

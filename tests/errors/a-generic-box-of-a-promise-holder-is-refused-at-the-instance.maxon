@@ -1,0 +1,51 @@
+// An interface value crosses between threads with what its box holds, so what is put in one must cross (ast.unsendable). In
+// generic code the check cannot see what a type parameter holds, so each instance is judged at its own type arguments
+// (ir.requireBoxCrossing), as what freeze and a cown are given is: a record that holds a promise, whose coroutine belongs to
+// the strand that started it, is refused where the instance boxes it, and a value that crosses is boxed.
+typealias Tag = int(0 to 100)
+
+interface Shape
+	function area() returns Tag
+end 'Shape'
+
+type Plain implements Shape
+	var tag as Tag
+
+	static function create(tag Tag) returns Self
+		return Self{tag: tag}
+	end 'create'
+
+	function area() returns Tag
+		return tag
+	end 'area'
+end 'Plain'
+
+type Holder implements Shape
+	var p as Promise with Tag
+
+	static function create(consumes p Promise with Tag) returns Self
+		return Self{p: p}
+	end 'create'
+
+	function area() returns Tag
+		return 1
+	end 'area'
+end 'Holder'
+
+function nap(tag Tag) returns Tag
+	sleep(1)
+	return tag
+end 'nap'
+
+function boxed(consumes value T) uses T returns Shape where T implements Shape and Droppable
+	return value as Shape
+end 'boxed'
+
+function main() returns ExitCode
+	let fine = boxed(Plain.create(3))
+	let refused = boxed(Holder.create(async nap(1)))
+	print("{fine.area()} {refused.area()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3919 at 41:9

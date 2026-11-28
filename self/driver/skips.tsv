@@ -95,7 +95,7 @@ expect	E3156	language difference: an interface value is one word that owns its v
 run	ErrUseAfterMove	language difference: a value has one owner, so binding, storing or passing it moves it, where maxon shares it by a reference count
 run	ErrAssignToImmutable	language difference: a let, a let field, a let parameter and a match binding are read-only places, where maxon's let only forbids rebinding the name
 run	ErrExclusivity	language difference: a place passed mutates, consumes or sets overlaps nothing else the call or the statement holds, where maxon shares the place by a reference count
-run	ErrNotSendable	language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross
+run	ErrNotSendable	language difference: what crosses into a service is moved or frozen, never lent
 run	ErrCapabilityConversion	language difference: a closure writes what it captured only where its function type mutates captures
 cause	loopHoldsCollection	language difference: a loop holds the collection it walks
 cause	payloadOfBuiltinError	language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back
@@ -106,8 +106,8 @@ run	ErrNotExported,ErrFieldNotExported	language difference: modules are Go's, so
 first	ErrNotExported,ErrFieldNotExported	language difference: modules are Go's, so an unmarked declaration is its module's alone and an export reaches the tree of its module's parent, where maxon's unmarked declaration reaches its directory's subtree and its export the whole project
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 run	ErrHolderMayWait	language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service
-run	ErrValueNotShareable	language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there
-first	ErrValueNotShareable	language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there
+run	ErrValueNotShareable	language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value that holds a promise or a borrow, which does not cross, is refused there
+first	ErrValueNotShareable	language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value that holds a promise or a borrow, which does not cross, is refused there
 test	services.md	a-reply-bearing-send-to-a-full-mailbox-fails-at-the-send	language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services)
 test	services.md	a-capacity-that-is-not-a-power-of-two-fills-drains-and-fills-again-in-order	language difference: a mailbox has no capacity, so a spawn names none, no send fails mailboxFull or waits with sendTimeout:, and the runtime slows a sender of a service that is behind instead (README, Where it differs from Maxon: Services)
 test	fold-constants.md	a-float-division-by-a-constant-zero-is-not-folded	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero

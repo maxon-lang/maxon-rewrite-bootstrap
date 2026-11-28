@@ -1060,7 +1060,6 @@ error E3126: <fragment>:27:6: 'OddBag' binds 'Bag's associated type 'Iter' to 'I
 ```
 
 <!-- test: held.a-generic-conformer-binding-an-instance-over-its-own-parameter-is-frozen -->
-<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 `UpBag with Tally` binds `Cursor` to `UpCursor with Slot`, an instance over its own parameter, so the nested table its `Bag` table carries is the instance's own, and a freeze in a program that spawns a service walks the cursor through it.
 
 ```maxon
@@ -1622,7 +1621,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-parameter-only-a-nested-instance-reads-keep-their-own-tables -->
-<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 `Outer` binds `Bag`'s associated type to `Inner with (Wrap with (X, Y))`. `Wrap` stores only its `X`, so a share walk cannot tell `Wrap with (Tally, bool)` from `Wrap with (Tally, Tally)`; but `Wrap.width` reads `sizeof(Y)`, and `Inner.current` reaches it through its `where W is Probe` witness. The two bindings' `Cursor` tables must stay apart, each handing `current` its own descriptor: 1 and 8.
 
 ```maxon
@@ -1727,7 +1725,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-held-position-no-share-walk-reaches-keep-their-own-tables -->
-<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 `Item` holds its `P` only as the element of an `Array`, a position no share walk of `Item` names. `Item with (Tally, String)` and `Item with (Tally, Tally)` still release different arrays, so each binding's `Cursor` table keeps its own.
 
 ```maxon
@@ -1818,7 +1815,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-constrained-position-keep-their-own-tables -->
-<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 `Item` constrains `P` with `where P is Weigh` and reads `sizeof(P)` in `current`, which the `Cursor` table's adapter reaches through its descriptor and `P`'s witness; the two bindings' tables stay apart: 8 and 16.
 
 ```maxon
@@ -1933,7 +1929,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-constrained-position-nothing-reads-run -->
-<!-- skip: language difference: what is frozen or held in a cown crosses between threads by the rule of a message's arguments, so a value at an interface type, whose conformer the check does not know, is refused there -->
 `Item` constrains `P` and nothing reads it, so the two bindings stay correct whichever tables they get: both answer 1.
 
 ```maxon

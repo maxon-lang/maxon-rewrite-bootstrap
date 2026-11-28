@@ -87,7 +87,9 @@ end 'boxable'
 
 // boxInto puts the value of node, of the type src, in a value of the interface iface, where a value of iface is expected.
 // Whether src implements iface is checked in the verify stage. The box drops what it holds, so the value must be
-// Droppable, and Copyable for an interface that says every value of it is.
+// Droppable, and Copyable for an interface that says every value of it is. An interface value crosses between threads, so
+// the value must cross (ast.unsendable), as what a freeze or a cown is given must: a value of a type that mentions a type
+// parameter is judged at each instance of the generic code (ir.requireBoxCrossing), which the box is recorded for.
 function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, at diag.U32, src ast.TypeID, iface ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
 	let ifaceName = nameOfType(p, ms: ms, t: iface)
 	let srcName = gotName(p, ms: ms, t: src)
@@ -103,11 +105,13 @@ function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, n
 		checkFail(c.modID, off: at, code: diag.errBorrowEscapes, msg: "a value of '{srcName}' holds a borrow, so it cannot be put in a '{ifaceName}' value, which owns what it holds and may outlive what it borrows; pass it where a '{srcName}' is taken", errs: errs)
 		return false
 	end 'borrows'
-	var visiting = ast.TypeIDList.create(0)
-	if holdsPromise(p, ms: ms, t: src, visiting: visiting) 'promise'
-		checkFail(c.modID, off: at, code: diag.errNotDroppable, msg: "a value of '{srcName}' holds a promise, so it cannot be put in a '{ifaceName}' value: a promise belongs to the strand that started its coroutine, which the rules of what crosses between threads keep it in, and they cannot see it through an interface value; keep it at '{srcName}'", errs: errs)
-		return false
-	end 'promise'
+	if not ast.mentionsTypeParam(ms.types, reads: p.types, t: src) 'judged'
+		let why = ast.unsendable(ms.types, reads: p.types, t: src)
+		if why != "" 'refused'
+			checkFail(c.modID, off: at, code: diag.errNotDroppable, msg: ast.boxCrossingText(srcName, iface: ifaceName, why: why), errs: errs)
+			return false
+		end 'refused'
+	end 'judged'
 	let dropping = lacksCap(c, p: p, ms: ms, wantCopy: false, t: src)
 	if dropping.missing 'notDroppable'
 		checkFail(c.modID, off: at, code: diag.errNotDroppable, msg: "a value of '{srcName}' cannot be put in a '{ifaceName}' value, which drops what it holds: {lackWhyText(ms.types, reads: p.types, info: dropping, capName: "Droppable")}; {lackFixText(ms.types, reads: p.types, info: dropping, capName: "Droppable")}", errs: errs)

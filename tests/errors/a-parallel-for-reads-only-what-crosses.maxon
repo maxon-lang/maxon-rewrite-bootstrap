@@ -1,5 +1,5 @@
-// The iterations of a parallel for read what is around it from several threads at once, so the body reads no promise and
-// no value at an interface type; it reads a borrow, a String and an array freely.
+// The iterations of a parallel for read what is around it from several threads at once, so the body reads no promise; it reads
+// a borrow, a String, an array and an interface value, whose box crosses with what it holds, freely.
 typealias Num = int(i64.min to i64.max)
 
 interface Shape
@@ -36,5 +36,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3963 at 31:18
 // expect-error: E3963 at 32:14

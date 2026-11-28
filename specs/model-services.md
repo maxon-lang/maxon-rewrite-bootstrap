@@ -1088,7 +1088,7 @@ error E3197: <fragment>:30:16: cannot write 'h' through 'self', which is read-on
 ```
 
 <!-- test: model-hand-ag-u1-none -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1190,7 +1190,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-none -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1295,7 +1295,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u3-none -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u3-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1396,7 +1396,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u1-copy -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1498,7 +1498,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-copy -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-copy` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1705,7 +1705,7 @@ error E3214: <fragment>:88:17: cannot bind '_' to a unique value read out of a f
 ```
 
 <!-- test: model-hand-ag-u1-call -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u1-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1814,7 +1814,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u2-call -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u2-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -1926,7 +1926,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-u3-call -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `u3-call` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2034,7 +2034,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-none -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2124,7 +2124,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-inner-read -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-inner-read` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2214,7 +2214,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-j1-inner-write -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `j1-inner-write` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2395,7 +2395,7 @@ error E3214: <fragment>:78:20: cannot bind '_' to a unique value read out of a f
 ```
 
 <!-- test: model-hand-ag-f1-none -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f1-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon
@@ -2440,7 +2440,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-f2-none -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `f2-none` of redteamAG.hand_ag6, in capmodel `reggio/REPORTRTAG.txt`.
 
 ```maxon

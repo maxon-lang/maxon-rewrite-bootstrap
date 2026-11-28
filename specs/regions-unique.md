@@ -3840,7 +3840,7 @@ tk3 tk4
 ```
 
 <!-- test: a-fresh-result-holding-a-unique-crosses-whole -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: what crosses into a service is moved or frozen, never lent -->
 `fresh` builds the `Conn` it returns, so its result is the whole of its region and crosses to the service.
 ```maxon
 typealias Integer = int(i64.min to i64.max)

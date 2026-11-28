@@ -6824,6 +6824,7 @@ regions-everywhere.md: a-function-value-throwing-a-clone-of-its-parameter-conver
 regions-everywhere.md: a-result-through-a-writable-interface-value-is-writable
 regions-everywhere.md: a-var-written-through-and-passed-to-a-reading-function-is-accepted
 regions-everywhere.md: a-write-through-a-let-bound-to-ordinary-data-is-legal
+regions-freeze.md: a-string-conformer-widened-to-a-share-reached-interface-runs
 regions-freeze.md: clone-in-a-generic-body-of-a-record-that-holds-itself-through-an-array-runs
 regions-freeze.md: error.freeze-names-the-path-through-a-nested-conformer-to-the-function-value
 regions-freeze.md: error.freeze-through-interfaces-names-tuple-and-instance-conformers
@@ -7550,6 +7551,7 @@ services.md: services.a-reply-built-by-a-free-function-is-fresh
 services.md: services.a-reply-built-by-a-sibling-method-is-fresh
 services.md: services.a-reply-built-by-a-user-type-named-like-a-stdlib-type-is-fresh
 services.md: services.a-reply-forwarded-to-a-sibling-crosses
+services.md: services.a-reply-may-be-a-value-at-an-interface-type
 services.md: services.a-send-inside-a-larger-expression-releases-only-what-its-arguments-built
 services.md: services.a-service-replies-with-a-connection-it-accepted
 services.md: services.a-service-replies-with-a-connection-it-dialled
@@ -7568,6 +7570,7 @@ services.md: services.a-view-of-an-immutable-record-sent-to-a-service-is-sent
 services.md: services.a-viewed-var-of-an-immutable-generic-instance-is-shared-with-the-service
 services.md: services.a-viewed-var-of-an-immutable-record-is-shared-with-the-service
 services.md: services.a-viewed-var-of-an-immutable-union-is-shared-with-the-service
+services.md: services.an-interface-reply-nobody-awaits-is-released
 services.md: services.an-otherwise-merge-of-two-fresh-records-is-sent
 services.md: services.error.a-cell-resident-var-a-closure-only-reads-cannot-be-sent
 services.md: services.error.a-message-that-spawns-a-throwing-factory-is-refused
@@ -7609,6 +7612,7 @@ set.md: negative-values
 set.md: remove-reinsert
 set.md: remove.existing
 set.md: remove.then-contains
+settled-results-through-merges.md: a-conformer-declared-mutable-self-reached-through-a-frozen-holder-is-not-writable
 settled-results-through-merges.md: a-getter-beside-its-own-frozen-data-is-read-only-for-its-caller
 settled-results-through-merges.md: a-getter-beside-its-own-frozen-data-is-readable-through-a-local-var
 settled-results-through-merges.md: a-mixed-result-is-read-and-a-copy-of-it-is-written

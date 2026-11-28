@@ -1,0 +1,71 @@
+// An interface value crosses to the thread that runs a behaviour as the value in its box does (ast.unsendable): a cown
+// holds one, a behaviour that takes one owns it from then on, and a frozen one is shared into behaviours on many cowns, each
+// of which calls through the table of the box. Each box is dropped once, by whichever thread ends it last.
+typealias Step = function(Count) returns Count
+
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+type Square implements Shape
+	var side as Count
+
+	static function make(side Count) returns Self
+		return Self{side: side}
+	end 'make'
+
+	function area() returns Count
+		return try side * side otherwise 0
+	end 'area'
+end 'Square'
+
+type Rule implements Shape
+	var apply as Step
+	var input as Count
+
+	static function make(consumes apply Step, input Count) returns Self
+		return Self{apply: apply, input: input}
+	end 'make'
+
+	function area() returns Count
+		return self.apply(input)
+	end 'area'
+end 'Rule'
+
+type Tally
+	export var total as Count
+
+	static function make() returns Self
+		return Self{total: 0}
+	end 'make'
+end 'Tally'
+
+function triple(n Count) returns Count
+	return try n * 3 otherwise 0
+end 'triple'
+
+function main() returns ExitCode
+	let tally = cown(Tally.make())
+	let held = cown(Square.make(4) as Shape)
+	when held, tally as shape, t 'held'
+		t.total = try t.total + shape.area() otherwise 0
+	end 'held'
+	let own = Rule.make(triple, input: 7) as Shape
+	when tally as t 'own'
+		t.total = try t.total + own.area() otherwise 0
+	end 'own'
+	let table = freeze(Square.make(3) as Shape)
+	for i in 0 upto 4 'readers'
+		let mine = share(table)
+		let target = share(tally)
+		when target as t 'frozen'
+			t.total = try t.total + mine.area() otherwise 0
+		end 'frozen'
+	end 'readers'
+	when tally as t 'report'
+		print("total {t.total}\n")
+	end 'report'
+	return 0
+end 'main'
+
+//> total 73

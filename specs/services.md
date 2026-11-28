@@ -952,7 +952,7 @@ error E3217: <fragment>:32:10: parameter `h` of the factory `Sink.create` is a `
 ```
 
 <!-- test: services.a-message-may-carry-a-value-at-an-interface-type -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 A value held at an interface type crosses a message whole: its witness names the conformer's own ownership
 walk and release, so the service becomes the one owner of the conformer and dispatches through it.
 ```maxon
@@ -14503,7 +14503,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Tally
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
@@ -14514,8 +14514,8 @@ type Factory
 		return Self{made: 0}
 	end 'create'
 
-	export function make(side Tally) returns Shape
-		self.made = self.made + 1
+	export function make(mutates self, side Tally) returns Shape
+		self.made = try self.made + 1 otherwise panic("out of range")
 		return Square.create(side)
 	end 'make'
 end 'Factory'
@@ -14533,7 +14533,6 @@ end 'main'
 ```
 
 <!-- test: services.a-sent-interface-argument-crosses-through-its-witness -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 A `let` binding held at an interface type is moved by the send, exactly as a `let` record is: the send walks it
 through its witness, and the service dispatches through it.
 ```maxon
@@ -14655,7 +14654,6 @@ error E3200: <fragment>:52:13: 'shape' is not isolated: only a clean call, a `sw
 ```
 
 <!-- test: services.a-conformer-holding-a-string-crosses -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 A conformer whose record holds a `String` is walked into that record as a field of it is, and crosses whole.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -14725,7 +14723,7 @@ type Label implements Shape
 	var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 
 	function area() returns Tally
@@ -14740,8 +14738,8 @@ type Factory
 		return Self{made: 0}
 	end 'create'
 
-	export function make(width Tally) returns Shape
-		self.made = self.made + 1
+	export function make(mutates self, width Tally) returns Shape
+		self.made = try self.made + 1 otherwise panic("out of range")
 		return Label.create("w{width}")
 	end 'make'
 
@@ -14850,6 +14848,7 @@ error E2015: <fragment>:37:10: Unsupported: a type argument inferred from a fact
 ```
 
 <!-- test: services.an-interface-argument-sent-to-a-stopped-service-is-handed-back -->
+<!-- skip: language difference: SendError and SubprocessError are built-in enums whose cases carry no payload, so a failed send gives its arguments no way back -->
 A send to a service that has stopped fails with `serviceStopped` and hands the interface-typed argument back,
 still held at its interface type: the arm calls through its witness, and when the binding dies the conformer's
 heap `String` is released rather than leaked (exit 101). An awaited send to the same service fails the same way
@@ -14917,7 +14916,6 @@ end 'main'
 ```
 
 <!-- test: services.interface-arguments-each-take-their-own-payload-slot -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 Each interface-typed parameter of a message takes its witness half in the payload slot after its own, so a
 scalar parameter between two of them still reads its own slot, and a moved binding and a moved temporary cross in
 one send.
@@ -14988,7 +14986,6 @@ end 'main'
 ```
 
 <!-- test: borrow.a-handler-may-write-a-sent-interface-argument -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
 A handler may write an interface-typed parameter through its witness: the send moved the conformer to it.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -15005,7 +15002,7 @@ type Tick implements Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
+	function bump(mutates self)
 		self.n = self.n + 1
 	end 'bump'
 
@@ -17540,7 +17537,7 @@ end 'main'
 ```
 
 <!-- test: a-message-parameter-spelled-through-its-directory-as-a-struct-an-enum-and-an-interface -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- process: own -->
 Message parameters spelled `lib.Item`, `lib.Mode` and `lib.Named`, a struct, an enum and an interface declared in `lib/`, resolve through their declaring directory, so each message is sent, handled and answered: 3 + 10 + 5.
 ```maxon
@@ -18537,7 +18534,7 @@ end 'main'
 ```
 
 <!-- test: services.a-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 Ten arguments — integers, floats and a value held at an interface type — travel to the service's thread in the order and
 register class the factory declares them in, and the interface value is released with its own witness.
 ```maxon
@@ -18931,7 +18928,7 @@ refused
 ```
 
 <!-- test: services.a-throwing-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
-<!-- skip: language difference: what crosses into a service is moved or frozen, never lent, and a value at an interface type, whose conformer the check does not know, does not cross -->
+<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 The spawner's wait costs the start record nothing: ten arguments — integers, floats and a value held at an interface
 type — reach a throwing factory in the order and register class it declares them in, and one that fails releases the
 interface value with its own witness.
