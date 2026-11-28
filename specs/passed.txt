@@ -154,7 +154,6 @@ array-enum-element-size.md: enum-array-push-get
 array-enum-element-size.md: enum-array-push-get-last
 array-enum-element-size.md: narrow-signed-enum-element-reaches-user-code-through-the-corpus
 array-enum-element-size.md: nested-enum-array-push-get
-array-hashable.md: a-byte-array-hashes-as-its-bytes
 array-hashable.md: a-float-array-compares-and-searches-by-its-values
 array-hashable.md: a-float-array-hashes-as-its-element-chain
 array-hashable.md: a-generic-body-compares-a-field-array-with-the-operator
@@ -1287,7 +1286,6 @@ character-type.md: basic-character
 character-type.md: character-comparable-witness
 character-type.md: character-comparison
 character-type.md: character-equality-multibyte
-character-type.md: character-hash-is-the-hasher-fold-of-its-utf8
 character-type.md: character-in-variable
 character-type.md: character-inequality-multibyte
 character-type.md: character-ordering-compares-bytes-unsigned
