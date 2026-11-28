@@ -2034,6 +2034,12 @@ duplicate-typealias.md: non-exported-same-name-function-alias-over-a-tuple-slot
 duplicate-typealias.md: non-exported-same-name-function-alias-over-generic-slots-of-two-bases
 duplicate-typealias.md: non-exported-same-name-function-alias-over-same-spelled-slots
 duplicate-typealias.md: non-exported-same-name-function-alias-same-shape
+ecdh.md: ecdh.peer-coordinates-near-the-prime
+ecdh.md: ecdh.public-key
+ecdh.md: ecdh.shared-secret-1
+ecdh.md: ecdh.shared-secret-2
+ecdh.md: ecdh.shared-secret-3
+ecdh.md: ecdh.shared-secret-4
 ecdsa.md: ecdsa.digest-above-the-order
 ecdsa.md: ecdsa.p384-sign-verify-round-trip
 ecdsa.md: ecdsa.sign-p256
