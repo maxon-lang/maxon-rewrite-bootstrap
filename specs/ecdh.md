@@ -32,6 +32,7 @@ come from Python `cryptography` (OpenSSL).
 ## Tests
 
 <!-- test: ecdh.public-key -->
+<!-- native: every test does elliptic-curve arithmetic over bignums, which the interpreter runs past the run deadline of 10 seconds under a full run's load -->
 `EcdhP256.publicKey` against the canra ecdh-p256 vectors: NIST CAVS, computed edge keys and refused private keys. Vectors public-key-001 to public-key-err-007 (36).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -162,6 +163,7 @@ public-key-err-007 invalidPrivateKey
 ```
 
 <!-- test: ecdh.shared-secret-1 -->
+<!-- native: every test does elliptic-curve arithmetic over bignums, which the interpreter runs past the run deadline of 10 seconds under a full run's load -->
 `EcdhP256.sharedSecret` against the canra ecdh-p256 vectors: NIST CAVS, Wycheproof and constructed refusals. Vectors shared-secret-001 to shared-secret-073 (73).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -366,6 +368,7 @@ shared-secret-073 f1f0e43b374feb7e7f96d4ffe7519fa8bb6c3cfd25f6f87dab2623d2a2d338
 ```
 
 <!-- test: ecdh.shared-secret-2 -->
+<!-- native: every test does elliptic-curve arithmetic over bignums, which the interpreter runs past the run deadline of 10 seconds under a full run's load -->
 `EcdhP256.sharedSecret` against the canra ecdh-p256 vectors: NIST CAVS, Wycheproof and constructed refusals. Vectors shared-secret-074 to shared-secret-146 (73).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -570,6 +573,7 @@ shared-secret-146 05a2ed58207e0d6a99f37a6da640f8b3b1acaf0c16826bc4fd1eb1e2a6a153
 ```
 
 <!-- test: ecdh.shared-secret-3 -->
+<!-- native: every test does elliptic-curve arithmetic over bignums, which the interpreter runs past the run deadline of 10 seconds under a full run's load -->
 `EcdhP256.sharedSecret` against the canra ecdh-p256 vectors: NIST CAVS, Wycheproof and constructed refusals. Vectors shared-secret-147 to shared-secret-219 (73).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -774,6 +778,7 @@ shared-secret-219 5a75bb7a0c96b8340d0842bcccf11974e1a5a2c8f4bc22b333433cce646b6a
 ```
 
 <!-- test: ecdh.shared-secret-4 -->
+<!-- native: every test does elliptic-curve arithmetic over bignums, which the interpreter runs past the run deadline of 10 seconds under a full run's load -->
 `EcdhP256.sharedSecret` against the canra ecdh-p256 vectors: NIST CAVS, Wycheproof and constructed refusals. Vectors shared-secret-220 to shared-secret-err-037 (71).
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -974,6 +979,7 @@ shared-secret-err-037 invalidPrivateKey
 ```
 
 <!-- test: ecdh.peer-coordinates-near-the-prime -->
+<!-- native: every test does elliptic-curve arithmetic over bignums, which the interpreter runs past the run deadline of 10 seconds under a full run's load -->
 `EcdhP256.sharedSecret` with peer points whose x-coordinate is just below `p` (the three on the curve among `p - 1` down to `p - 399`), under private keys `1`, `2`, `n - 1`, `n - 2`, `2^255 - 1` and the RFC 6979 A.2.5 key. The coordinates are loaded into Montgomery form and multiplied while at the edge of the field. The secrets were computed with Python `cryptography` (OpenSSL).
 ```maxon
 function digit(symbol Byte) returns Byte

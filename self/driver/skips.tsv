@@ -869,6 +869,7 @@ test	service-registry.md	error.implementers-of-one-interface-that-disagree-on-a-
 run	ErrDiscardOfExistingValue	language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made)
 first	ErrDiscardOfExistingValue	language difference: E3067 refuses only a discard here, of any value that no call, send, await or panic made, a bare name too, where maxon's also refuses a self-assignment and admits a bare name, a let _ and a value it constructs (README, Where it differs from Maxon: A discard takes a value something made)
 native	rsa.md	*	every test does bignum modular arithmetic, which the interpreter runs in some 15 seconds a test where the executable takes about a second
+native	ecdh.md	*	every test does elliptic-curve arithmetic over bignums, which the interpreter runs past the run deadline of 10 seconds under a full run's load
 manual	sha2.md	sha2.a-million-letters	runs 4.3 s: a million letters hashed twice, which is computing and not waiting
 manual	sched-syscall-handoff.md	an-async-child-wait-leaves-the-sleeping-coroutine-running	runs 2.3 s: the sleeping coroutine outlives a child that ends after seconds, which is waiting
 manual	subprocess.md	subprocess-timeout-carries-the-partial-output	runs 2.2 s: a deadline of seconds on a child that writes and then sleeps, which is waiting
