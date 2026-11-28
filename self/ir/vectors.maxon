@@ -15,16 +15,40 @@ end 'vectorReg'
 // vectorConstant is the constant the argument at index of the call writes, which is at least least and below limit: the
 // runtime's source writes a lane, a shift or a selection as a literal or a named constant, so any other is a compiler fault.
 function vectorConstant(p ast.Project, ms ast.ModuleState, l Lowerer, c CallSite, index Count, least Count, limit Count) returns Count
-	let t = exprType(p, module: l.module, node: c.ordered[index])
-	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.constInt 'notConstant'
-		panic("lower: a lane, a shift or a selection of a vector intrinsic that is not a constant")
-	end 'notConstant'
-	let v = try constBits(p, ms: ms, t: t) as Count otherwise panic("lower: a lane, a shift or a selection of a vector intrinsic below 0")
+	let v = vectorConstantValue(p, ms: ms, l: l, node: c.ordered[index])
 	if v < least or v >= limit 'outside'
 		panic("lower: a lane, a shift or a selection of a vector intrinsic past what it may be")
 	end 'outside'
 	return v
 end 'vectorConstant'
+
+// vectorConstantValue is the value of a literal, or of the name of a constant whose one value the checker found.
+function vectorConstantValue(p ast.Project, ms ast.ModuleState, l Lowerer, node ast.NodeID) returns Count
+	let t = exprType(p, module: l.module, node: node)
+	if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.constInt 'literal'
+		return try constBits(p, ms: ms, t: t) as Count otherwise panic("lower: a lane, a shift or a selection of a vector intrinsic below 0")
+	end 'literal'
+	let through = ast.through(p.modules[l.mi].tree, e: node)
+	if p.modules[l.mi].tree.kindOf(through) != ast.NodeKind.nameExpr 'notName'
+		panic("lower: a lane, a shift or a selection of a vector intrinsic that is not a constant")
+	end 'notName'
+	let name = nameInfoAt(p, module: l.module, node: through)
+	if name.kind != ast.NameKind.nameConst 'notConstant'
+		panic("lower: a lane, a shift or a selection of a vector intrinsic that is not a constant")
+	end 'notConstant'
+	return match consumes ast.declConst(p, ms: ms, ref: name.decl) 'value'
+		some(value) gives constantWord(value)
+		none panic("lower: a constant named as a lane, a shift or a selection of a vector intrinsic has no value")
+	end 'value'
+end 'vectorConstantValue'
+
+// constantWord is the one value the range analysis gave an integer constant, which a lane, a shift or a selection must have.
+function constantWord(value ast.ConstValue) returns Count
+	if not value.low.eq(value.high) or value.low.isNeg() or not value.low.fitsU64() 'notOne'
+		panic("lower: a constant named as a lane, a shift or a selection of a vector intrinsic has no one value in a word")
+	end 'notOne'
+	return value.low.magnitude()
+end 'constantWord'
 
 function vectorBin(mutates l Lowerer, op VecBinOp, args RegList) returns Reg
 	let d = vectorReg(l)
