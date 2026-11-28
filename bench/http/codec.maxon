@@ -1,44 +1,20 @@
-// The HTTP codec benchmark (bench/README.md, "http"): what the converted codec of maxon's library (stdlib/http, httpHelpers)
-// costs to read a request and to write a response, in nanoseconds a request, against maxon's compiler on the same source
-// (bench/http/maxon/codec.maxon) and Go's net/http (bench/http/gobench).
+// The HTTP codec benchmark (bench/README.md, "http"): what the library's server parser (stdlib/http, requestHead) costs to
+// read a request, and what the converted codec of maxon's library (httpHelpers) costs to write a response, in nanoseconds a
+// request, against maxon's compiler on its own codec (bench/http/maxon/codec.maxon) and Go's net/http (bench/http/gobench).
 //
 //	codec <rounds>
 //
 // Four lanes, each run rounds times and timed as a whole:
-// - parse get: a GET with a dozen headers, read from memory by a StreamReader to the head's empty line and parsed by
-//   httpParseRequestHead (its method, target, URL and headers);
-// - parse post 64 KiB: a POST of a 64 KiB body, its head read and parsed so, its Content-Length read by
-//   httpDeclaredBodyLength and the body read whole;
+// - parse get: a GET with a dozen headers, parsed in place from the bytes that have come by parseRequestHead (its method,
+//   version, framing and field ranges) and its target made a String, as a connection hands it to a handler;
+// - parse post 64 KiB: a POST of a 64 KiB body, its head parsed so and its body, the length its Content-Length framed, made
+//   a String;
 // - write small: a 200 with four headers and a 12-byte body, its head built by httpBuildResponseHead and joined to the body;
 // - write 64 KiB: the same with a 64 KiB body.
 // Each prints one `result <lane> <ns a request>` line, and a checksum the work feeds, so no lane is optimized away.
 typealias Rounds = int(1 to 100000000)
 
-let headEnd = "\r\n\r\n"
-
-let headCap = 16384 as LineCap
-
 let bodyBytes = 65536 as BytePos
-
-// MemorySource gives its bytes once, as a socket gives what has come, and then the end.
-type MemorySource implements ByteSource
-	var bytes as ByteArray
-	var given as bool
-
-	static function over(consumes bytes ByteArray) returns MemorySource
-		return MemorySource{bytes: bytes, given: false}
-	end 'over'
-
-	function readSome(mutates self, most ReadCapacity) returns ByteArray throws StreamError
-		if self.given 'ended'
-			return ByteArray.create(0)
-		end 'ended'
-		self.given = true
-		return self.bytes.clone()
-	end 'readSome'
-end 'MemorySource'
-
-typealias MemoryReader = StreamReader with MemorySource
 
 function getRequest() returns String
 	return "GET /api/v1/items?id=42&sort=desc HTTP/1.1\r\nHost: example.com\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.9\r\nAccept-Encoding: gzip, deflate, br\r\nConnection: keep-alive\r\nCache-Control: no-cache\r\nPragma: no-cache\r\nCookie: session=7f3c9a1e5b2d4c8f; theme=dark; lang=en\r\nReferer: https://example.com/catalog/items\r\nX-Request-Id: 2f1e0d3c-4b5a-6978-8796-a5b4c3d2e1f0\r\nUpgrade-Insecure-Requests: 1\r\n\r\n"
@@ -56,25 +32,23 @@ function postRequest(body String) returns String
 	return "POST /api/v1/upload HTTP/1.1\r\nHost: example.com\r\nUser-Agent: bench/1.0\r\nContent-Type: application/octet-stream\r\nContent-Length: {body.byteLength()}\r\n\r\n{body}"
 end 'postRequest'
 
-// parsed reads a request's head out of raw and parses it, and gives a count of what it found.
+// parsed parses a request's head out of raw, as the bytes that have come, and gives a count of what it found.
 function parsed(raw ByteArray, withBody bool) returns Count
-	var reader = MemoryReader.over(MemorySource.over(raw.clone()))
-	let line = try reader.readUntil(headEnd, cap: headCap) otherwise panic("bench: the request is read from memory")
-	let head = match consumes line 'head'
-		line(text) gives text
-		ended or
-		pastTheCap panic("bench: the request has a head")
+	let head = match consumes parseRequestHead(raw, maxHead: 32768, maxLine: 8192, maxFields: 100) 'head'
+		parsed(head, through) gives (head, through)
+		needsMore or
+		refused panic("bench: the request parses")
 	end 'head'
-	let request = try httpParseRequestHead(head, scheme: HttpUrlScheme.http) otherwise panic("bench: the request parses")
-	let headers = match consumes request 'target'
-		resource(_, _, headers) gives headers
-		wholeServer(headers) gives headers
-	end 'target'
-	var found = headers.headers.count()
+	let (request, through) = head
+	var found = (try request.fieldCount() + request.target().byteLength() otherwise 0) as Count
 	if withBody 'body'
-		let declared = try httpDeclaredBodyLength(headers, cap: 1048576) otherwise panic("bench: the length parses")
-		let body = try reader.readBytes(declared) otherwise panic("bench: the body is read")
-		found = try found + String.from(body).byteLength() otherwise found
+		let length = match request.framing 'framing'
+			length(bytes) gives bytes
+			none gives 0 as Count
+		end 'framing'
+		let bodyEnd = try through + length otherwise panic("bench: the body lies in the request")
+		let body = String.from(try raw.slice(through as ElementIndex, endIndex: bodyEnd as ElementIndex) otherwise panic("bench: the body lies in the request"))
+		found = try found + body.byteLength() otherwise found
 	end 'body'
 	return found
 end 'parsed'

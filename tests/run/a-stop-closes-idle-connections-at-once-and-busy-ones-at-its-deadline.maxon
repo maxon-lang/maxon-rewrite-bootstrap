@@ -46,13 +46,13 @@ function main() returns ExitCode
 	var idle = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
 	var busy = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
 	var stalled = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
-	_ = try busy.send("GET /busy HTTP/1.1\r\n") otherwise 0
-	_ = try stalled.send("GET /stalled HTTP/1.1\r\n") otherwise 0
+	_ = try busy.send("GET /busy HTTP/1.1\r\nHost: a\r\n") otherwise 0
+	_ = try stalled.send("GET /stalled HTTP/1.1\r\nHost: a\r\n") otherwise 0
 	try idle.setReadDeadline(5000) otherwise ignore
 	try busy.setReadDeadline(5000) otherwise ignore
 	try stalled.setReadDeadline(5000) otherwise ignore
 	// Connections are accepted in the order they came, so once a later one is answered the three are open.
-	print("a probe: {answerTo(port, request: "GET /probe HTTP/1.1\r\n\r\n")}\n")
+	print("a probe: {answerTo(port, request: "GET /probe HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
 	let stopping = async stopWithin(serving, deadlineMs: 300)
 	let idleGot = readToEnd(idle)
 	print("the idle connection: {"closed with nothing sent" if idleGot.isEmpty() else idleGot}\n")

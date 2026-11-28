@@ -1,0 +1,43 @@
+// The answer to a HEAD is the head its answer would have, its Content-Length that of the body it would send, and no body
+// (RFC 9110 §9.3.2, RFC 9112 §6.3 item 1).
+// native-only
+//> GET: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 18\r\nConnection: close\r\n\r\nGET /page HTTP/1.1
+//> HEAD: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\n
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return answer
+end 'answerTo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	var config = ServerConfig.create()
+	let serving = server.serve(config)
+	print("GET: {answerTo(port, request: "GET /page HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	print("HEAD: {answerTo(port, request: "HEAD /page HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

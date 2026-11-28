@@ -1,0 +1,50 @@
+// A head past any of ServerConfig's caps is a 431 and closes the connection (RFC 6585 §5): its whole size, its request line's
+// (RFC 9112 §3 lets a server answer a long one so) and its count of field lines. A head within them is answered.
+// native-only
+//> within the caps: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 16\r\nConnection: close\r\n\r\nGET /ok HTTP/1.1
+//> a long head: HTTP/1.1 431 Request Header Fields Too Large\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> a long request line: HTTP/1.1 431 Request Header Fields Too Large\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> too many fields: HTTP/1.1 431 Request Header Fields Too Large\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return answer
+end 'answerTo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	var config = ServerConfig.create()
+	config.maxHeadBytes = 80
+	config.maxRequestLineBytes = 40
+	config.maxHeaderCount = 3
+	let serving = server.serve(config)
+	print("within the caps: {answerTo(port, request: "GET /ok HTTP/1.1\r\nHost: a\r\nX-A: 1\r\n\r\n")}\n")
+	print("a long head: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\r\nX-Long: 0123456789012345678901234567890123456789012345678901234567890123456789\r\n\r\n")}\n")
+	print("a long request line: {answerTo(port, request: "GET /0123456789012345678901234567890123456789 HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	print("too many fields: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\r\nX-A: 1\r\nX-B: 2\r\nX-C: 3\r\n\r\n")}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

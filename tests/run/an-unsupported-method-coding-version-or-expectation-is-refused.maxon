@@ -1,0 +1,49 @@
+// A request the server does not support is refused with its status and closes the connection: a method it does not serve
+// is a 501 (RFC 9110 §9.1), a transfer coding, chunked included, is a 501 until request bodies are streamed (RFC 9112 §6.1),
+// an HTTP version other than 1 is a 505 (RFC 9110 §15.6.6), and an expectation other than 100-continue is a 417 (RFC 9110
+// §10.1.1).
+// native-only
+//> TRACE: HTTP/1.1 501 Not Implemented\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> chunked: HTTP/1.1 501 Not Implemented\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> HTTP/2.0: HTTP/1.1 505 HTTP Version Not Supported\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> Expect: other: HTTP/1.1 417 Expectation Failed\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return answer
+end 'answerTo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	var config = ServerConfig.create()
+	let serving = server.serve(config)
+	print("TRACE: {answerTo(port, request: "TRACE / HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	print("chunked: {answerTo(port, request: "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n")}\n")
+	print("HTTP/2.0: {answerTo(port, request: "GET / HTTP/2.0\r\nHost: a\r\n\r\n")}\n")
+	print("Expect: other: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\r\nExpect: something\r\n\r\n")}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

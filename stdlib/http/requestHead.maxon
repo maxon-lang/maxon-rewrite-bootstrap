@@ -1,0 +1,499 @@
+// The server's request parser: it reads a request's head in place over the bytes that have come, once, with no split into
+// lines and no copy per field. A field is a range of the head's bytes, its name matched case-insensitively against the bytes
+// themselves; the fields the connection acts on (Content-Length, Transfer-Encoding, Connection, Expect, Host) are found as
+// they are read. The only strings made are those the handler is handed: the head's bytes are kept as one array, and a target
+// or a field's value becomes a String when it is asked for.
+//
+// It is strict where looseness lets two parsers read one message two ways (RFC 9112 §6.3, §11.2): a line ends with CRLF, and a
+// bare CR or LF is a 400; a field line that starts with whitespace (obs-fold) is a 400; a name holds token bytes only and runs
+// up to its colon; a value holds no control byte but a tab; two Content-Lengths, or one beside a Transfer-Encoding, are a 400;
+// an HTTP/1.1 request has exactly one Host. Up to MostLeadingEmptyLines empty lines before the request line are skipped
+// (RFC 9112 §2.2).
+
+let CarriageReturn = 13 as Byte
+
+let LineFeed = 10 as Byte
+
+let Space = 32 as Byte
+
+let Tab = 9 as Byte
+
+let Colon = 58 as Byte
+
+let Comma = 44 as Byte
+
+let Slash = 47 as Byte
+
+let Asterisk = 42 as Byte
+
+let Dot = 46 as Byte
+
+let DigitZero = 48 as Byte
+
+let DigitNine = 57 as Byte
+
+let DeleteCode = 127 as Byte
+
+// Ored into an ASCII letter, it gives the letter's lowercase, and leaves '-' and the digits as they are.
+let LowercaseBit = 32 as Byte
+
+let MostLeadingEmptyLines = 4 as Count
+
+// The words a field takes in the head's list of fields: where its name starts and ends, where its value starts and ends.
+let FieldWords = 4 as Count
+
+// The most digits a Content-Length is read to: more than any body cap.
+let MostLengthDigits = 15 as Count
+
+// A head's fields, FieldWords words each.
+typealias FieldRanges = Array with Count
+
+// The fields the connection acts on, found as the head is read.
+enum KnownField
+	contentLength
+	transferEncoding
+	connection
+	expect
+	host
+	other
+end 'KnownField'
+
+/// How a request's body is framed: none, or a length.
+public union BodyFraming
+	none
+	length(bytes Count)
+end 'BodyFraming'
+
+/// What looking a field up found: its value, the values of its lines joined by ", " where it has several, or nothing.
+public union FieldLookup
+	found(value String)
+	absent
+end 'FieldLookup'
+
+/// A request's head, over its bytes. The target and the fields' values are made into strings when they are asked for.
+public type RequestHead
+	public let method as HttpMethod
+	/// The minor version of HTTP/1: 0 or 1. A minor version above 1 is read as 1 (RFC 9110 §2.5).
+	public let minorVersion as Count
+	/// How its body is framed.
+	public let framing as BodyFraming
+	/// Whether the connection closes after the answer: `Connection: close`, or HTTP/1.0 without `Connection: keep-alive`.
+	public let closes as bool
+	/// Whether the request asked to be told to send its body (`Expect: 100-continue`).
+	public let expectsContinue as bool
+	let bytes as ByteArray
+	let targetStart as Count
+	let targetEnd as Count
+	let fields as FieldRanges
+
+	static function over(consumes bytes ByteArray, method HttpMethod, minorVersion Count, consumes framing BodyFraming, closes bool, expectsContinue bool, targetStart Count, targetEnd Count, consumes fields FieldRanges) returns RequestHead
+		return RequestHead{method: method, minorVersion: minorVersion, framing: framing, closes: closes, expectsContinue: expectsContinue, bytes: bytes, targetStart: targetStart, targetEnd: targetEnd, fields: fields}
+	end 'over'
+
+	/// The request target, as it was sent.
+	public function target() returns String
+		return String.from(try self.bytes.slice(self.targetStart as ElementIndex, endIndex: self.targetEnd as ElementIndex) otherwise panic("RequestHead.target: the target lies in the head"))
+	end 'target'
+
+	/// How many field lines the head has.
+	public function fieldCount() returns Count
+		return self.fields.count() / FieldWords
+	end 'fieldCount'
+
+	/// The value of the field named `name`, matched as names are, without regard to case: the values of its lines joined by
+	/// ", " where it has several (RFC 9110 §5.3).
+	public function field(name String) returns FieldLookup
+		var joined = ""
+		var seen = false
+		let lines = self.fields.count() / FieldWords
+		for f in 0 upto lines 'each'
+			let at = f * FieldWords
+			if namesMatch(self.bytes, start: self.fields[at], upTo: self.fields[at + 1], name: name) 'named'
+				let value = String.from(try self.bytes.slice(self.fields[at + 2] as ElementIndex, endIndex: self.fields[at + 3] as ElementIndex) otherwise panic("RequestHead.field: a value lies in the head"))
+				joined = "{joined}, {value}" if seen else value
+				seen = true
+			end 'named'
+		end 'each'
+		return FieldLookup.found(joined) if seen else FieldLookup.absent
+	end 'field'
+end 'RequestHead'
+
+/// What reading a head out of the bytes that have come found: the head and the count of bytes it took, more to wait for, or
+/// a request to refuse with a status.
+public union HeadParse
+	parsed(head RequestHead, through Count)
+	needsMore
+	refused(status StatusCode)
+end 'HeadParse'
+
+// The fields of a head the parser acts on, as it reads them.
+type FieldFacts
+	var contentLengths as Count
+	var length as Count
+	var transferEncodings as Count
+	var hosts as Count
+	var closes as bool
+	var keepsAlive as bool
+	var expectsContinue as bool
+	var unknownExpectation as bool
+	var malformed as bool
+
+	static function none() returns FieldFacts
+		return FieldFacts{contentLengths: 0, length: 0, transferEncodings: 0, hosts: 0, closes: false, keepsAlive: false, expectsContinue: false, unknownExpectation: false, malformed: false}
+	end 'none'
+end 'FieldFacts'
+
+/// Read a request's head out of `bytes`, from their start: at most `maxHead` bytes of head, `maxLine` of request line and
+/// `maxFields` field lines, each past it a 431.
+public function parseRequestHead(bytes ByteArray, maxHead Count, maxLine Count, maxFields Count) returns HeadParse
+	let count = bytes.count()
+	var start = 0 as Count
+	var skipped = 0 as Count
+	while skipped < MostLeadingEmptyLines and (try start + 1 otherwise panic("out of range")) < count and bytes[start] == CarriageReturn and bytes[try start + 1 otherwise panic("out of range")] == LineFeed 'leading'
+		start = try start + 2 otherwise panic("out of range")
+		skipped = skipped + 1
+	end 'leading'
+	let lineEnd = lineEndFrom(bytes, at: start)
+	if lineEnd == count 'noLine'
+		return HeadParse.refused(StatusCode.headerFieldsTooLarge) if (try count - start otherwise panic("out of range")) > maxLine else HeadParse.needsMore
+	end 'noLine'
+	if lineEnd == start or bytes[try lineEnd - 1 otherwise panic("out of range")] != CarriageReturn 'bareLineFeed'
+		return HeadParse.refused(StatusCode.badRequest)
+	end 'bareLineFeed'
+	let lineStop = try lineEnd - 1 otherwise panic("out of range")
+	if (try lineStop - start otherwise panic("out of range")) > maxLine 'longLine'
+		return HeadParse.refused(StatusCode.headerFieldsTooLarge)
+	end 'longLine'
+	// The method, a token up to one space.
+	var at = start
+	while at < lineStop and isTokenByte(bytes[at]) 'method'
+		at = at + 1
+	end 'method'
+	if at == start or at == lineStop or bytes[at] != Space 'badMethod'
+		return HeadParse.refused(StatusCode.badRequest)
+	end 'badMethod'
+	let methodEnd = at
+	// The target, visible bytes up to one space.
+	let targetStart = try at + 1 otherwise panic("out of range")
+	at = targetStart
+	while at < lineStop and isTargetByte(bytes[at]) 'target'
+		at = at + 1
+	end 'target'
+	if at == targetStart or at == lineStop or bytes[at] != Space 'badTarget'
+		return HeadParse.refused(StatusCode.badRequest)
+	end 'badTarget'
+	let targetEnd = at
+	// The version, HTTP/1.x and the line's upTo.
+	let versionStart = try at + 1 otherwise panic("out of range")
+	if (try lineStop - versionStart otherwise panic("out of range")) != 8 or not isVersionPrefix(bytes, at: versionStart) or bytes[try versionStart + 6 otherwise panic("out of range")] != Dot or not isDigit(bytes[try versionStart + 5 otherwise panic("out of range")]) or not isDigit(bytes[try versionStart + 7 otherwise panic("out of range")]) 'badVersion'
+		return HeadParse.refused(StatusCode.badRequest)
+	end 'badVersion'
+	if bytes[try versionStart + 5 otherwise panic("out of range")] != DigitZero + 1 'otherMajor'
+		return HeadParse.refused(StatusCode.httpVersionNotSupported)
+	end 'otherMajor'
+	let minor = try (bytes[try versionStart + 7 otherwise panic("out of range")] - DigitZero) as Count otherwise panic("out of range")
+	var method = HttpMethod.get
+	match methodOf(bytes, start: start, upTo: methodEnd) 'method'
+		known(m) then method = m
+		unknown then return HeadParse.refused(StatusCode.notImplemented)
+	end 'method'
+	if not targetFits(bytes, start: targetStart, upTo: targetEnd, method: method) 'targetForm'
+		return HeadParse.refused(StatusCode.badRequest)
+	end 'targetForm'
+	// The field lines, up to the empty line.
+	var fields = FieldRanges.create(0)
+	var facts = FieldFacts.none()
+	var line = try (lineEnd + 1) as Count otherwise panic("out of range")
+	while true 'fields'
+		if (try line + 1 otherwise panic("out of range")) < count and bytes[line] == CarriageReturn and bytes[try line + 1 otherwise panic("out of range")] == LineFeed 'last'
+			break 'fields'
+		end 'last'
+		let fieldEnd = lineEndFrom(bytes, at: line)
+		if fieldEnd == count 'more'
+			return HeadParse.refused(StatusCode.headerFieldsTooLarge) if (try count - start otherwise panic("out of range")) > maxHead else HeadParse.needsMore
+		end 'more'
+		if fieldEnd == line or bytes[try fieldEnd - 1 otherwise panic("out of range")] != CarriageReturn 'bare'
+			return HeadParse.refused(StatusCode.badRequest)
+		end 'bare'
+		if (try fieldEnd - start otherwise panic("out of range")) > maxHead 'longHead'
+			return HeadParse.refused(StatusCode.headerFieldsTooLarge)
+		end 'longHead'
+		if fields.count() / FieldWords >= maxFields 'manyFields'
+			return HeadParse.refused(StatusCode.headerFieldsTooLarge)
+		end 'manyFields'
+		let stop = try fieldEnd - 1 otherwise panic("out of range")
+		var nameEnd = line
+		while nameEnd < stop and isTokenByte(bytes[nameEnd]) 'name'
+			nameEnd = nameEnd + 1
+		end 'name'
+		if nameEnd == line or nameEnd == stop or bytes[nameEnd] != Colon 'badName'
+			return HeadParse.refused(StatusCode.badRequest)
+		end 'badName'
+		var valueStart = try (nameEnd + 1) as Count otherwise panic("out of range")
+		while valueStart < stop and isWhitespace(bytes[valueStart]) 'leadingSpace'
+			valueStart = valueStart + 1
+		end 'leadingSpace'
+		var valueEnd = stop as Count
+		while valueEnd > valueStart and isWhitespace(bytes[valueEnd - 1]) 'trailingSpace'
+			valueEnd = valueEnd - 1
+		end 'trailingSpace'
+		for v in valueStart upto valueEnd 'value'
+			if not isFieldByte(bytes[v]) 'control'
+				return HeadParse.refused(StatusCode.badRequest)
+			end 'control'
+		end 'value'
+		fields.push(line)
+		fields.push(nameEnd)
+		fields.push(valueStart)
+		fields.push(valueEnd)
+		noteField(facts, bytes: bytes, known: knownFieldOf(bytes, start: line, upTo: nameEnd), valueStart: valueStart, valueEnd: valueEnd)
+		line = try fieldEnd + 1 otherwise panic("out of range")
+	end 'fields'
+	let through = try line + 2 otherwise panic("out of range")
+	if (try through - start otherwise panic("out of range")) > maxHead 'longHead'
+		return HeadParse.refused(StatusCode.headerFieldsTooLarge)
+	end 'longHead'
+	if facts.malformed or facts.contentLengths > 1 or (facts.contentLengths > 0 and facts.transferEncodings > 0) 'framing'
+		return HeadParse.refused(StatusCode.badRequest)
+	end 'framing'
+	if facts.transferEncodings > 0 'coded'
+		return HeadParse.refused(StatusCode.notImplemented)
+	end 'coded'
+	if minor > 0 and facts.hosts != 1 'host'
+		return HeadParse.refused(StatusCode.badRequest)
+	end 'host'
+	if facts.unknownExpectation 'expectation'
+		return HeadParse.refused(StatusCode.other(ExpectationFailedStatus))
+	end 'expectation'
+	let framing = BodyFraming.length(facts.length) if facts.contentLengths > 0 and facts.length > 0 else BodyFraming.none
+	let closes = facts.closes or (minor == 0 and not facts.keepsAlive)
+	let kept = try bytes.slice(0, endIndex: through as ElementIndex) otherwise panic("parseRequestHead: the head lies in what has come")
+	let head = RequestHead.over(kept, method: method, minorVersion: 1 if minor > 0 else 0, framing: framing, closes: closes, expectsContinue: facts.expectsContinue and minor > 0, targetStart: targetStart, targetEnd: targetEnd, fields: fields)
+	return HeadParse.parsed(head, through: through)
+end 'parseRequestHead'
+
+// lineEndFrom is the index of the first line feed at or after at, or the count where there is none.
+function lineEndFrom(bytes ByteArray, at Count) returns Count
+	let count = bytes.count()
+	var i = at
+	while i < count and bytes[i] != LineFeed 'seek'
+		i = i + 1
+	end 'seek'
+	return i
+end 'lineEndFrom'
+
+union MethodRead
+	known(method HttpMethod)
+	unknown
+end 'MethodRead'
+
+// methodOf is the method a token names, matched as sent: a method is case-sensitive (RFC 9110 §9.1).
+function methodOf(bytes ByteArray, start Count, upTo Count) returns MethodRead
+	if bytesAre(bytes, start: start, upTo: upTo, text: "GET") 'get'
+		return MethodRead.known(HttpMethod.get)
+	end 'get'
+	if bytesAre(bytes, start: start, upTo: upTo, text: "POST") 'post'
+		return MethodRead.known(HttpMethod.post)
+	end 'post'
+	if bytesAre(bytes, start: start, upTo: upTo, text: "HEAD") 'head'
+		return MethodRead.known(HttpMethod.head)
+	end 'head'
+	if bytesAre(bytes, start: start, upTo: upTo, text: "PUT") 'put'
+		return MethodRead.known(HttpMethod.put)
+	end 'put'
+	if bytesAre(bytes, start: start, upTo: upTo, text: "DELETE") 'delete'
+		return MethodRead.known(HttpMethod.delete)
+	end 'delete'
+	if bytesAre(bytes, start: start, upTo: upTo, text: "PATCH") 'patch'
+		return MethodRead.known(HttpMethod.patch)
+	end 'patch'
+	if bytesAre(bytes, start: start, upTo: upTo, text: "OPTIONS") 'options'
+		return MethodRead.known(HttpMethod.options)
+	end 'options'
+	return MethodRead.unknown
+end 'methodOf'
+
+// targetFits is whether a target has a form the method may send (RFC 9112 §3.2): origin-form, absolute-form, or the asterisk
+// of an OPTIONS. The authority-form is CONNECT's, which is not served.
+function targetFits(bytes ByteArray, start Count, upTo Count, method HttpMethod) returns bool
+	if bytes[start] == Slash 'origin'
+		return true
+	end 'origin'
+	if (try upTo - start otherwise panic("out of range")) == 1 and bytes[start] == Asterisk 'asterisk'
+		return method == HttpMethod.options
+	end 'asterisk'
+	return isAbsoluteForm(bytes, start: start, upTo: upTo)
+end 'targetFits'
+
+// isAbsoluteForm is whether a target is a scheme followed by "://".
+function isAbsoluteForm(bytes ByteArray, start Count, upTo Count) returns bool
+	var at = start
+	while at < upTo and isSchemeByte(bytes[at]) 'scheme'
+		at = at + 1
+	end 'scheme'
+	return at > start and (try at + 3 otherwise panic("out of range")) <= upTo and bytes[at] == Colon and bytes[try at + 1 otherwise panic("out of range")] == Slash and bytes[try at + 2 otherwise panic("out of range")] == Slash
+end 'isAbsoluteForm'
+
+function isVersionPrefix(bytes ByteArray, at Count) returns bool
+	return bytes[at] == 72 and bytes[try at + 1 otherwise panic("out of range")] == 84 and bytes[try at + 2 otherwise panic("out of range")] == 84 and bytes[try at + 3 otherwise panic("out of range")] == 80 and bytes[try at + 4 otherwise panic("out of range")] == Slash
+end 'isVersionPrefix'
+
+// knownFieldOf is which of the fields the connection acts on a name is, by its length and then its bytes.
+function knownFieldOf(bytes ByteArray, start Count, upTo Count) returns KnownField
+	let length = try upTo - start otherwise panic("out of range")
+	if length == 4 and lowerBytesAre(bytes, start: start, upTo: upTo, text: "host") 'host'
+		return KnownField.host
+	end 'host'
+	if length == 6 and lowerBytesAre(bytes, start: start, upTo: upTo, text: "expect") 'expect'
+		return KnownField.expect
+	end 'expect'
+	if length == 10 and lowerBytesAre(bytes, start: start, upTo: upTo, text: "connection") 'connection'
+		return KnownField.connection
+	end 'connection'
+	if length == 14 and lowerBytesAre(bytes, start: start, upTo: upTo, text: "content-length") 'contentLength'
+		return KnownField.contentLength
+	end 'contentLength'
+	if length == 17 and lowerBytesAre(bytes, start: start, upTo: upTo, text: "transfer-encoding") 'transferEncoding'
+		return KnownField.transferEncoding
+	end 'transferEncoding'
+	return KnownField.other
+end 'knownFieldOf'
+
+// noteField records what a field the connection acts on says.
+function noteField(mutates facts FieldFacts, bytes ByteArray, known KnownField, valueStart Count, valueEnd Count)
+	match known 'known'
+		contentLength then noteLength(facts, bytes: bytes, start: valueStart, upTo: valueEnd)
+		transferEncoding then facts.transferEncodings = try facts.transferEncodings + 1 otherwise panic("out of range")
+		host then facts.hosts = try facts.hosts + 1 otherwise panic("out of range")
+		connection then noteConnection(facts, bytes: bytes, start: valueStart, upTo: valueEnd)
+		expect then noteExpectation(facts, bytes: bytes, start: valueStart, upTo: valueEnd)
+		other then return
+	end 'known'
+end 'noteField'
+
+// noteLength reads a Content-Length: one or more digits and nothing else (RFC 9110 §8.6); a list of lengths is malformed.
+function noteLength(mutates facts FieldFacts, bytes ByteArray, start Count, upTo Count)
+	facts.contentLengths = try facts.contentLengths + 1 otherwise panic("out of range")
+	if upTo == start or (try upTo - start otherwise panic("out of range")) > MostLengthDigits 'unread'
+		facts.malformed = true
+		return
+	end 'unread'
+	var value = 0 as Count
+	for i in start upto upTo 'digits'
+		let b = bytes[i]
+		if not isDigit(b) 'notDigit'
+			facts.malformed = true
+			return
+		end 'notDigit'
+		value = try value * 10 + (b - DigitZero) as Count otherwise panic("out of range")
+	end 'digits'
+	facts.length = value
+end 'noteLength'
+
+// noteConnection reads the options of a Connection field, a comma-separated list: close and keep-alive.
+function noteConnection(mutates facts FieldFacts, bytes ByteArray, start Count, upTo Count)
+	var at = start
+	while at < upTo 'options'
+		while at < upTo and (isWhitespace(bytes[at]) or bytes[at] == Comma) 'gap'
+			at = at + 1
+		end 'gap'
+		let optionStart = at
+		while at < upTo and bytes[at] != Comma and not isWhitespace(bytes[at]) 'option'
+			at = at + 1
+		end 'option'
+		if lowerBytesAre(bytes, start: optionStart, upTo: at, text: "close") 'close'
+			facts.closes = true
+		end 'close'
+		if lowerBytesAre(bytes, start: optionStart, upTo: at, text: "keep-alive") 'keepAlive'
+			facts.keepsAlive = true
+		end 'keepAlive'
+	end 'options'
+end 'noteConnection'
+
+// noteExpectation reads an Expect field: 100-continue is the one expectation (RFC 9110 §10.1.1), and any other is answered
+// 417.
+function noteExpectation(mutates facts FieldFacts, bytes ByteArray, start Count, upTo Count)
+	if lowerBytesAre(bytes, start: start, upTo: upTo, text: "100-continue") 'continue'
+		facts.expectsContinue = true
+		return
+	end 'continue'
+	facts.unknownExpectation = true
+end 'noteExpectation'
+
+// bytesAre is whether the bytes from start to upTo are the bytes of text.
+function bytesAre(bytes ByteArray, start Count, upTo Count, text String) returns bool
+	let length = text.byteLength()
+	if (try upTo - start otherwise panic("out of range")) != length 'length'
+		return false
+	end 'length'
+	for i in 0 upto length 'each'
+		if bytes[try start + i otherwise panic("out of range")] != text.byteAt(i) 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'bytesAre'
+
+// lowerBytesAre is whether the bytes from start to upTo are the bytes of text, a lowercase name, whatever their case. text
+// holds only lowercase letters, digits and '-', which the lowercase bit leaves as they are.
+function lowerBytesAre(bytes ByteArray, start Count, upTo Count, text String) returns bool
+	let length = text.byteLength()
+	if (try upTo - start otherwise panic("out of range")) != length 'length'
+		return false
+	end 'length'
+	for i in 0 upto length 'each'
+		if (bytes[try start + i otherwise panic("out of range")] or LowercaseBit) != text.byteAt(i) 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'lowerBytesAre'
+
+// namesMatch is whether a field's name, from start to upTo, is name, whatever the case of either.
+function namesMatch(bytes ByteArray, start Count, upTo Count, name String) returns bool
+	let length = name.byteLength()
+	if (try upTo - start otherwise panic("out of range")) != length 'length'
+		return false
+	end 'length'
+	for i in 0 upto length 'each'
+		if lowerOf(bytes[try start + i otherwise panic("out of range")]) != lowerOf(name.byteAt(i)) 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'namesMatch'
+
+function lowerOf(b Byte) returns Byte
+	return b or LowercaseBit if b >= 65 and b <= 90 else b
+end 'lowerOf'
+
+function isDigit(b Byte) returns bool
+	return b >= DigitZero and b <= DigitNine
+end 'isDigit'
+
+function isWhitespace(b Byte) returns bool
+	return b == Space or b == Tab
+end 'isWhitespace'
+
+// isTokenByte is whether a byte may be in a token (RFC 9110 §5.6.2): a letter, a digit, or one of !#$%&'*+-.^_`|~.
+function isTokenByte(b Byte) returns bool
+	if (b >= 97 and b <= 122) or (b >= 65 and b <= 90) or isDigit(b) 'alnum'
+		return true
+	end 'alnum'
+	return b == 33 or (b >= 35 and b <= 39) or b == 42 or b == 43 or b == 45 or b == 46 or b == 94 or b == 95 or b == 96 or b == 124 or b == 126
+end 'isTokenByte'
+
+// isTargetByte is whether a byte may be in a request target: a visible ASCII byte.
+function isTargetByte(b Byte) returns bool
+	return b > Space and b < DeleteCode
+end 'isTargetByte'
+
+// isSchemeByte is whether a byte may be in a URI scheme: a letter, a digit, '+', '-' or '.'.
+function isSchemeByte(b Byte) returns bool
+	return (b >= 97 and b <= 122) or (b >= 65 and b <= 90) or isDigit(b) or b == 43 or b == 45 or b == Dot
+end 'isSchemeByte'
+
+// isFieldByte is whether a byte may be in a field's value (RFC 9110 §5.5): a visible byte, a space, a tab or obs-text.
+function isFieldByte(b Byte) returns bool
+	return b == Tab or (b >= Space and b != DeleteCode)
+end 'isFieldByte'

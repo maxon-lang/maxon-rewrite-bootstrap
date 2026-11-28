@@ -6522,9 +6522,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   connection ends, so the kernel's backlog holds the rest. Each connection is a service of its own (`conn.maxon`) on its
   socket's readiness and one `Timer`; a connection that has sent no byte of a head when its head deadline passes is closed with
   no 408, as an idle one is. `ServerConfig` holds the limits and deadlines, sized for clients that misbehave by
-  bug, not for attackers. Not yet: the handler (a stand-in answers with the request line), keep-alive, bodies and the
-  limits other than the head's size and deadline; every answer closes its connection. maxon's `accept()`, `serve(handler)`
-  and `HttpServerLimits` are not provided.
+  bug, not for attackers. A request's head is parsed in place over the bytes that have come (`requestHead.maxon`,
+  `parseRequestHead`, giving a `RequestHead`): its fields are ranges of one copy of the head, their names matched without regard
+  to case against the bytes, and a target or a value becomes a String when it is asked for. Framing is strict: a bare CR or LF,
+  an obs-fold, whitespace before a colon, a control byte in a value, two Content-Lengths, Content-Length beside
+  Transfer-Encoding, and an HTTP/1.1 request with no Host or two are each a 400; an unknown method and any transfer coding,
+  chunked included, are a 501, a version other than 1 a 505, an expectation other than 100-continue a 417, a head past its caps
+  a 431 and a body past its cap a 413, answered from the head. `Expect: 100-continue` is answered `100 Continue` before the body
+  is read, and the answer to a HEAD carries its head alone. Not yet: the handler (a stand-in answers with the request line and
+  the body's length), keep-alive and the linger at close; every answer closes its connection. maxon's `accept()`,
+  `serve(handler)` and `HttpServerLimits` are not provided.
 - **There is no TEST-NET-1 short-circuit.** minimaxon has no TEST-NET-1 short-circuit; a connect dials as Go's does and the OS's timeout applies, where maxon's runtime refuses `192.0.2.0/24` without dialling (its two spec tests that connect there with no deadline are skipped with this reason).
 - **A file's close throws.** maxon's `close()` throws nothing and its drop discards what the system's close reports. Here,
   as Go's `Close` does, `close()` throws it, `__ManagedFileError.writeFailed`, which `FileWriter.close` throws as

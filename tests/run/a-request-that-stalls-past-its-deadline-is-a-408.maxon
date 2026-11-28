@@ -1,0 +1,53 @@
+// A request that stalls is answered 408 and closed once its deadline passes (RFC 9110 §15.5.9): a head still unfinished at
+// ServerConfig.headDeadlineMs from the connection's start, and a body still short at bodyDeadlineMs from the end of its head.
+// A connection that has sent no byte of a head by then is closed with nothing sent, as an idle one is. The deadlines are
+// short here, so the test waits a tenth of a second for each.
+// native-only
+//> a stalled head: HTTP/1.1 408 Request Timeout\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> a stalled body: HTTP/1.1 408 Request Timeout\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> nothing sent: closed with nothing sent
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return answer
+end 'answerTo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	var config = ServerConfig.create()
+	config.headDeadlineMs = 100
+	config.bodyDeadlineMs = 100
+	let serving = server.serve(config)
+	print("a stalled head: {answerTo(port, request: "GET / HTTP/1.1\r\nHost: a\r\n")}\n")
+	print("a stalled body: {answerTo(port, request: "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 10\r\n\r\n")}\n")
+	var silent = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	try silent.setReadDeadline(5000) otherwise ignore
+	let got = readToEnd(silent)
+	print("nothing sent: {"closed with nothing sent" if got.isEmpty() else got}\n")
+	try silent.close() otherwise ignore
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

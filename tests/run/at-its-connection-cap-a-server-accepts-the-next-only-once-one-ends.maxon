@@ -42,9 +42,9 @@ function main() returns ExitCode
 	config.maxConnections = ConnectionCap.atMost(1)
 	let serving = server.serve(config)
 	var first = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
-	_ = try first.send("GET /one HTTP/1.1\r\n") otherwise 0
+	_ = try first.send("GET /one HTTP/1.1\r\nHost: a\r\n") otherwise 0
 	var second = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
-	_ = try second.send("GET /two HTTP/1.1\r\n\r\n") otherwise 0
+	_ = try second.send("GET /two HTTP/1.1\r\nHost: a\r\n\r\n") otherwise 0
 	try second.setReadDeadline(200) otherwise ignore
 	let early = try second.readSome(4096) otherwise ByteArray.create(0)
 	print("the second while the first is open: {"no answer yet" if early.isEmpty() else shown(String.from(early))}\n")
@@ -55,8 +55,8 @@ function main() returns ExitCode
 	try second.setReadDeadline(5000) otherwise ignore
 	print("the second: {readToEnd(second)}\n")
 	try second.close() otherwise ignore
-	print("the third: {answerTo(port, request: "GET /three HTTP/1.1\r\n\r\n")}\n")
-	print("the fourth: {answerTo(port, request: "GET /four HTTP/1.1\r\n\r\n")}\n")
+	print("the third: {answerTo(port, request: "GET /three HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
+	print("the fourth: {answerTo(port, request: "GET /four HTTP/1.1\r\nHost: a\r\n\r\n")}\n")
 	serving.stop(1000)
 	print("stopped\n")
 	return 0

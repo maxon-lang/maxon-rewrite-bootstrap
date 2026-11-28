@@ -1,0 +1,56 @@
+// A request that asks to be told to send its body (Expect: 100-continue) is sent `100 Continue` once its head has passed the
+// limits and before any of its body is read, and is answered once its body has come (RFC 9110 §10.1.1, RFC 9112 §9.2). One
+// whose body came with its head is not told, since it sent it already, and one whose body is past the cap is answered 413
+// with no 100 (RFC 9110 §10.1.1: a server that will refuse the request answers without it).
+// native-only
+//> told: HTTP/1.1 100 Continue\r\n\r\n
+//> answered: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 30\r\nConnection: close\r\n\r\nPOST /up HTTP/1.1 with 5 bytes
+//> sent with its head: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 30\r\nConnection: close\r\n\r\nPOST /up HTTP/1.1 with 5 bytes
+//> past the cap: HTTP/1.1 413 Payload Too Large\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return answer
+end 'answerTo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	var config = ServerConfig.create()
+	config.maxBodyBytes = 100
+	let serving = server.serve(config)
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise panic("a connection to the server")
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send("POST /up HTTP/1.1\r\nHost: a\r\nContent-Length: 5\r\nExpect: 100-continue\r\n\r\n") otherwise 0
+	let told = try client.readSome(4096) otherwise ByteArray.create(0)
+	print("told: {shown(String.from(told))}\n")
+	_ = try client.send("hello") otherwise 0
+	print("answered: {readToEnd(client)}\n")
+	try client.close() otherwise ignore
+	print("sent with its head: {answerTo(port, request: "POST /up HTTP/1.1\r\nHost: a\r\nContent-Length: 5\r\nExpect: 100-continue\r\n\r\nhello")}\n")
+	print("past the cap: {answerTo(port, request: "POST /up HTTP/1.1\r\nHost: a\r\nContent-Length: 101\r\nExpect: 100-continue\r\n\r\n")}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'

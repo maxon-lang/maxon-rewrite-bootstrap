@@ -150,34 +150,35 @@ an ordinary message after 200 ms returns in 2 ms at n = 16384 and never at n = 2
 
 ## http: the HTTP codec
 
-What the library's HTTP codec, converted from maxon's (stdlib/http, `helpers/http/httpHelpers.maxon`), costs to read a request
-and to write a response, against maxon's compiler on the same source and Go's net/http.
+What the library's server parser (stdlib/http, `requestHead.maxon`) costs to read a request, and what its HTTP codec converted
+from maxon's (`helpers/http/httpHelpers.maxon`) costs to write a response, against maxon's compiler on maxon's codec and Go's
+net/http.
 
 - `bench/http/codec.maxon <rounds>` runs four lanes, each `rounds` times, and prints `result <lane> <ns a request>`:
-  - **parse-get**: a GET with a dozen headers, read from memory by a `StreamReader` to the head's empty line and parsed by
-    `httpParseRequestHead` (method, target, URL, headers);
-  - **parse-post-64k**: a POST of a 64 KiB body, its head read and parsed so, its Content-Length read by `httpDeclaredBodyLength`
-    and its body read whole;
+  - **parse-get**: a GET with a dozen headers, parsed in place from its bytes by `parseRequestHead` (method, version, framing,
+    the fields as ranges of the head) and its target made a String, as a connection hands it to a handler;
+  - **parse-post-64k**: a POST of a 64 KiB body, its head parsed so and its body, framed by its Content-Length, made a String;
   - **write-small**: a 200 with four headers and a 12-byte body, its head built by `httpBuildResponseHead` and joined to the body;
   - **write-64k**: the same with a 64 KiB body.
-- `bench/http/maxon/codec.maxon` is the same program in maxon's dialect, over maxon's own library, built by maxon's compiler (its
-  maxon-bin build, `MAXON`); `run.sh` copies it to a directory of its own under `TMPDIR` and builds it there, so nothing runs
-  inside maxon's tree.
+- `bench/http/maxon/codec.maxon` is the same program in maxon's dialect, over maxon's own library and its parser, built by maxon's
+  compiler (its maxon-bin build, `MAXON`); `run.sh` copies it to a directory of its own under `TMPDIR` and builds it there, so
+  nothing runs inside maxon's tree.
 - `bench/http/gobench` (Go, `go build` only) is the baseline: `http.ReadRequest` on a `bufio.Reader` over the request's bytes,
   the POST's body read by `io.ReadAll`, and `http.Response.Write` into a buffer.
 - `bench/http/run.sh` builds the three and runs each; `ROUNDS` sets the requests a lane times (100000 by default).
 
-Measured on an Apple M3 (arm64 macOS), `ROUNDS=20000 bench/http/run.sh`, maxon's compiler `maxon dev (e1209d7b3 2026-11-17)`,
+Measured on an Apple M3 (arm64 macOS), `ROUNDS=50000 bench/http/run.sh`, maxon's compiler `maxon dev (e1209d7b3 2026-11-17)`,
 ns a request:
 
 | lane | minimaxon | maxon | Go |
 |---|---|---|---|
-| parse-get | 18668 | 51241 | 2084 |
-| parse-post-64k | 150511 | 164443 | 10658 |
-| write-small | 1126 | 3026 | 819 |
-| write-64k | 18620 | 28912 | 12372 |
+| parse-get | 2303 | 48481 | 1938 |
+| parse-post-64k | 126395 | 153665 | 10532 |
+| write-small | 1076 | 2898 | 755 |
+| write-64k | 16084 | 26562 | 11911 |
 
-minimaxon runs maxon's codec 1.1 to 2.7 times faster than maxon's compiler does. Both are far from Go's parser: the codec splits
-the head into an array of lines and each line into its name and value, copies each piece, lowers each name, and folds each
-into a Map; Go scans the bytes once and interns the common header names. The end-to-end loopback figure waits for the server's
-`serve`.
+parse-get is 1.19 times Go's: the parser scans the head's bytes once, keeps its fields as ranges of one copy of the head and
+makes a String only of what the handler is handed; 46% of what is left is the copy of the head by `Array.slice`. parse-post-64k
+is 12 times Go's for one reason, the same: `Array.slice` copies a byte array an element at a time, a push each, about 1.9 ns
+a byte (`arraySlice` in `self/ir/arrays.maxon`), and the body's 64 KiB are 92% of the lane's samples. The writes are the
+converted codec's, 1.35 to 1.4 times Go's.

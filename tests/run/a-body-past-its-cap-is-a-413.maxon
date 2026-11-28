@@ -1,0 +1,44 @@
+// A request whose Content-Length is past ServerConfig.maxBodyBytes is a 413, answered from its head before any of the body
+// is read, and the connection closes (RFC 9110 §15.5.14). One at the cap is read and answered.
+// native-only
+//> at the cap: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 30\r\nConnection: close\r\n\r\nPOST /up HTTP/1.1 with 8 bytes
+//> past the cap: HTTP/1.1 413 Payload Too Large\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n
+//> stopped
+function shown(text String) returns String
+	return text.replace("\r\n", with: "\\r\\n")
+end 'shown'
+
+// readToEnd reads what the server sends until it closes the connection.
+function readToEnd(mutates client TcpClient) returns String
+	var all = ByteArray.create(0)
+	while true 'reading'
+		let chunk = try client.readSome(4096) otherwise return "{shown(String.from(all))} [the read failed]"
+		if chunk.isEmpty() 'closed'
+			break 'reading'
+		end 'closed'
+		all.append(chunk)
+	end 'reading'
+	return shown(String.from(all))
+end 'readToEnd'
+
+function answerTo(port NetworkPort, request String) returns String
+	var client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "no connection"
+	try client.setReadDeadline(5000) otherwise ignore
+	_ = try client.send(request) otherwise 0
+	let answer = readToEnd(client)
+	try client.close() otherwise ignore
+	return answer
+end 'answerTo'
+
+function main() returns ExitCode
+	let server = try HttpServer.bind("127.0.0.1", port: 0) otherwise panic("a server on the loopback")
+	let port = server.port()
+	var config = ServerConfig.create()
+	config.maxBodyBytes = 8
+	let serving = server.serve(config)
+	print("at the cap: {answerTo(port, request: "POST /up HTTP/1.1\r\nHost: a\r\nContent-Length: 8\r\n\r\n01234567")}\n")
+	print("past the cap: {answerTo(port, request: "POST /up HTTP/1.1\r\nHost: a\r\nContent-Length: 9\r\n\r\n")}\n")
+	serving.stop(1000)
+	print("stopped\n")
+	return 0
+end 'main'
