@@ -1177,6 +1177,7 @@ function castTargetIsRefused(p ast.Project, ms ast.ModuleState, target ast.TypeI
 		constFloat gives false
 		builtinArray gives false
 		builtinSlotKey gives false
+		builtinVector128 gives true
 		builtinFrozen gives false
 		builtinCown gives false
 		builtinCursor gives false
@@ -1209,6 +1210,7 @@ function castKindWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns S
 		unionTy gives "union"
 		builtinArray gives name
 		builtinSlotKey gives name
+		builtinVector128 gives name
 		builtinFrozen gives name
 		builtinCown gives name
 		builtinCursor gives name
@@ -1242,6 +1244,7 @@ function castTargetWord(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns
 		unionTy gives nameOfType(p, ms: ms, t: t)
 		builtinArray gives nameOfType(p, ms: ms, t: t)
 		builtinSlotKey gives nameOfType(p, ms: ms, t: t)
+		builtinVector128 gives nameOfType(p, ms: ms, t: t)
 		builtinFrozen gives nameOfType(p, ms: ms, t: t)
 		builtinCown gives nameOfType(p, ms: ms, t: t)
 		builtinCursor gives nameOfType(p, ms: ms, t: t)

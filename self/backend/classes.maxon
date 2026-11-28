@@ -35,9 +35,10 @@ export type ClassChoice
 			end 'instrs'
 			self.weighTerm(f, b: b)
 		end 'blocks'
+		// A vector is in an xmm register whatever its reads weigh: only the vector operations read and write one.
 		for r in 0 upto f.regs.count() 'classes'
 			let root = self.find(r)
-			_ = fn.newVReg(RegClass.xmm if weight[root] > 0 else RegClass.gpr)
+			_ = fn.newVReg(RegClass.xmm if weight[root] > 0 or f.regs[r] == ir.IrKind.kindVector else RegClass.gpr)
 		end 'classes'
 	end 'choose'
 
@@ -115,7 +116,7 @@ export type ClassChoice
 		let floatResult = ir.callReturnsFloat(x)
 		for i in 0 upto count 'args'
 			let r = f.args[try start + i otherwise panic("backend: an argument past the pool")]
-			self.wantsClass(r, float: ir.isFloatAt(floats, place: i))
+			self.wantsClass(passedWord(f, r: r), float: ir.isFloatAt(floats, place: i))
 		end 'args'
 		reads.clear()
 		ir.instrWrites(x, out: reads)
@@ -155,10 +156,17 @@ export type ClassChoice
 			opStoreByteAt then self.wantsGpr(ir.storeByteAtAddr(x))
 			opElemLoad then self.wantsGprBoth(ir.elemLoadArr(x), b: ir.elemLoadIndex(x))
 			opElemAt then self.wantsGprBoth(ir.elemAtData(x), b: ir.elemAtIndex(x))
-			opLoadParam then self.wantsClass(x.dst, float: ir.isFloatAt(f.floatParams, place: ir.loadParamParam(x)))
+			opLoadParam then self.wantsClass(passedWord(f, r: x.dst), float: ir.isFloatAt(f.floatParams, place: ir.loadParamParam(x)))
 			opCall then self.weighCall(f, x: x, start: ir.callArgsStart(x), count: ir.callArgsCount(x))
 			opCallValue then self.weighCall(f, x: x, start: ir.callValueArgsStart(x), count: ir.callValueArgsCount(x))
 			opCallWitness then self.weighCall(f, x: x, start: ir.callWitnessArgsStart(x), count: ir.callWitnessArgsCount(x))
+			opVecLoad then self.wantsGpr(ir.vecLoadAddr(x))
+			opVecStore then self.wantsGpr(ir.vecStoreAddr(x))
+			opVecFromWords then self.wantsGprBoth(ir.vecFromWordsLow(x), b: ir.vecFromWordsHigh(x))
+			opVecWord then self.wantsGpr(x.dst)
+			opVecZero or
+			opVecBin or
+			opVecShift then return
 			opStr or
 			opDatum or
 			opSlotAddr or
@@ -226,6 +234,9 @@ export type ClassChoice
 		let returnsFloat = f.floatResult and f.blocks[b].term.kind == ir.TermKind.termRet
 		for i in 0 upto reads.count() 'reads'
 			let r = reads[i]
+			if f.blocks[b].term.kind == ir.TermKind.termRet 'returned'
+				_ = passedWord(f, r: r)
+			end 'returned'
 			self.wantsClass(r, float: returnsFloat)
 		end 'reads'
 		edges.clear()
@@ -240,6 +251,15 @@ export type ClassChoice
 		end 'edges'
 	end 'weighTerm'
 end 'ClassChoice'
+
+// passedWord is r, a register that a call, a parameter or a return passes by the calling convention, which has no place for a
+// vector: the runtime's source keeps its vectors in locals.
+function passedWord(f ir.IrFunction, r ir.Reg) returns ir.Reg
+	if f.regs[regIndex(r)] == ir.IrKind.kindVector 'vector'
+		panic("backend: a vector passed to or from a function, which no convention passes")
+	end 'vector'
+	return r
+end 'passedWord'
 
 // classOfReg is the class of a register operand.
 function classOfReg(fn MirFunction, r MReg) returns RegClass

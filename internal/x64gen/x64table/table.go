@@ -701,6 +701,44 @@ func sseForms() []form {
 		sse("MovsdRegRip", "movsd", []byte{scalarDoublePrefix}, 0x10, []operand{xmm("dest", fieldReg, write), rip()}, reads),
 		sse("MovupsRegBaseDisp", "movups", nil, 0x10, []operand{xmm("dest", fieldReg, write), mem()}, reads),
 		sse("MovupsBaseDispReg", "movups", nil, 0x11, []operand{mem(), xmm("src", fieldReg, read)}, writes),
+		// The integer forms of SSE2, SSSE3 and SSE4.1 on a whole 128-bit vector (the IR's VecBin and VecShift).
+		commutative(packed("PxorRegReg", "pxor", 0xEF)),
+		commutative(packed("PandRegReg", "pand", 0xDB)),
+		commutative(packed("PorRegReg", "por", 0xEB)),
+		commutative(packed("PadddRegReg", "paddd", 0xFE)),
+		{
+			name: "PshufbRegReg", mnemonic: "pshufb", operands: []operand{xmm("dest", fieldReg, readWrite), xmm("src", fieldRM, read)},
+			prefix: []byte{operandSizePrefix}, opcode: []byte{opcodeHigh, 0x38, 0x00}, modrm: modOperands, effects: noEffects,
+		},
+		packedShift("PsrlqRegImm8", "psrlq", 2),
+		packedShift("PsrldqRegImm8", "psrldq", 3),
+		packedShift("PsllqRegImm8", "psllq", 6),
+		packedShift("PslldqRegImm8", "pslldq", 7),
+		{
+			name: "PinsrqXmmRegImm8", mnemonic: "pinsrq", operands: []operand{xmm("dest", fieldReg, readWrite), reg("src", fieldRM, read), imm8()},
+			prefix: []byte{operandSizePrefix}, rexW: true, opcode: []byte{opcodeHigh, 0x3A, 0x22}, modrm: modOperands, effects: noEffects,
+		},
+		{
+			name: "PextrqRegXmmImm8", mnemonic: "pextrq", operands: []operand{reg("dest", fieldRM, write), xmm("src", fieldReg, read), imm8()},
+			prefix: []byte{operandSizePrefix}, rexW: true, opcode: []byte{opcodeHigh, 0x3A, 0x16}, modrm: modOperands, effects: noEffects,
+		},
+	}
+}
+
+// packed is a two-address integer form of SSE2 on a whole vector: 66 0F op /r.
+func packed(name, mnemonic string, op byte) form {
+	return form{
+		name: name, mnemonic: mnemonic, operands: []operand{xmm("dest", fieldReg, readWrite), xmm("src", fieldRM, read)},
+		prefix: []byte{operandSizePrefix}, opcode: []byte{opcodeHigh, op}, modrm: modOperands, effects: noEffects,
+	}
+}
+
+// packedShift is a shift of SSE2 by an immediate, 66 0F 73 /digit ib: of each 64-bit lane by bits, or of the whole
+// vector by bytes.
+func packedShift(name, mnemonic string, digit int) form {
+	return form{
+		name: name, mnemonic: mnemonic, operands: []operand{xmm("dest", fieldRM, readWrite), imm8()},
+		prefix: []byte{operandSizePrefix}, opcode: []byte{opcodeHigh, 0x73}, modrm: modDigit, digit: digit, effects: noEffects,
 	}
 }
 

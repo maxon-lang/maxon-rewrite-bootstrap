@@ -84,8 +84,15 @@ var goSyntax = map[string]string{
 	"Fcsel":  "FCSELD {cond}, {left}, {right}, {dest}",
 	"Fcvtzs": "FCVTZSD {src}, {dest}", "Scvtf": "SCVTFD {src}, {dest}", "Ucvtf": "UCVTFD {src}, {dest}",
 	"FmovDX": "FMOVD {src}, {dest}", "FmovXD": "FMOVD {src}, {dest}",
-	"EorVec": "VEOR {right:v}.B8, {left:v}.B8, {dest:v}.B8",
-	"Ldar":   "LDAR ({base}), {dest}", "Stlr": "STLR {src}, ({base})", "Ldaxr": "LDAXR ({base}), {dest}",
+	"EorVec":  "VEOR {right:v}.B8, {left:v}.B8, {dest:v}.B8",
+	"LdrQOff": "FMOVQ {disp}({base}), {dest}", "StrQOff": "FMOVQ {src}, {disp}({base})",
+	"OrrVec16": "VORR {right:v}.B16, {left:v}.B16, {dest:v}.B16", "EorVec16": "VEOR {right:v}.B16, {left:v}.B16, {dest:v}.B16",
+	"AndVec16": "VAND {right:v}.B16, {left:v}.B16, {dest:v}.B16", "AddVec4S": "VADD {right:v}.S4, {left:v}.S4, {dest:v}.S4",
+	"TblVec16": "VTBL {right:v}.B16, [{left:v}.B16], {dest:v}.B16",
+	"ExtVec16": "VEXT {imm}, {right:v}.B16, {left:v}.B16, {dest:v}.B16",
+	"ShlVec2D": "VSHL {shift}, {src:v}.D2, {dest:v}.D2", "UshrVec2D": "VUSHR {shift:ushr}, {src:v}.D2, {dest:v}.D2",
+	"InsVecD1": "VMOV {src}, {dest:v}.D[1]", "UmovXD1": "VMOV {src:v}.D[1], {dest}",
+	"Ldar": "LDAR ({base}), {dest}", "Stlr": "STLR {src}, ({base})", "Ldaxr": "LDAXR ({base}), {dest}",
 	"Stlxr": "STLXR {src}, ({base}), {status}", "CasalX0": "CASALD R0, ({base}), {src}",
 	"Ldaddal": "LDADDALD {src}, ({base}), {dest}", "Swpal": "SWPALD {src}, ({base}), {dest}",
 	"DmbIsh": "DMB $0xb", "Isb": "ISB $15", "Yield": "YIELD", "Nop": "NOOP",
@@ -138,6 +145,9 @@ func goText(c goldenCase) string {
 				return fmt.Sprintf("$(%d<<%d)", v, c.vals[at+1]*imm16Bits)
 			case "count":
 				return strconv.FormatInt(v, 10)
+			case "ushr":
+				// ushr's field holds 64 less the shift.
+				return fmt.Sprintf("$%d", laneShiftLimit-v)
 			case "double":
 				// The point makes the assembler read the number as a float.
 				text := strconv.FormatFloat(expandFPImm(v), 'f', -1, 64)

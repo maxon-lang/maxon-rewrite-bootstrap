@@ -2,11 +2,13 @@
 // printer puts together.
 
 // IrKind is what a register or a slot holds: a word that owns nothing, a word that may own what it points at (a box, or
-// 0 for nothing), or a String, two words (README, "The IR") whose bytes it may own.
+// 0 for nothing), a String, two words (README, "The IR") whose bytes it may own, or a 128-bit vector of the runtime's
+// source, which owns nothing and which only the vector operations read and write.
 export enum IrKind
 	kindScalar
 	kindManaged
 	kindString
+	kindVector
 end 'IrKind'
 
 export typealias IrKindList = Array with IrKind
@@ -23,6 +25,7 @@ export function kindName(k IrKind) returns String
 		kindManaged gives "managed"
 		kindScalar gives "scalar"
 		kindString gives "string"
+		kindVector gives "vector"
 	end 'k'
 end 'kindName'
 
@@ -32,6 +35,7 @@ export function owning(k IrKind) returns bool
 		kindManaged gives true
 		kindString gives true
 		kindScalar gives false
+		kindVector gives false
 	end 'k'
 end 'owning'
 

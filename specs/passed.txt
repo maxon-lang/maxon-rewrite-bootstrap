@@ -9479,6 +9479,8 @@ wide-spill-frames.md: spill-slot-past-the-scaled-imm12
 wide-spill-frames.md: the-smallest-frame-that-walks-the-guard-pages
 wide-spill-frames.md: wide-incoming-argument-past-the-scaled-imm12
 windows-wide-text.md: a-path-holding-a-nul-names-no-file
+windows-wide-text.md: an-argument-handed-to-a-child-reaches-it-in-utf16
+windows-wide-text.md: an-environment-variable-handed-to-a-child-reaches-it-in-utf16
 with-iterator.md: withIterator.a-loop-that-breaks-before-awaiting-drops-every-promise-once
 with-iterator.md: withIterator.a-promise-array-it-never-awaits-is-dropped-once
 with-iterator.md: withIterator.awaits-every-promise-of-an-array

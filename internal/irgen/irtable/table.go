@@ -181,6 +181,14 @@ var enums = []enum{
 	{Name: "Collection", Prefix: "Collection", Doc: "Collection is the box a Length or a LoadByte reads: an array's or a byte array's, which share one layout, or a\n// string's.", Cases: []enumCase{
 		{"Array", "array", noCase}, {"String", "string", noCase},
 	}},
+	{Name: "VecBinOp", Prefix: "Vec", Doc: "VecBinOp is the operation of a VecBin on two 128-bit vectors: the bitwise xor, and and or, the sum of each\n// 32-bit lane (wrapping), and the bytes of Left picked by the bytes of Right (ShuffleBytes: a byte of Right below 16 gives\n// that byte of Left, and one of 128 or more gives 0; Right holds no other byte, where x64 and arm64 differ).", Cases: []enumCase{
+		{"Xor", "xor", noCase}, {"And", "and", noCase}, {"Or", "or", noCase}, {"AddLanes32", "addlanes32", noCase},
+		{"ShuffleBytes", "shufflebytes", noCase},
+	}},
+	{Name: "VecShiftOp", Prefix: "VecShift", Doc: "VecShiftOp is the operation of a VecShift: the whole vector shifted by Amount bytes toward its high or its low\n// end, zeros coming in, or each 64-bit lane shifted by Amount bits.", Cases: []enumCase{
+		{"BytesUp", "bytesup", noCase}, {"BytesDown", "bytesdown", noCase},
+		{"LanesLeft", "lanesleft", noCase}, {"LanesRight", "lanesright", noCase},
+	}},
 }
 
 // flag is a bit of an instruction's Flags.
@@ -352,6 +360,23 @@ var ops = []op{
 	{Name: "LoadWord", Eval: noEval, Doc: "LoadWord reads Width bits, little-endian, from byte Index of the byte array Src on, where a Bounds has checked\n// the last of their bytes: an ordered word of a constant width that the library reads (ir/hash.maxon).",
 		Result: valueResult, Operands: []operand{reg("Src", fA), reg("Index", fB), widthOp}, Effects: []effect{effReads},
 		Text: "word.{Width} {Src}, {Index}"},
+	// The vector operations are on 128-bit values of the runtime's source, which a register of kind kindVector holds whole
+	// (self/ir/function.maxon): byte i of a vector is byte i of the memory it is loaded from, and lane 0 its low end.
+	{Name: "VecLoad", Eval: noEval, Doc: "VecLoad reads the 16 bytes at an address, which need no alignment.", Result: valueResult,
+		Operands: []operand{reg("Addr", fA)}, Effects: []effect{effReads}, Text: "vecload {Addr}"},
+	{Name: "VecStore", Eval: noEval, Doc: "VecStore writes the vector Src to the 16 bytes at an address, which need no alignment.",
+		Operands: []operand{reg("Addr", fA), reg("Src", fB)}, Effects: []effect{effWrites}, Text: "vecstore {Addr}, {Src}"},
+	{Name: "VecZero", Eval: noEval, Doc: "VecZero gives the vector of 16 zero bytes.", Result: valueResult, Text: "veczero"},
+	{Name: "VecFromWords", Eval: noEval, Doc: "VecFromWords gives the vector whose low 64-bit lane is Low and whose high lane is High.",
+		Result: valueResult, Operands: []operand{reg("Low", fA), reg("High", fB)}, Text: "vecwords {Low}, {High}"},
+	{Name: "VecWord", Eval: noEval, Doc: "VecWord gives the 64-bit lane Lane (0, the low one, or 1) of the vector Src.", Result: valueResult,
+		Operands: []operand{reg("Src", fA), num("Lane")}, Text: "vecword {Src}, {Lane}"},
+	{Name: "VecBin", Eval: noEval, Doc: "VecBin is Left Op Right on two vectors.", Result: valueResult,
+		Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "VecBinOp"}, reg("Left", fA), reg("Right", fB)},
+		Text:     "vec{Op} {Left}, {Right}"},
+	{Name: "VecShift", Eval: noEval, Doc: "VecShift is the vector Src shifted by Op by Amount, a constant: 1 to 15 bytes, or 1 to 63 bits.",
+		Result: valueResult, Operands: []operand{{Name: "Op", Kind: kEnum, Field: fSub, Enum: "VecShiftOp"}, reg("Src", fA), num("Amount")},
+		Text: "vec{Op} {Src}, {Amount}"},
 	// A native build splits every element access (self/opt/buffers.maxon) into the read of the array's buffer, which
 	// common subexpression elimination and loop-invariant code motion then treat as they treat any read, and the access
 	// at the index; the interpreter never sees them.

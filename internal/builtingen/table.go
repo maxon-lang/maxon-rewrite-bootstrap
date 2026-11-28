@@ -211,6 +211,11 @@ var builtinTypes = []builtinType{
 		Methods: rawSurface{What: "a raw '__GroupMemory' buffer is reachable", Instead: "use 'Map'"},
 	}},
 	{Key: "SlotKey", Name: "SlotKey", Params: []string{"T"}},
+	// Vector128 is 16 bytes in one register, which the runtime's source computes on with the __Raw vector intrinsics, which
+	// only the runtime module calls (E3152); a program may not name it (E3185), and only a local holds one.
+	{Key: "Vector128", Name: "__Vector128", Raw: &rawType{
+		Named: rawSurface{What: "the runtime's 128-bit vector type is nameable", Instead: "use the library's operations on byte arrays"},
+	}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
 	// Cown is the library tiers' machinery of services (README, "Immutable values, cowns and behaviours"): a program keeps
 	// shared state in a service, so naming the type, and making one, is a door of the raw surface.
@@ -711,6 +716,25 @@ func rawFunctions() []function {
 		raw("stringFirstWord", []string{"text String"}, "Count", "RawStringFirstWord"),
 		raw("stringSecondWord", []string{"text String"}, "Count", "RawStringSecondWord"),
 		raw("stringOfWords", []string{"first Count", "second Count"}, "String", "RawStringOfWords"),
+		// The 128-bit vectors (the IR's vector operations): 16 bytes loaded from and stored at an address, which need no
+		// alignment, made of zeros or of two words (low, high), and a word taken out by its lane, 0 or 1. The bitwise
+		// operations, the sum of each 32-bit lane, and the bytes of left picked by those of right (a byte below 16 picks,
+		// one of 128 or more gives 0, and right holds no other). The shifts of the whole vector by bytes, 1 to 15, toward its
+		// high end (up) or its low end (down), and of each 64-bit lane by bits, 1 to 63. A lane and a shift are constants.
+		raw("vectorLoad", at, "Vector128", "RawVectorLoad"),
+		raw("vectorStore", append(slices.Clone(at), "value Vector128"), "", "RawVectorStore"),
+		raw("vectorZero", nil, "Vector128", "RawVectorZero"),
+		raw("vectorOfWords", []string{"low Count", "high Count"}, "Vector128", "RawVectorOfWords"),
+		raw("vectorWord", []string{"value Vector128", "lane Count"}, "Count", "RawVectorWord"),
+		raw("vectorXor", []string{"left Vector128", "right Vector128"}, "Vector128", "RawVectorXor"),
+		raw("vectorAnd", []string{"left Vector128", "right Vector128"}, "Vector128", "RawVectorAnd"),
+		raw("vectorOr", []string{"left Vector128", "right Vector128"}, "Vector128", "RawVectorOr"),
+		raw("vectorAddLanes32", []string{"left Vector128", "right Vector128"}, "Vector128", "RawVectorAddLanes32"),
+		raw("vectorShuffleBytes", []string{"value Vector128", "picks Vector128"}, "Vector128", "RawVectorShuffleBytes"),
+		raw("vectorShiftBytesUp", []string{"value Vector128", "bytes Count"}, "Vector128", "RawVectorShiftBytesUp"),
+		raw("vectorShiftBytesDown", []string{"value Vector128", "bytes Count"}, "Vector128", "RawVectorShiftBytesDown"),
+		raw("vectorShiftLanesLeft", []string{"value Vector128", "bits Count"}, "Vector128", "RawVectorShiftLanesLeft"),
+		raw("vectorShiftLanesRight", []string{"value Vector128", "bits Count"}, "Vector128", "RawVectorShiftLanesRight"),
 		raw("heapAddress", nil, "Count", "RawHeapAddress"),
 		raw("stdoutAddress", nil, "Count", "RawStdoutAddress"),
 		raw("stderrAddress", nil, "Count", "RawStderrAddress"),

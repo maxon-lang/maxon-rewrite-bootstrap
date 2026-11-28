@@ -209,6 +209,26 @@ r:(bin.mul.unsigned.checked x y [f]) => (MulRegReg r x y) (UmulhRegReg h x y) (C
 (not x) => (MvnRegReg r x)
 // clz of 0 is 64, as the count of trailing zeros of 0 is.
 (trailingZeros x) => (RbitRegReg t x) (ClzRegReg r t)
+
+// The vectors of the runtime's source, in q registers. A write of a d register clears the rest of its q register, so a
+// vector of zeros is fmov from the zero register, and a byte shift is ext against such a vector.
+(vecLoad a:(bin.add.!checked x (const [c]))) && arm64LdrQOffHolds(c as FullRangeInt) and sel.fuses(fn, r: a) => (LdrQOff r x [c])
+(vecLoad a) => (LdrQOff r a [0])
+(vecStore a:(bin.add.!checked x (const [c])) v) && arm64LdrQOffHolds(c as FullRangeInt) and sel.fuses(fn, r: a) => (StrQOff v x [c])
+(vecStore a v) => (StrQOff v a [0])
+(vecZero) => (FmovDX r sp)
+(vecFromWords lo hi) => (FmovDX r lo) (InsVecD1 r hi)
+(vecWord x [0]) => (FmovXD r x)
+(vecWord x [n]) => (UmovXD1 r x)
+(vecBin.xor x y) => (EorVec16 r x y)
+(vecBin.and x y) => (AndVec16 r x y)
+(vecBin.or x y) => (OrrVec16 r x y)
+(vecBin.addlanes32 x y) => (AddVec4S r x y)
+(vecBin.shufflebytes x y) => (TblVec16 r x y)
+(vecShift.bytesup x [n]) => (FmovDX z sp) (ExtVec16 r z x [arm64ExtUpPosition(n)])
+(vecShift.bytesdown x [n]) => (FmovDX z sp) (ExtVec16 r x z [n])
+(vecShift.lanesleft x [n]) => (ShlVec2D r x [n])
+(vecShift.lanesright x [n]) => (UshrVec2D r x [arm64UshrField(n)])
 // A comparison with a constant that 12 bits hold compares with the immediate, and with one whose negation they hold
 // adds the negation, which sets the flags as the subtraction does.
 (cmp x (const [k])) && arm64HoldsImm12(k as FullRangeInt) => (CmpRegImm x [k]) (CsetReg r [cmpCondition(ins)])

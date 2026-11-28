@@ -307,23 +307,35 @@ function checkIntrinsicArgs(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	if op == ast.Intrinsic.intrRawStringBytesAt or op == ast.Intrinsic.intrRawStringLengthAt or op == ast.Intrinsic.intrRawStringFirstWord or op == ast.Intrinsic.intrRawStringSecondWord 'signature75'
 		return
 	end 'signature75'
-	if op == ast.Intrinsic.intrRawStringOfWords or op == ast.Intrinsic.intrRawHeapAddress or op == ast.Intrinsic.intrRawStdoutAddress or op == ast.Intrinsic.intrRawStderrAddress 'signature76'
+	if op == ast.Intrinsic.intrRawStringOfWords or op == ast.Intrinsic.intrRawVectorLoad or op == ast.Intrinsic.intrRawVectorStore or op == ast.Intrinsic.intrRawVectorZero 'signature76'
 		return
 	end 'signature76'
-	if op == ast.Intrinsic.intrRawAtomicAdd or op == ast.Intrinsic.intrRawAtomicExchange or op == ast.Intrinsic.intrRawCompareExchange or op == ast.Intrinsic.intrRawSpinPause 'signature77'
+	if op == ast.Intrinsic.intrRawVectorOfWords or op == ast.Intrinsic.intrRawVectorWord or op == ast.Intrinsic.intrRawVectorXor or op == ast.Intrinsic.intrRawVectorAnd 'signature77'
 		return
 	end 'signature77'
-	if op == ast.Intrinsic.intrRawCopyBytes or op == ast.Intrinsic.intrRawThreadContext or op == ast.Intrinsic.intrRawCallCode or op == ast.Intrinsic.intrRawThreadStartAddress 'signature78'
+	if op == ast.Intrinsic.intrRawVectorOr or op == ast.Intrinsic.intrRawVectorAddLanes32 or op == ast.Intrinsic.intrRawVectorShuffleBytes or op == ast.Intrinsic.intrRawVectorShiftBytesUp 'signature78'
 		return
 	end 'signature78'
-	if op == ast.Intrinsic.intrRawStackSwitchAddress or op == ast.Intrinsic.intrRawGreenStartAddress or op == ast.Intrinsic.intrRawAsyncPreemptAddress or op == ast.Intrinsic.intrRawPreemptibleCodeAddress 'signature79'
+	if op == ast.Intrinsic.intrRawVectorShiftBytesDown or op == ast.Intrinsic.intrRawVectorShiftLanesLeft or op == ast.Intrinsic.intrRawVectorShiftLanesRight or op == ast.Intrinsic.intrRawHeapAddress 'signature79'
 		return
 	end 'signature79'
-	if op == ast.Intrinsic.intrRawCallHost or op == ast.Intrinsic.intrRawSyscall or op == ast.Intrinsic.intrRawProcessStartAddress or op == ast.Intrinsic.intrRawPreemptHandlerAddress 'signature80'
+	if op == ast.Intrinsic.intrRawStdoutAddress or op == ast.Intrinsic.intrRawStderrAddress or op == ast.Intrinsic.intrRawAtomicAdd or op == ast.Intrinsic.intrRawAtomicExchange 'signature80'
 		return
 	end 'signature80'
-	if op == ast.Intrinsic.intrRawSignalReturnAddress or op == ast.Intrinsic.intrEnumHash or op == ast.Intrinsic.intrEnumEquals or op == ast.Intrinsic.intrEnumFromRawValue 'signature81'
+	if op == ast.Intrinsic.intrRawCompareExchange or op == ast.Intrinsic.intrRawSpinPause or op == ast.Intrinsic.intrRawCopyBytes or op == ast.Intrinsic.intrRawThreadContext 'signature81'
 		return
 	end 'signature81'
+	if op == ast.Intrinsic.intrRawCallCode or op == ast.Intrinsic.intrRawThreadStartAddress or op == ast.Intrinsic.intrRawStackSwitchAddress or op == ast.Intrinsic.intrRawGreenStartAddress 'signature82'
+		return
+	end 'signature82'
+	if op == ast.Intrinsic.intrRawAsyncPreemptAddress or op == ast.Intrinsic.intrRawPreemptibleCodeAddress or op == ast.Intrinsic.intrRawCallHost or op == ast.Intrinsic.intrRawSyscall 'signature83'
+		return
+	end 'signature83'
+	if op == ast.Intrinsic.intrRawProcessStartAddress or op == ast.Intrinsic.intrRawPreemptHandlerAddress or op == ast.Intrinsic.intrRawSignalReturnAddress or op == ast.Intrinsic.intrEnumHash 'signature84'
+		return
+	end 'signature84'
+	if op == ast.Intrinsic.intrEnumEquals or op == ast.Intrinsic.intrEnumFromRawValue 'signature85'
+		return
+	end 'signature85'
 	panic("check: {op.name} is no intrinsic")
 end 'checkIntrinsicArgs'

@@ -959,6 +959,7 @@ function scalarTag(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns Stri
 		unionTy gives ""
 		builtinArray gives ""
 		builtinSlotKey gives ""
+		builtinVector128 gives ""
 		builtinFrozen gives ""
 		builtinCown gives ""
 		builtinCursor gives ""

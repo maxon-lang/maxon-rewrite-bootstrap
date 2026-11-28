@@ -82,7 +82,12 @@ export function motionOf(x ir.Instr) returns Motion
 		opStrWord or
 		opStrMake or
 		opElemAddrAt or
-		opTrailingZeros gives Motion.pure
+		opTrailingZeros or
+		opVecZero or
+		opVecFromWords or
+		opVecWord or
+		opVecBin or
+		opVecShift gives Motion.pure
 		opBin gives binMotion(x)
 		opLength gives lengthMotion(x)
 		opNeg gives Motion.check if ir.instrCanFail(x) else Motion.pure
@@ -96,6 +101,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opElemLoad or
 		opLoadByte or
 		opLoadWord or
+		opVecLoad or
 		opBuffer or
 		opElemAt or
 		opByteAt gives Motion.read
@@ -115,6 +121,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opStoreAt or
 		opStoreByteAt or
 		opStoreRaw or
+		opVecStore or
 		opLoadAcquire or
 		opStoreRelease or
 		opCallImport or
@@ -186,7 +193,8 @@ export function readsBeyondElements(f ir.IrFunction, defs ir.Defs, x ir.Instr) r
 	if op == ir.Opcode.opLoadField 'field'
 		return outsideElements(f, defs: defs, r: ir.loadFieldObj(x))
 	end 'field'
-	if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAt or op == ir.Opcode.opLoadByte or op == ir.Opcode.opLoadWord or op == ir.Opcode.opByteAt or op == ir.Opcode.opLoadByteAt 'element'
+	// A vector is loaded from any address the runtime's source computes, an array's buffer among them.
+	if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAt or op == ir.Opcode.opLoadByte or op == ir.Opcode.opLoadWord or op == ir.Opcode.opByteAt or op == ir.Opcode.opLoadByteAt or op == ir.Opcode.opVecLoad 'element'
 		return false
 	end 'element'
 	panic("opt: readsBeyondElements of {ir.opcodeName(op)}, which is no read")

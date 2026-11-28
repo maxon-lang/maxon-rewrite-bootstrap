@@ -152,12 +152,12 @@ function encodeCopy(mutates u CodeUnit, x MInstr)
 	end 'class'
 end 'encodeCopy'
 
-// encodeSpill stores a register in its spill slot, a word, the low 64 bits of an xmm register.
+// encodeSpill stores a register in its spill slot: a word, or the 16 bytes of an xmm register, which may hold a vector.
 function encodeSpill(mutates u CodeUnit, x MInstr)
 	let disp = spillSlotOffset(spillSlotOf(x))
 	match classOfNumber(x64Arch, number: physicalNumber(x.a)) 'class'
 		gpr then encodeStoreBaseDispReg(u.asm.code, base: X64Register.rbp, disp: disp, src: generalRegister(x.a))
-		xmm then encodeMovsdBaseDispReg(u.asm.code, base: X64Register.rbp, disp: disp, src: vectorRegister(x.a))
+		xmm then encodeMovupsBaseDispReg(u.asm.code, base: X64Register.rbp, disp: disp, src: vectorRegister(x.a))
 	end 'class'
 end 'encodeSpill'
 
@@ -165,7 +165,7 @@ function encodeReload(mutates u CodeUnit, x MInstr)
 	let disp = spillSlotOffset(spillSlotOf(x))
 	match classOfNumber(x64Arch, number: physicalNumber(x.a)) 'class'
 		gpr then encodeLoadRegBaseDisp(u.asm.code, dest: generalRegister(x.a), base: X64Register.rbp, disp: disp)
-		xmm then encodeMovsdRegBaseDisp(u.asm.code, dest: vectorRegister(x.a), base: X64Register.rbp, disp: disp)
+		xmm then encodeMovupsRegBaseDisp(u.asm.code, dest: vectorRegister(x.a), base: X64Register.rbp, disp: disp)
 	end 'class'
 end 'encodeReload'
 

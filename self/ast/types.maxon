@@ -40,6 +40,7 @@ export enum TypeKind
 	unionTy
 	builtinArray
 	builtinSlotKey
+	builtinVector128
 	builtinFrozen
 	builtinCown
 	builtinCursor
@@ -55,6 +56,7 @@ export enum TypeKind
 		return match self 'k'
 			builtinArray gives true
 			builtinSlotKey gives true
+			builtinVector128 gives true
 			builtinFrozen gives true
 			builtinCown gives true
 			builtinCursor gives true
@@ -1599,6 +1601,9 @@ end 'instantiateType'
 // the box of a value the place refers to.
 let sizeofWord = 8 as Count
 
+// sizeofVector is the size of a 128-bit vector of the runtime's source.
+let sizeofVector = 16 as Count
+
 // sizeofBool is what sizeof gives for a bool, maxon's one byte.
 let sizeofBool = 1 as Count
 
@@ -1625,6 +1630,7 @@ export function byteSize(tt TypeSlot, reads TypeTable, t TypeID) returns Count
 		unionTy gives sizeofWord
 		builtinArray gives sizeofWord
 		builtinSlotKey gives sizeofWord
+		builtinVector128 gives sizeofVector
 		builtinFrozen gives sizeofWord
 		builtinCown gives sizeofWord
 		builtinCursor gives sizeofWord
@@ -2095,6 +2101,7 @@ export function isManagedType(tt TypeSlot, reads TypeTable, t TypeID) returns bo
 		constFloat gives false
 		enumTy gives false
 		builtinSlotKey gives false
+		builtinVector128 gives false
 		interfaceTy gives true
 	end 'k'
 end 'isManagedType'
