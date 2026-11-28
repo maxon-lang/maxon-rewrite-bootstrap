@@ -734,6 +734,9 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
 		return lowerTrailingZeros(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrTrailingZeros'
+	if op == ast.Intrinsic.intrMulHigh 'intrMulHigh'
+		return lowerMulHigh(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrMulHigh'
 	if op == ast.Intrinsic.intrHeapProcessAllocs 'intrHeapProcessAllocs'
 		return lowerHeapProcessAllocs(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHeapProcessAllocs'
@@ -1777,6 +1780,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrTrailingZeros 'intrTrailingZeros'
 		return false
 	end 'intrTrailingZeros'
+	if op == ast.Intrinsic.intrMulHigh 'intrMulHigh'
+		return false
+	end 'intrMulHigh'
 	if op == ast.Intrinsic.intrHeapProcessAllocs 'intrHeapProcessAllocs'
 		return false
 	end 'intrHeapProcessAllocs'

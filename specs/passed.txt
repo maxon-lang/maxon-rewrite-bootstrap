@@ -1140,6 +1140,11 @@ cast-target-type-resolution.md: error.top-level-const-cast-to-undeclared-type
 ceil.md: ceil.exact
 ceil.md: ceil.negative
 ceil.md: ceil.positive
+chacha20-poly1305.md: chacha20-poly1305.open
+chacha20-poly1305.md: chacha20-poly1305.open-refuses-forgeries
+chacha20-poly1305.md: chacha20-poly1305.refuses-invalid-lengths
+chacha20-poly1305.md: chacha20-poly1305.seal
+chacha20-poly1305.md: chacha20-poly1305.seal-long-outputs
 chacha20.md: chacha20.refuses-invalid-inputs
 chacha20.md: chacha20.xor-key-stream
 challenge-array-of-structs.md: array-of-structs-enum-for-in-loop
@@ -6190,6 +6195,8 @@ per-instance-typealias.md: extensions-declare-members-of-different-names-and-con
 per-instance-typealias.md: stdlib-directory-member-alias-at-file-scope
 per-instance-typealias.md: two-types-each-declare-a-member-of-one-name
 per-instance-typealias.md: two-types-each-get-an-extension-member-of-one-name
+poly1305.md: poly1305.mac
+poly1305.md: poly1305.refuses-invalid-key-length
 postfix-member-walk.md: error.unknown-field-on-a-call-result
 postfix-member-walk.md: managed-field-read-off-a-binding-is-unaffected
 postfix-member-walk.md: managed-field-read-out-of-a-temporary

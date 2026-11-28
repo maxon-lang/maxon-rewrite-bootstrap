@@ -1,0 +1,148 @@
+/// The Poly1305 one-time authenticator (RFC 8439): a 16-byte tag under a 32-byte key used for one message.
+/// @category Crypto
+typealias Poly1305Word = bits(64)
+
+typealias Poly1305Words = Array with Poly1305Word
+
+/// Why `Poly1305.mac` refused a key.
+public enum Poly1305Error implements Error
+	invalidKeyLength
+end 'Poly1305Error'
+
+let poly1305KeyBytes = 32
+
+let poly1305BlockBytes = 16
+
+let poly1305BitsPerByte = 8
+
+let poly1305PadByte = 1
+
+let poly1305AllOnes = u64.max as Poly1305Word
+
+let poly1305ZeroWord = 0 as Poly1305Word
+
+function poly1305Select(kept Poly1305Word, replacement Poly1305Word, mask Poly1305Word) returns Poly1305Word
+	return (kept and (mask xor poly1305AllOnes)) or (replacement and mask)
+end 'poly1305Select'
+
+/// The Poly1305 authenticator.
+public type Poly1305
+	/// The 16-byte tag of `message` under a 32-byte one-time `key`. A key must never tag two messages.
+	public static function mac(key ByteArray, message ByteArray) returns ByteArray throws Poly1305Error
+		if key.count() != poly1305KeyBytes 'keyLength'
+			throw Poly1305Error.invalidKeyLength
+		end 'keyLength'
+		let r0 = poly1305ReadHalf(key, off: 0, limit: poly1305KeyBytes) and poly1305LowClamp
+		let r1 = poly1305ReadHalf(key, off: poly1305HalfBlockBytes, limit: poly1305KeyBytes) and poly1305HighClamp
+		var h0 = poly1305ZeroWord
+		var h1 = poly1305ZeroWord
+		var h2 = poly1305ZeroWord
+		var blockStart = 0 as ElementIndex
+		let limit = message.count()
+		while blockStart < limit 'eachBlock'
+			// Each block is read with a 1 appended: bit 128 for a full block, the `poly1305PadByte` `poly1305ReadHalf`
+			// puts at `limit` for a short last one.
+			var highBit = poly1305ZeroWord
+			var m0 = poly1305ZeroWord
+			var m1 = poly1305ZeroWord
+			if limit - blockStart >= poly1305BlockBytes 'full'
+				highBit = poly1305OneWord
+				m0 = (try __Builtins.readLittleEndian(message, blockStart, poly1305HalfBlockBytes) otherwise panic("poly1305: a block inside the message is missing")) as Poly1305Word
+				m1 = (try __Builtins.readLittleEndian(message, blockStart + poly1305HalfBlockBytes, poly1305HalfBlockBytes) otherwise panic("poly1305: a block inside the message is missing")) as Poly1305Word
+			end 'full' else 'short'
+				m0 = poly1305ReadHalf(message, off: blockStart, limit: limit)
+				m1 = poly1305ReadHalf(message, off: try blockStart + poly1305HalfBlockBytes otherwise panic("out of range"), limit: limit)
+			end 'short'
+			let a0 = h0 + m0
+			let c0 = poly1305CarryOut(h0, right: m0, sum: a0)
+			let a1 = h1 + m1 + c0
+			let c1 = poly1305CarryOut(h1, right: m1, sum: a1)
+			let a2 = h2 + c1 + highBit
+			// h·r, r1 a multiple of 4 and both below 2^60, so no sum of two products passes 128 bits.
+			let t0 = a0 * r0
+			let p0 = __Builtins.mulHigh(a0 as Count, r0 as Count) as Poly1305Word
+			let q1 = a1 * r0
+			let q1High = __Builtins.mulHigh(a1 as Count, r0 as Count) as Poly1305Word
+			let q2 = a0 * r1
+			let q2High = __Builtins.mulHigh(a0 as Count, r1 as Count) as Poly1305Word
+			let m1Low = q1 + q2
+			let m1High = q1High + q2High + poly1305CarryOut(q1, right: q2, sum: m1Low)
+			let t1 = m1Low + p0
+			let k1 = poly1305CarryOut(m1Low, right: p0, sum: t1)
+			let q3 = a1 * r1
+			let q3High = __Builtins.mulHigh(a1 as Count, r1 as Count) as Poly1305Word
+			let q4 = a2 * r0
+			let m2Low = q3 + q4
+			let m2High = q3High + poly1305CarryOut(q3, right: q4, sum: m2Low)
+			let t2 = m2Low + m1High + k1
+			let k2 = poly1305CarryOut(m2Low, right: m1High, sum: t2)
+			let t3 = a2 * r1 + m2High + k2
+			// 2^130 ≡ 5: what is past bit 130, c = (t2 & ~3, t3), comes back as c + c/4.
+			let c2 = t2 and (poly1305TopMask xor poly1305AllOnes)
+			let b0 = t0 + c2
+			let d0 = poly1305CarryOut(t0, right: c2, sum: b0)
+			let b1 = t1 + t3 + d0
+			let d1 = poly1305CarryOut(t1, right: t3, sum: b1)
+			let b2 = (t2 and poly1305TopMask) + d1
+			let e0 = (c2 shr poly1305TopShift) or (t3 shl poly1305CarryInShift)
+			let e1 = t3 shr poly1305TopShift
+			h0 = b0 + e0
+			let f0 = poly1305CarryOut(b0, right: e0, sum: h0)
+			h1 = b1 + e1 + f0
+			h2 = b2 + poly1305CarryOut(b1, right: e1, sum: h1)
+			blockStart = try blockStart + poly1305BlockBytes otherwise panic("out of range")
+		end 'eachBlock'
+		// h + 5 carries past 2^130 exactly when h ≥ p = 2^130 − 5, and then its low 128 bits are those of h − p. The
+		// result is selected by mask, never by branch, so the time does not depend on h.
+		let g0 = h0 + poly1305ReductionAddend
+		let g1 = h1 + poly1305CarryOut(h0, right: poly1305ReductionAddend, sum: g0)
+		let g2 = h2 + poly1305CarryOut(h1, right: poly1305ZeroWord, sum: g1)
+		let mask = (g2 shr poly1305TopShift) * poly1305AllOnes
+		let low = poly1305Select(h0, replacement: g0, mask: mask)
+		let high = poly1305Select(h1, replacement: g1, mask: mask)
+		let s0 = poly1305ReadHalf(key, off: poly1305BlockBytes, limit: poly1305KeyBytes)
+		let s1 = poly1305ReadHalf(key, off: poly1305BlockBytes + poly1305HalfBlockBytes, limit: poly1305KeyBytes)
+		let tag0 = low + s0
+		let tag1 = high + s1 + poly1305CarryOut(low, right: s0, sum: tag0)
+		var tag = ByteArray.create(poly1305BlockBytes, zeroed: false)
+		_helpers.appendOrderedWord(tag, word: tag0 as OrderedWord, width: poly1305HalfBlockBytes, order: _helpers.ByteOrder.littleEndian)
+		_helpers.appendOrderedWord(tag, word: tag1 as OrderedWord, width: poly1305HalfBlockBytes, order: _helpers.ByteOrder.littleEndian)
+		return tag
+	end 'mac'
+end 'Poly1305'
+
+// The accumulator and the multiplier are in limbs of 64 bits, h = h0 + h1·2^64 + h2·2^128 with h2 a few bits, where maxon's
+// are five of 26 bits: the five-limb loop holds 16 words at once, more than x64's registers, and three limbs with a 128-bit
+// product of two words (__Builtins.mulHigh) hold about half as many, as Go's sum_generic.go does.
+let poly1305HalfBlockBytes = 8
+
+let poly1305LowClamp = 0x0FFFFFFC0FFFFFFF as Poly1305Word
+
+let poly1305HighClamp = 0x0FFFFFFC0FFFFFFC as Poly1305Word
+
+let poly1305TopMask = 3 as Poly1305Word
+
+let poly1305TopShift = 2
+
+let poly1305CarryShift = 63
+
+let poly1305CarryInShift = 62
+
+let poly1305ReductionAddend = 5 as Poly1305Word
+
+let poly1305OneWord = 1 as Poly1305Word
+
+// poly1305CarryOut is the carry out of `left + right + carry in = sum` for words of 64 bits, by bits, never by branch.
+function poly1305CarryOut(left Poly1305Word, right Poly1305Word, sum Poly1305Word) returns Poly1305Word
+	return ((left and right) or ((left or right) and (sum xor poly1305AllOnes))) shr poly1305CarryShift
+end 'poly1305CarryOut'
+
+// poly1305ReadHalf is the 8 bytes at `off` as a little-endian word, a byte at or past `limit` zero and the
+// `poly1305PadByte` at `limit` when it falls in them: the 1 a short last block is read with.
+function poly1305ReadHalf(source ByteArray, off ElementIndex, limit ElementIndex) returns Poly1305Word
+	let word = _helpers.readOrderedWord(source, off: off, width: poly1305HalfBlockBytes, limit: limit, order: _helpers.ByteOrder.littleEndian) as Poly1305Word
+	if limit >= off and limit < (try off + poly1305HalfBlockBytes otherwise panic("out of range")) 'marker'
+		return word or (try (poly1305PadByte as Poly1305Word) shl ((limit - off) * poly1305BitsPerByte) otherwise panic("out of range"))
+	end 'marker'
+	return word
+end 'poly1305ReadHalf'

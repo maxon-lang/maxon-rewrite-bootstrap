@@ -1250,6 +1250,9 @@ var tableFunctions = []function{
 	// trailingZeros is the number of 0 bits of a word below its lowest 1 bit, and 64 for 0: the place of the first match
 	// in a word of matches, one instruction where the machine has one.
 	{Owner: "Builtins", Name: "trailingZeros", Static: true, Params: []string{"_ Count"}, Result: "Count", Intrinsic: "TrailingZeros", Instead: "a loop over the word's bits"},
+	// mulHigh is the high word of the 128-bit product of two words of no sign, one instruction on every target, of which
+	// the library's Poly1305 makes its products of 64-bit limbs.
+	{Owner: "Builtins", Name: "mulHigh", Static: true, Params: []string{"_ Count", "_ Count"}, Result: "Count", Intrinsic: "MulHigh", Instead: "a product of the words' 32-bit halves"},
 	// The counters of the heap (runtime/heap.maxon) that maxon's HeapStats reads: the allocations, frees and bytes of the
 	// running thread's heap and of every thread's; mm* are the process's, since every allocation here is a managed box.
 	// The counts by tag answer 0, as maxon's do outside a --debugstream build, and scavengeMemory runs a release pass of the

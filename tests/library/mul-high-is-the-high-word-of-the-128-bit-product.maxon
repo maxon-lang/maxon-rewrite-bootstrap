@@ -1,0 +1,19 @@
+// The words come from arrays so that no product is folded: each target's own instruction multiplies them.
+typealias Words = Array with Count
+
+function main() returns ExitCode
+	let lefts = Words from [0, 18446744073709551615, 4294967296, 18446744073709551615, 12345678901234567890, 1]
+	let rights = Words from [0, 18446744073709551615, 4294967296, 2, 9876543210987654321, 18446744073709551615]
+	for (i, left) in lefts.enumerated() 'each'
+		let right = try rights.get(i) otherwise panic("the arrays are of one length")
+		print("{__Builtins.mulHigh(left, right)}\n")
+	end 'each'
+	return 0
+end 'main'
+
+//> 0
+//> 18446744073709551614
+//> 1
+//> 1
+//> 6609981178781634653
+//> 0

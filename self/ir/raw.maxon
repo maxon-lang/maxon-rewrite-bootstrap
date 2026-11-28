@@ -92,6 +92,11 @@ function lowerRawMulHigh(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c
 	return wrappingBin(l, op: BinOp.binMulHi, a: args[0], b: args[1], kind: IrKind.kindScalar)
 end 'lowerRawMulHigh'
 
+// lowerMulHigh is __Builtins.mulHigh, the library's door to what __Raw.mulHigh is to the runtime.
+function lowerMulHigh(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
+	return lowerRawMulHigh(l, p: p, ms: ms, c: c, recv: recv, args: args)
+end 'lowerMulHigh'
+
 // lowerRawAddressOf is the address of the local that the call is given as its place. The call evaluates its operand
 // itself, since the value of the place is not what it is given.
 function lowerRawAddressOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg

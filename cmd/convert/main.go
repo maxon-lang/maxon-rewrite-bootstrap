@@ -149,6 +149,10 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return exitUsage
 		}
 		res := convertFile(specs, "<stdin>", string(data))
+		if res.Err != nil {
+			fmt.Fprintf(stderr, "convert: %v\n", res.Err)
+			return exitUsage
+		}
 		for _, w := range res.Warnings {
 			fmt.Fprintln(stderr, w.String())
 		}
@@ -236,6 +240,10 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return exitUsage
 		}
 		res := convertFile(specs, job.srcPath, string(data))
+		if res.Err != nil {
+			fmt.Fprintf(stderr, "convert: %v\n", res.Err)
+			return exitUsage
+		}
 		if specs && len(res.Tests) == 0 {
 			continue
 		}
@@ -321,6 +329,8 @@ type fileResult struct {
 	Warnings []Warning
 	Changed  bool
 	Tests    []SpecTest
+	// Err is why the file could not be converted at all: an overlay that does not fit it.
+	Err error
 }
 
 func convertFile(specs bool, name, text string) fileResult {
@@ -328,7 +338,11 @@ func convertFile(specs bool, name, text string) fileResult {
 		res := ConvertSpec(name, text)
 		return fileResult{Text: res.Text, Warnings: res.Warnings, Changed: res.Changed, Tests: res.Tests}
 	}
-	res := Convert(name, text, sourceFile)
+	source, err := applyOverlay(name, text)
+	if err != nil {
+		return fileResult{Err: err}
+	}
+	res := Convert(name, source, sourceFile)
 	return fileResult{Text: res.Text, Warnings: res.Warnings, Changed: res.Text != text}
 }
 
