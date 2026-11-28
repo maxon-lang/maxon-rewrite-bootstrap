@@ -155,6 +155,10 @@
 (bin.sub.checked x y [f]) => (SubRegReg x y) (JccRel32 [MCond.overflow] [f])
 // A product's low word is the same signed or unsigned, so an unchecked one is imul's, whose immediate form writes a
 // register of its own; imul's overflow flag says a signed product does not fit.
+// A product of two words of no sign and the mulhi.u of the same operands after it in the block are one mul, which gives
+// both words (emitMulPair); the high half then selects nothing.
+(bin.mul.unsigned.!checked) && sel.pairsHigh(fn) => (emitMulPair)
+(bin.mulhi.unsigned) && sel.pairedLow(fn) => (emitPairedHigh)
 (bin.mul.!checked x (const [c])) && fitsImm8(c) => (ImulRegRegImm8 r x [c])
 (bin.mul.!checked x (const [c])) && fitsImm32(c) => (ImulRegRegImm32 r x [c])
 (bin.mul.!checked x y) => (ImulRegReg x y)

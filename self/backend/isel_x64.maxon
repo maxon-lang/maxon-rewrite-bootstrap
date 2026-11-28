@@ -332,6 +332,21 @@ function emitSignedDivide(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.join(done, r: ins.dst)
 end 'emitSignedDivide'
 
+// emitMulPair multiplies two words of no sign once into both words of their product, mul's rdx:rax: the low word into the
+// product's result, and the high word into the result of the mulhi.u of the same operands later in the block
+// (pairedHigh), which then selects nothing (emitPairedHigh).
+function emitMulPair(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let high = sel.pairedHigh(fn)
+	sel.copy(x64PhysReg(rax), src: vregOf(ir.binLeft(ins)))
+	sel.target(X64Form.mulReg, a: vregOf(ir.binRight(ins)), b: noMReg, c: noMReg, aux: 0, imm: 0)
+	sel.copy(vregOf(ins.dst), src: x64PhysReg(rax))
+	sel.copy(vregOf(high), src: x64PhysReg(rdx))
+end 'emitMulPair'
+
+// emitPairedHigh is the high half of a pair whose low half's multiply gave its word (emitMulPair).
+function emitPairedHigh(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+end 'emitPairedHigh'
+
 // emitShift shifts by a count that is not negative. A count past the word gives what every bit leaving gives: 0, or the
 // sign for a signed right shift. A checked left shift goes to its failure block when a bit that is not 0, or the sign,
 // leaves the word: shifting the result back must give the value.

@@ -256,6 +256,30 @@ export type Selector
 		return true
 	end 'knownLength'
 
+	// pairsHigh is whether the instruction being selected, a product of two words of no sign, is the low half of a pair: a
+	// mulhi.u of the same operands follows it in its block (highPartner), so that one multiply that gives both words selects
+	// both (x64's mul).
+	function pairsHigh(f ir.IrFunction) returns bool
+		return highPartner(f, block: irBlock, low: irAt).isSome()
+	end 'pairsHigh'
+
+	// pairedLow is whether the instruction being selected, a mulhi.u, is the high half of a pair whose low half was selected
+	// before it and gave its word.
+	function pairedLow(f ir.IrFunction) returns bool
+		for k in f.blocks[irBlock].first upto irAt 'before'
+			if pairsWith(f, block: irBlock, low: k, high: irAt) 'paired'
+				return true
+			end 'paired'
+		end 'before'
+		return false
+	end 'pairedLow'
+
+	// pairedHigh is the register of the high half of the pair whose low half is being selected.
+	function pairedHigh(f ir.IrFunction) returns ir.Reg
+		let high = highPartner(f, block: irBlock, low: irAt).unwrap()
+		return f.instrs[high].dst
+	end 'pairedHigh'
+
 	// typeName is the symbol of the word of data whose address names the type t, for the table of a value of it and the cast
 	// that tests for it, defined in the unit once.
 	function typeName(mutates self, p ast.Project, ms ast.ModuleState, t ast.TypeID) returns String
@@ -824,6 +848,42 @@ export type Selector
 		end 'arch'
 	end 'zeroManagedSlots'
 end 'Selector'
+
+// pairsWith is whether instruction high of block b is the high half of the pair of instruction low (highPartner).
+function pairsWith(f ir.IrFunction, block Count, low Count, high Count) returns bool
+	return match highPartner(f, block: block, low: low) 'partner'
+		some(k) gives k == high
+		none gives false
+	end 'partner'
+end 'pairsWith'
+
+// isUnsignedProduct is whether x is the operation op, a product's, of two words of no sign.
+function isUnsignedProduct(x ir.Instr, op ir.BinOp) returns bool
+	return x.op == ir.Opcode.opBin and ir.binOp(x) == op and ir.binUnsigned(x)
+end 'isUnsignedProduct'
+
+// PartnerAt is the instruction of the high half of a product's pair, if it has one.
+typealias PartnerAt = table.Option with Count
+
+// highPartner is, where instruction low of block b is a product of two words of no sign that fails on nothing, the first mulhi.u
+// after it in the block of the same two operands, in either order: the two halves of one product.
+function highPartner(f ir.IrFunction, block Count, low Count) returns PartnerAt
+	if not isUnsignedProduct(f.instrs[low], op: ir.BinOp.binMul) or ir.binHasFail(f.instrs[low]) 'notProduct'
+		return PartnerAt.none
+	end 'notProduct'
+	let a = ir.binLeft(f.instrs[low])
+	let c = ir.binRight(f.instrs[low])
+	for k in nextCount(low) upto f.blocks[block].endAt 'after'
+		if isUnsignedProduct(f.instrs[k], op: ir.BinOp.binMulHi) 'high'
+			let l = ir.binLeft(f.instrs[k])
+			let r = ir.binRight(f.instrs[k])
+			if (l == a and r == c) or (l == c and r == a) 'same'
+				return PartnerAt.some(k)
+			end 'same'
+		end 'high'
+	end 'after'
+	return PartnerAt.none
+end 'highPartner'
 
 function argAt(f ir.IrFunction, start Count, index Count) returns MReg
 	return vregOf(f.args[try start + index otherwise panic("backend: an argument past the pool")])

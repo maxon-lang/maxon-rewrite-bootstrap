@@ -1,0 +1,24 @@
+// A product of two words and the high word of the same product after it are one multiply on x64, which gives both words;
+// the operands in either order pair, and a high word before its product does not. The words come from an array so that
+// nothing is folded.
+typealias Words = Array with Count
+
+typealias Pattern = bits(64)
+
+function main() returns ExitCode
+	let words = Words from [18446744073709551615, 12345678901234567890, 4294967296, 3]
+	for i in 0 upto 3 'each'
+		let a = try words.get(i) otherwise panic("inside")
+		let b = try words.get(i + 1) otherwise panic("inside")
+		let low = (a as Pattern) * (b as Pattern)
+		let high = __Builtins.mulHigh(b, a)
+		let early = __Builtins.mulHigh(a, b)
+		let late = (b as Pattern) * (a as Pattern)
+		print("{low} {high} {early} {late}\n")
+	end 'each'
+	return 0
+end 'main'
+
+//> 6101065172474983726 12345678901234567889 12345678901234567889 6101065172474983726
+//> 16942272220250505216 2874452364 2874452364 16942272220250505216
+//> 12884901888 0 0 12884901888
