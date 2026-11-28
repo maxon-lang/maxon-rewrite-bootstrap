@@ -209,7 +209,6 @@ aggregate=80 last=1
 ```
 
 <!-- test: a-blocking-subprocess-wait-does-not-stall-a-sibling -->
-<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- procs: 2 -->
 **THE SAME SHAPE ON THE WAIT THAT COSTS THE MOST.** `Subprocess.run` is the surface the timing paragraph at
@@ -306,7 +305,6 @@ aggregate=8 last=1
 ```
 
 <!-- test: a-blocking-kernel-call-does-not-starve-an-unrelated-green-thread -->
-<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- procs: 1 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⭐⭐ **THIS IS THE CASE THE FILE'S OPENING CLAIM WAS ALWAYS ABOUT, AND IT ASSERTS AN ORDER RATHER THAN A
@@ -348,7 +346,7 @@ waits on it rather than calling it stuck.
 ```maxon
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives ""
 	end 'read'
 end 'textOf'
@@ -365,11 +363,12 @@ type Reader
 	export function read(sentinel Sentinel.handle) returns Integer
 		print("R: reading\n")
 		try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
-		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		var streamReader = Console.stdin()
+		let line = textOf(try streamReader.readLine() otherwise LineOrEnd.ended)
 		print("R: read returned\n")
 		let n = line.count()
 		print("done read={n}\n")
-		return n
+		return try n as Integer otherwise panic("out of range")
 	end 'read'
 end 'Reader'
 
@@ -406,7 +405,6 @@ done read=5
 ```
 
 <!-- test: a-spare-processor-already-carries-the-sibling -->
-<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- procs: 4 -->
 <!-- stdin: after "S: sentinel ran" -->
 ⚠ **THIS CASE IS GREEN WITH OR WITHOUT THE HANDOFF, AND IT IS HERE TO SAY WHY THE ONE ABOVE NEEDS
@@ -429,7 +427,7 @@ processors on every host, a one-core machine included.
 ```maxon
 function textOf(read LineOrEnd) returns String
 	return match read 'read'
-		line(text) gives text
+		line(text) gives text.clone()
 		ended gives ""
 	end 'read'
 end 'textOf'
@@ -446,11 +444,12 @@ type Reader
 	export function read(sentinel Sentinel.handle) returns Integer
 		print("R: reading\n")
 		try sentinel.ping() otherwise panic("an open mailbox with room takes the send")
-		let line = textOf(try Console.stdin().readLine() otherwise LineOrEnd.ended)
+		var streamReader = Console.stdin()
+		let line = textOf(try streamReader.readLine() otherwise LineOrEnd.ended)
 		print("R: read returned\n")
 		let n = line.count()
 		print("done read={n}\n")
-		return n
+		return try n as Integer otherwise panic("out of range")
 	end 'read'
 end 'Reader'
 
@@ -646,7 +645,6 @@ slept=true exited=true
 ```
 
 <!-- test: a-child-wait-parks-instead-of-holding-a-processor -->
-<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 A streaming child's `wait` parks its green thread until the child exits. The child ends on its own about two
@@ -659,7 +657,7 @@ are nearly two seconds apart.
 typealias Integer = int(i64.min to i64.max)
 
 function spawnTimedChild() returns StreamingSubprocess throws MxSubprocessError
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	#if os(Windows)
 		argv.push("-n")
 		argv.push("3")
@@ -684,7 +682,7 @@ type Waiter
 	end 'create'
 
 	export function outlast(sentinel Sentinel.handle) returns Integer
-		let child = try spawnTimedChild() otherwise 'noChild'
+		var child = try spawnTimedChild() otherwise 'noChild'
 			return 0
 		end 'noChild'
 		print("W: waiting\n")

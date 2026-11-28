@@ -253,7 +253,6 @@ main ready=1 sum=7 coroutine=103
 ```
 
 <!-- test: await-any-waits.a-message-body-may-make-an-http-request -->
-<!-- skip: language difference: a message that calls through a function value or an interface, whose target the check cannot see, may wait on another party while it holds its service -->
 `fetch` runs in `Fetcher`'s message body and makes an `HttpClient` request over `http` to a peer coroutine of `main`. The client reaches no wait, so the message is accepted.
 
 ```maxon
@@ -268,30 +267,39 @@ type Fetcher
 		return Self{seen: 0}
 	end 'create'
 
-	export function fetch(url String) returns Tally
+	export function fetch(mutates self, url String) returns Tally
 		let response = try HttpClient.get(url) otherwise return 0
-		self.seen = self.seen + 1
+		self.seen = try self.seen + 1 otherwise panic("out of range")
 		return response.body().byteLength() as Tally
 	end 'fetch'
 end 'Fetcher'
 
 function answer(mutates listener TcpListener) returns String
-	let conn = try listener.accept() otherwise return "accept-failed"
-	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
-	_ = try conn.send("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello") otherwise return "send-failed"
+	var conn = try listener.accept() otherwise return "accept-failed"
+	_ = try conn.readSome(RequestBytes) otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "recv-failed"
+	end 'connEnded'
+	_ = try conn.send("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello") otherwise 'connEnded'
+		try conn.close() otherwise ignore
+		return "send-failed"
+	end 'connEnded'
+	try conn.close() otherwise ignore
 	return "served"
 end 'answer'
 
 function main() returns ExitCode
-	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
+	var listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 1
 	let port = listener.port()
 	let peer = async answer(listener)
 	let fetcher = spawn Fetcher.create()
 	let length = try await fetcher.fetch("http://127.0.0.1:{port}/") otherwise 'refused'
 		peer.cancel()
+		try listener.close() otherwise ignore
 		return 2
 	end 'refused'
 	print("fetched {length} bytes, peer {await peer}\n")
+	try listener.close() otherwise ignore
 	return 0
 end 'main'
 ```

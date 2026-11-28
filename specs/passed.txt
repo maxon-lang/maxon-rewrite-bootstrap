@@ -712,6 +712,7 @@ atan2.md: atan2.positive-x-axis
 atan2.md: atan2.positive-y-axis
 atan2.md: atan2.signed-zero
 atan2.md: atan2.third-quadrant
+await-any-waits.md: await-any-waits.a-message-body-may-make-an-http-request
 await-any-waits.md: await-any-waits.a-select-over-coroutines-runs-in-main-and-in-a-plain-coroutine
 await-any-waits.md: await-any-waits.error.a-message-that-selects-over-replies-is-refused
 await-any.md: await-any.leaves-the-others-awaitable
@@ -7345,6 +7346,7 @@ sched-runqueue.md: sched-runqueue.a-yield-goes-behind-the-global-queue
 sched-runqueue.md: sched-runqueue.ring-overflow-runs-every-spawned-service
 sched-runqueue.md: sched-runqueue.the-last-spawned-thread-runs-first-at-one-processor
 sched-runqueue.md: sched-runqueue.the-ring-index-wraps-past-its-capacity
+sched-syscall-handoff.md: a-child-wait-parks-instead-of-holding-a-processor
 sched-syscall-handoff.md: an-async-child-wait-leaves-the-sleeping-coroutine-running
 scheduler-processor-count.md: scheduler-processor-count.a-count-longer-than-thirty-two-bytes-is-read-whole
 scheduler-processor-count.md: scheduler-processor-count.a-count-with-a-leading-plus-is-taken
@@ -8345,6 +8347,7 @@ structs.md: var-struct-field-assign
 subprocess-builtins.md: subprocess-builtins.handle-guards
 subprocess-builtins.md: subprocess-builtins.result-pointer-guards
 subprocess-builtins.md: subprocess-builtins.streaming-read-after-release-throws
+subprocess-builtins.md: subprocess-builtins.the-stdlib-api-compiles-on-arm64
 subprocess-builtins.md: subprocess-builtins.the-stdlib-api-runs-on-windows
 subprocess.md: subprocess-a-child-a-signal-killed-is-signalled
 subprocess.md: subprocess-a-child-that-writes-before-it-reads-gets-its-whole-stdin
