@@ -53,6 +53,23 @@ function loadArrayOfArrayOfTypeEntry(mutates r table.CacheReader) returns Array 
 	return a
 end 'loadArrayOfArrayOfTypeEntry'
 
+function storeArrayOfBoundCall(mutates w table.CacheWriter, v Array with BoundCall)
+	w.word64(v.count() as table.Word64)
+	for i in 0 upto v.count() 'items'
+		storeBoundCall(w, v: v[i])
+	end 'items'
+end 'storeArrayOfBoundCall'
+
+function loadArrayOfBoundCall(mutates r table.CacheReader) returns Array with BoundCall
+	let n = r.items()
+	var a as Array with BoundCall
+	a = Array.create(0)
+	for _ in 0 upto n 'items'
+		a.push(BoundCall.cacheLoad(r))
+	end 'items'
+	return a
+end 'loadArrayOfBoundCall'
+
 function storeArrayOfCapture(mutates w table.CacheWriter, v Array with Capture)
 	w.word64(v.count() as table.Word64)
 	for i in 0 upto v.count() 'items'
@@ -546,6 +563,19 @@ function loadArrayOfWitness(mutates r table.CacheReader) returns Array with Witn
 	return a
 end 'loadArrayOfWitness'
 
+function storeBoundCall(mutates w table.CacheWriter, v BoundCall)
+	w.word64(v.param as table.Word64)
+	w.text(v.member)
+end 'storeBoundCall'
+
+extension BoundCall
+	static function cacheLoad(mutates r table.CacheReader) returns BoundCall
+		let theParam = try (r.word64() as TypeID) otherwise panic("cache: a stored TypeID is out of its range")
+		let theMember = r.text()
+		return BoundCall{param: theParam, member: theMember}
+	end 'cacheLoad'
+end 'BoundCall'
+
 function storeCallInfo(mutates w table.CacheWriter, v CallInfo)
 	w.word8(v.kind.ordinal as table.Word64)
 	w.word64(v.fn as table.Word64)
@@ -984,6 +1014,45 @@ function loadIntMapOfArmKind(mutates r table.CacheReader) returns table.IntMap w
 	let used = r.word64() as Count
 	return table.IntMap.restored(states, keys: keys, values: values, length: length, used: used)
 end 'loadIntMapOfArmKind'
+
+function storeIntMapOfArrayOfBoundCall(mutates w table.CacheWriter, v table.IntMap with (Array with BoundCall))
+	let slots = v.capacity()
+	w.word64(slots as table.Word64)
+	for i in 0 upto slots 'states'
+		w.word8(v.stateAt(i) as table.Word64)
+	end 'states'
+	for i in 0 upto slots 'entries'
+		if table.mapSlotOccupied(v.stateAt(i)) 'occupied'
+			w.word64(v.keyAt(i) as table.Word64)
+			storeArrayOfBoundCall(w, v: v.valueAt(i))
+		end 'occupied'
+	end 'entries'
+	w.word64(v.count() as table.Word64)
+	w.word64(v.usedSlots() as table.Word64)
+end 'storeIntMapOfArrayOfBoundCall'
+
+function loadIntMapOfArrayOfBoundCall(mutates r table.CacheReader) returns table.IntMap with (Array with BoundCall)
+	let slots = r.items()
+	var states = ByteArray.create(0)
+	for _ in 0 upto slots 'states'
+		states.push(try (r.word8() as Byte) otherwise panic("cache: a stored state of a map is no byte"))
+	end 'states'
+	var keys as Array with Count
+	keys = Array.create(0)
+	var values as Array with (Array with BoundCall)
+	values = Array.create(0)
+	for i in 0 upto slots 'entries'
+		if table.mapSlotOccupied(states[i] as Count) 'occupied'
+			keys.push(r.word64() as Count)
+			values.push(loadArrayOfBoundCall(r))
+		end 'occupied' else 'free'
+			keys.push(0)
+		end 'free'
+	end 'entries'
+	let length = r.word64() as Count
+	let used = r.word64() as Count
+	return table.IntMap.restored(states, keys: keys, values: values, length: length, used: used)
+end 'loadIntMapOfArrayOfBoundCall'
 
 function storeIntMapOfArrayOfLocalID(mutates w table.CacheWriter, v table.IntMap with (Array with LocalID))
 	let slots = v.capacity()
@@ -2195,6 +2264,7 @@ export function storeTyping(mutates w table.CacheWriter, v Typing)
 	storeIntMapOfBool(w, v: v.rawReads)
 	storeIntMapOfBool(w, v: v.subscripts)
 	storeIntMapOfWaiting(w, v: v.waiting)
+	storeIntMapOfArrayOfBoundCall(w, v: v.boundCalls)
 	storeIntMapOfFuncID(w, v: v.unpoliced)
 	w.flag(v.declared)
 end 'storeTyping'
@@ -2232,9 +2302,10 @@ extension Typing
 		let theRawReads = loadIntMapOfBool(r)
 		let theSubscripts = loadIntMapOfBool(r)
 		let theWaiting = loadIntMapOfWaiting(r)
+		let theBoundCalls = loadIntMapOfArrayOfBoundCall(r)
 		let theUnpoliced = loadIntMapOfFuncID(r)
 		let theDeclared = r.flag()
-		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, drains: theDrains, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lendsPlace: theLendsPlace, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, subscripts: theSubscripts, waiting: theWaiting, unpoliced: theUnpoliced, declared: theDeclared}
+		return Typing{module: theModule, types: theTypes, arith: theArith, names: theNames, members: theMembers, calls: theCalls, structLits: theStructLits, patterns: thePatterns, arms: theArms, whens: theWhens, closures: theClosures, iterations: theIterations, hooks: theHooks, jumps: theJumps, locals: theLocals, nodeLocals: theNodeLocals, indexes: theIndexes, drains: theDrains, expansions: theExpansions, funcLocals: theFuncLocals, funcUses: theFuncUses, fieldUses: theFieldUses, consumed: theConsumed, slotTakes: theSlotTakes, lendsPlace: theLendsPlace, lentTries: theLentTries, boxes: theBoxes, staticInstances: theStaticInstances, rawReads: theRawReads, subscripts: theSubscripts, waiting: theWaiting, boundCalls: theBoundCalls, unpoliced: theUnpoliced, declared: theDeclared}
 	end 'cacheLoad'
 end 'Typing'
 

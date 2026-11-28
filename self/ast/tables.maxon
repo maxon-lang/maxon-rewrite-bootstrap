@@ -507,6 +507,24 @@ end 'Waiting'
 
 export typealias FuncWaitingMap = table.IntMap with Waiting
 
+// BoundCall is a call that a generic function makes through a bound of a type parameter, by its body or a call it makes: the
+// parameter, one of the function's generics, and the name of the requirement it calls. An instance of the function judges
+// it at its type argument, by the method of that type (check/waits.maxon).
+export type BoundCall
+	export var param as TypeID
+	export var member as String
+
+	export static function make(param TypeID, consumes member String) returns BoundCall
+		return BoundCall{param: param, member: member}
+	end 'make'
+end 'BoundCall'
+
+export typealias BoundCallList = Array with BoundCall
+
+export typealias FuncBoundCallsMap = table.IntMap with BoundCallList
+
+export typealias TypeIDLists = Array with TypeIDList
+
 // FuncKindMap is, by the function, a message kind it sends, by its body or a call it makes, whose declaration names no
 // policy (check/policies.maxon).
 export typealias FuncKindMap = table.IntMap with FuncID
@@ -580,6 +598,10 @@ export type Typing
 	// waiting is what each function whose body the module checked may wait for, by its body and every call it makes, which
 	// the check of a module that calls it reads (check/waits.maxon), by the function.
 	export var waiting as FuncWaitingMap
+	// boundCalls are, for each generic function whose body the module checked, the calls through the bounds of its type
+	// parameters that it makes, by its body and every call it makes, which waiting leaves out: the check of a module that
+	// calls an instance of it judges each at the instance's type arguments (check/waits.maxon), by the function.
+	export var boundCalls as FuncBoundCallsMap
 	// unpoliced is, for each function whose body the module checked that sends a message kind whose declaration names no
 	// policy, by its body or a call it makes, the first such kind found, which the check of a module whose posted kind's
 	// handler calls it reads (check/policies.maxon), by the function. A function that sends none has no entry.
@@ -621,7 +643,7 @@ export type Typing
 		let sub = NodeBoolMap.new()
 		let wt = FuncWaitingMap.new()
 		let up = FuncKindMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, drains: drm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lendsPlace: lp, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, subscripts: sub, waiting: wt, unpoliced: up, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, hooks: hk, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, drains: drm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, slotTakes: st, lendsPlace: lp, lentTries: lt, boxes: bx, staticInstances: si, rawReads: rr, subscripts: sub, waiting: wt, boundCalls: FuncBoundCallsMap.new(), unpoliced: up, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

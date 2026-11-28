@@ -1,0 +1,40 @@
+// A call through a bound of a type parameter is judged at the instance's type argument: a message that upserts into a
+// `Map with String, String` and adds to a `Set with Count` calls String's and Count's hash and equals through the generic
+// library's bounds, none of which waits, so the message holds its service and is accepted (E3221 asks only of a wait on
+// another party).
+//> names 2 numbers 2 has bee true
+export typealias Names = Map with String, String
+
+export typealias Numbers = Set with Count
+
+export typealias Words = Array with String
+
+type Keeper
+	var names as Names
+	var numbers as Numbers
+
+	static function create() returns Self
+		return Self{names: Names.create(), numbers: Numbers.create()}
+	end 'create'
+
+	export function put(mutates self, key String)
+		self.names.upsert(key.clone(), value: "v")
+		self.names.upsert("{key}!", value: "w")
+		self.numbers.insert(key.byteLength())
+		self.numbers.insert(7)
+		var words = Words.create(0)
+		words.push("cat")
+		words.push("ant")
+		words.push("bee")
+		print("names {self.names.count()} numbers {self.numbers.count()} has bee {self.names.contains("key!") and words.contains("bee")}\n")
+		self.stop()
+	end 'put'
+end 'Keeper'
+
+function main() returns ExitCode
+	let keeper = spawn Keeper.create()
+	let done = keeper.stopped()
+	try keeper.put("key") otherwise panic("a send to a running service")
+	await done
+	return 0
+end 'main'

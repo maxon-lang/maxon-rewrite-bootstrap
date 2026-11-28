@@ -24,7 +24,7 @@ function checkAsync(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 		return ast.noType
 	end 'refused'
 	// The coroutine runs on the caller's strand, so the caller waits where it does.
-	noteCallee(c, p: p, ms: ms, callee: info.fn)
+	noteCallee(c, p: p, ms: ms, callee: info.fn, args: calleeArgs(p, ms: ms, info: info))
 	c.pendingAsyncs.push(PendingAsync.make(e, callee: info.fn))
 	var args = ast.TypeIDList.create(0)
 	args.push(result)

@@ -6,6 +6,14 @@
 // published nothing is an unknown, which may wait on another party. E3073 refuses an async call of a function that never
 // waits, and E3221 a holder of a service that may wait on another party: an unknown never makes the first refuse a correct
 // program, and makes the second refuse what it cannot show sound.
+//
+// A call through a bound of a type parameter (a Map's key.hash()) is judged at the instance's type arguments: a generic
+// function's facts keep its bound calls apart (WaitFact.bounds, published as ast.Typing.boundCalls with what its calls reach),
+// and a call of an instance resolves each at its type argument, by that type's method, so `Map with String, String`'s upsert
+// waits where String's hash or equals does, which is never. A bound call that stays a type parameter is an unknown, as
+// before. The verdict of an instance of another module's function comes from that module's published typing, which the
+// verify of the calling module waits for already, and from the published waiting of the type argument's methods, whose
+// modules the caller names; it is judged once per instance (instanceVerdict).
 
 // WaitFact is what the check of a function found: whether it waits itself, whether it waits on another party (a reply
 // it keeps, or the start of a service whose factory throws), the functions of the module it calls, and the sends it makes
@@ -13,15 +21,21 @@
 export type WaitFact
 	export var waits as bool
 	export var calls as ast.FuncIDList
+	// callArgs are the type arguments of each call, in the function's own terms, empty where the callee is not generic.
+	export var callArgs as ast.TypeIDLists
+	// bounds are the calls the function makes through the bounds of its type parameters.
+	export var bounds as ast.BoundCallList
 	export var partyWaits as bool
 	export var sends as UnpolicedSends
 
-	export static function make(waits bool, consumes calls ast.FuncIDList) returns WaitFact
-		return WaitFact{waits: waits, calls: calls, partyWaits: false, sends: UnpolicedSends.create(0)}
+	export static function make(waits bool, consumes calls ast.FuncIDList, consumes callArgs ast.TypeIDLists, consumes bounds ast.BoundCallList) returns WaitFact
+		return WaitFact{waits: waits, calls: calls, callArgs: callArgs, bounds: bounds, partyWaits: false, sends: UnpolicedSends.create(0)}
 	end 'make'
 end 'WaitFact'
 
 export typealias WaitFacts = table.IntMap with WaitFact
+
+export typealias InstanceWaits = table.StringMap with ast.Waiting
 
 // PendingAsync is an async call that E3073 asks about once every body of the module is checked: the call, and the
 // function it starts.
@@ -41,6 +55,8 @@ function startWaits(mutates c Checker)
 	c.waitNow = false
 	c.partyWaitNow = false
 	c.waitCalls = ast.FuncIDList.create(0)
+	c.waitCallArgs = ast.TypeIDLists.create(0)
+	c.waitBounds = ast.BoundCallList.create(0)
 	c.waitSends = UnpolicedSends.create(0)
 end 'startWaits'
 
@@ -49,7 +65,7 @@ function finishWaits(mutates c Checker)
 	if c.rootFn == ast.noFunc 'none'
 		return
 	end 'none'
-	var fact = WaitFact.make(c.waitNow, calls: exchange(c.waitCalls, value: ast.FuncIDList.create(0)))
+	var fact = WaitFact.make(c.waitNow, calls: exchange(c.waitCalls, value: ast.FuncIDList.create(0)), callArgs: exchange(c.waitCallArgs, value: ast.TypeIDLists.create(0)), bounds: exchange(c.waitBounds, value: ast.BoundCallList.create(0)))
 	fact.partyWaits = c.partyWaitNow
 	fact.sends = exchange(c.waitSends, value: UnpolicedSends.create(0))
 	c.waits.insert(c.rootFn as Count, value: fact)
@@ -67,21 +83,58 @@ function noteCallWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, cal
 		noteSend(c, p: p, ms: ms, call: call, kind: callee)
 		return
 	end 'send'
-	if k == ast.CallKind.callValue or k == ast.CallKind.callBound 'unknown'
+	if k == ast.CallKind.callValue 'unknown'
 		c.waitNow = true
 		c.partyWaitNow = true
 		return
 	end 'unknown'
+	if k == ast.CallKind.callBound 'bound'
+		let receiver = c.typing.calls.valueAt(slot).receiverTy
+		noteBoundCall(c, p: p, ms: ms, call: call, receiver: receiver)
+		return
+	end 'bound'
 	if k != ast.CallKind.callFunction and k != ast.CallKind.callStatic and k != ast.CallKind.callMethod 'noCall'
 		return
 	end 'noCall'
 	noteForeignSends(c, p: p, ms: ms, call: call, callee: callee)
-	noteCallee(c, p: p, ms: ms, callee: callee)
+	noteCallee(c, p: p, ms: ms, callee: callee, args: calleeArgs(p, ms: ms, info: c.typing.calls.valueAt(slot)))
 end 'noteCallWaits'
+
+// noteBoundCall notes a call through a bound of a type parameter: it may wait, as an unknown may, and what it waits for is
+// judged at each instance's type argument. A receiver that is no type parameter of the function stays an unknown.
+function noteBoundCall(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, receiver ast.TypeID)
+	c.waitNow = true
+	let callee = ast.callExprCallee(ms.tree(), id: call)
+	let param = ast.contentType(ms.types, reads: p.types, t: receiver)
+	if ms.tree().kindOf(callee) != ast.NodeKind.memberExpr or ast.typeKind(ms.types, reads: p.types, t: param) != ast.TypeKind.typeParam 'unknown'
+		c.partyWaitNow = true
+		return
+	end 'unknown'
+	c.waitBounds.push(ast.BoundCall.make(param, member: ast.memberExprName(ms.tree(), id: callee).clone()))
+end 'noteBoundCall'
+
+// calleeArgs are the type arguments a call gives its generic callee, in the caller's terms: the call's own, or a method's
+// receiver's; empty where the callee is not generic or they are neither.
+function calleeArgs(p ast.Project, ms ast.ModuleState, info ast.CallInfo) returns ast.TypeIDList
+	let generics = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: info.fn).generics.count()
+	if generics == 0 'plain'
+		return ast.TypeIDList.create(0)
+	end 'plain'
+	if info.typeArgs.count() == generics 'own'
+		return ast.cloneTypeArgs(info.typeArgs)
+	end 'own'
+	if info.receiverTy != ast.noType 'receiver'
+		let receiver = ast.contentType(ms.types, reads: p.types, t: info.receiverTy)
+		if ast.typeEntry(ms.types, reads: p.types, t: receiver).typeArgs.count() == generics 'instance'
+			return ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: receiver).typeArgs)
+		end 'instance'
+	end 'receiver'
+	return ast.TypeIDList.create(0)
+end 'calleeArgs'
 
 // noteCallee notes a call or an async start of a function: a wait point among the built-ins, or an edge to the function,
 // which verifyAsyncs and verifyHolders follow.
-function noteCallee(mutates c Checker, p ast.Project, ms ast.ModuleState, callee ast.FuncID)
+function noteCallee(mutates c Checker, p ast.Project, ms ast.ModuleState, callee ast.FuncID, consumes args ast.TypeIDList)
 	let intrinsic = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: callee).intrinsic
 	if intrinsic != ast.Intrinsic.intrNone 'intrinsic'
 		if waitingIntrinsic(intrinsic) 'waits'
@@ -95,6 +148,7 @@ function noteCallee(mutates c Checker, p ast.Project, ms ast.ModuleState, callee
 		return
 	end 'intrinsic'
 	c.waitCalls.push(callee)
+	c.waitCallArgs.push(args)
 end 'noteCallee'
 
 // waitingIntrinsic is whether a built-in parks the green thread that calls it: sleep and yield, a promise's cancel, which
@@ -126,7 +180,8 @@ end 'waitingSubprocessRow'
 function verifyAsyncs(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)
 	for i in 0 upto c.pendingAsyncs.count() 'asyncs'
 		var visited = BoolIntMap.new()
-		if not mayWait(c, p: p, ms: ms, f: c.pendingAsyncs[i].callee, visited: visited) 'never'
+		let callee = c.pendingAsyncs[i].callee
+		if not mayWait(c, p: p, ms: ms, f: callee, visited: visited) 'never'
 			let e = c.pendingAsyncs[i].node
 			checkFail(c.modID, off: ms.tree().reportStartOf(e), code: diag.errAsyncNonYielding, msg: diag.asyncNeverYields(exprText(ms.tree(), e: e)), errs: errs)
 		end 'never'
@@ -134,27 +189,37 @@ function verifyAsyncs(mutates c Checker, p ast.Project, ms ast.ModuleState, muta
 end 'verifyAsyncs'
 
 // mayWait is whether a function may wait, by its facts and those of the functions it calls.
-function mayWait(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns bool
-	return waitingOf(c, p: p, ms: ms, f: f, visited: visited) != ast.Waiting.waitsNever
+function mayWait(mutates c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns bool
+	var unresolved = ast.BoundCallList.create(0)
+	return waitingOf(c, p: p, ms: ms, f: f, args: ast.TypeIDList.create(0), roots: ast.TypeIDList.create(0), unresolved: unresolved, visited: visited) != ast.Waiting.waitsNever
 end 'mayWait'
 
 // mayWaitOnParty is whether a function may wait on another party, by its facts and those of the functions it calls.
-function mayWaitOnParty(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns bool
-	return waitingOf(c, p: p, ms: ms, f: f, visited: visited) == ast.Waiting.waitsOnParty
+function mayWaitOnParty(mutates c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns bool
+	var unresolved = ast.BoundCallList.create(0)
+	return waitingOf(c, p: p, ms: ms, f: f, args: ast.TypeIDList.create(0), roots: ast.TypeIDList.create(0), unresolved: unresolved, visited: visited) == ast.Waiting.waitsOnParty
 end 'mayWaitOnParty'
 
-// waitingOf is what a function may wait for: what its module published, for a function of another module, and else the
-// most of its facts and those of the functions it calls. A function of the module with no facts has no body the check
-// saw, and a cycle that reaches no wait waits nowhere.
-function waitingOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, mutates visited BoolIntMap) returns ast.Waiting
+// waitingOf is what a function may wait for at the type arguments args (an instance's own where f is one, none where they
+// are not known): what its module published, for a function of another module, with its bound calls judged at args, and
+// else the most of its facts, those of the functions it calls at their arguments, and its bound calls. A bound call whose
+// type argument is one of roots, the type parameters of the function a publication judges, is left in unresolved for the
+// publication; any other that stays a type parameter is an unknown. A function of the module with no facts has no body the
+// check saw, and a cycle that reaches no wait waits nowhere.
+function waitingOf(mutates c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, args ast.TypeIDList, roots ast.TypeIDList, mutates unresolved ast.BoundCallList, mutates visited BoolIntMap) returns ast.Waiting
 	var fid = f
+	var given = ast.cloneTypeArgs(args)
 	let origin = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).genericOrigin
 	if origin != ast.noFunc 'instance'
 		fid = origin
+		if given.count() == 0 'ownArgs'
+			given = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f).typeArgs)
+		end 'ownArgs'
 	end 'instance'
+	let generics = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).generics)
 	let module = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fid).module
 	if module != c.modID 'otherModule'
-		return publishedWaiting(p, module: module, f: fid)
+		return instanceVerdict(c, p: p, ms: ms, f: fid, module: module, generics: generics, args: given, roots: roots, unresolved: unresolved, visited: visited)
 	end 'otherModule'
 	if visited.has(fid as Count) 'seen'
 		return ast.Waiting.waitsNever
@@ -164,22 +229,116 @@ function waitingOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, m
 	if not c.waits.find(fid as Count, slot: slot) 'unchecked'
 		return ast.Waiting.waitsNever
 	end 'unchecked'
-	let fact = c.waits.valueAt(slot)
+	let fact = c.waits.valueAt(slot).clone()
 	if fact.partyWaits 'party'
 		return ast.Waiting.waitsOnParty
 	end 'party'
 	var most = ast.Waiting.waitsParked if fact.waits else ast.Waiting.waitsNever
 	for i in 0 upto fact.calls.count() 'calls'
-		let reached = waitingOf(c, p: p, ms: ms, f: fact.calls[i], visited: visited)
+		let at = argsAt(fact.callArgs[i], generics: generics, args: given)
+		let reached = waitingOf(c, p: p, ms: ms, f: fact.calls[i], args: at, roots: roots, unresolved: unresolved, visited: visited)
 		if reached == ast.Waiting.waitsOnParty 'onParty'
 			return reached
 		end 'onParty'
-		if reached == ast.Waiting.waitsParked 'parked'
-			most = reached
-		end 'parked'
+		most = mostOf(most, b: reached)
 	end 'calls'
-	return most
+	return mostOf(most, b: boundsAt(c, p: p, ms: ms, bounds: fact.bounds, generics: generics, args: given, roots: roots, unresolved: unresolved, visited: visited))
 end 'waitingOf'
+
+// instanceVerdict is what an instance of another module's function f may wait for: what its module published, and its
+// published bound calls at args. Where every argument is known, the verdict is judged once and kept.
+function instanceVerdict(mutates c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncID, module diag.ModuleID, generics ast.TypeIDList, args ast.TypeIDList, roots ast.TypeIDList, mutates unresolved ast.BoundCallList, mutates visited BoolIntMap) returns ast.Waiting
+	let published = publishedWaiting(p, module: module, f: f)
+	if published == ast.Waiting.waitsOnParty or module == diag.stdlibID 'known'
+		return published
+	end 'known'
+	let bounds = typingOf(p, module: module).boundCalls.getOr(f as Count, fallback: ast.BoundCallList.create(0))
+	if bounds.count() == 0 'noBounds'
+		return published
+	end 'noBounds'
+	let key = instanceKey(f, args: args)
+	let cacheable = roots.count() == 0 and args.count() == generics.count()
+	if cacheable 'cached'
+		match c.instanceWaits.get(key) 'seen'
+			some(w) then return w
+			none then break
+		end 'seen'
+	end 'cached'
+	let verdict = mostOf(published, b: boundsAt(c, p: p, ms: ms, bounds: bounds, generics: generics, args: args, roots: roots, unresolved: unresolved, visited: visited))
+	if cacheable 'keep'
+		c.instanceWaits.insert(key, value: verdict)
+	end 'keep'
+	return verdict
+end 'instanceVerdict'
+
+// boundsAt is the most that bound calls may wait for at the type arguments args of the function whose generics they name:
+// each is the method of its type argument, judged at that type's own arguments; one whose argument is a type parameter is
+// left for the publication where it is one of roots, and is an unknown otherwise.
+function boundsAt(mutates c Checker, p ast.Project, ms ast.ModuleState, bounds ast.BoundCallList, generics ast.TypeIDList, args ast.TypeIDList, roots ast.TypeIDList, mutates unresolved ast.BoundCallList, mutates visited BoolIntMap) returns ast.Waiting
+	var most = ast.Waiting.waitsNever
+	for i in 0 upto bounds.count() 'bounds'
+		let t = argOf(bounds[i].param, generics: generics, args: args)
+		if ast.typeKind(ms.types, reads: p.types, t: t) == ast.TypeKind.typeParam 'parameter'
+			if roots.contains(t) 'root'
+				unresolved.push(ast.BoundCall.make(t, member: bounds[i].member.clone()))
+				continue 'bounds'
+			end 'root'
+			return ast.Waiting.waitsOnParty
+		end 'parameter'
+		let method = match consumes methodLookup(c, p: p, ms: ms, t: t, name: bounds[i].member) 'lookup'
+			found(fid) gives fid
+			absent or
+			ambiguous gives ast.noFunc
+		end 'lookup'
+		if method == ast.noFunc 'unseen'
+			return ast.Waiting.waitsOnParty
+		end 'unseen'
+		let own = ast.cloneTypeArgs(ast.typeEntry(ms.types, reads: p.types, t: ast.contentType(ms.types, reads: p.types, t: t)).typeArgs)
+		let reached = waitingOf(c, p: p, ms: ms, f: method, args: own, roots: roots, unresolved: unresolved, visited: visited)
+		if reached == ast.Waiting.waitsOnParty 'onParty'
+			return reached
+		end 'onParty'
+		most = mostOf(most, b: reached)
+	end 'bounds'
+	return most
+end 'boundsAt'
+
+// argOf is the type argument that args gives the type t, where t is one of generics, and t itself otherwise.
+function argOf(t ast.TypeID, generics ast.TypeIDList, args ast.TypeIDList) returns ast.TypeID
+	for i in 0 upto generics.count() 'each'
+		if generics[i] == t and i < args.count() 'hit'
+			return args[i]
+		end 'hit'
+	end 'each'
+	return t
+end 'argOf'
+
+// argsAt are the type arguments a call writes, read at the type arguments args of the function that makes it.
+function argsAt(written ast.TypeIDList, generics ast.TypeIDList, args ast.TypeIDList) returns ast.TypeIDList
+	var out = ast.TypeIDList.create(0)
+	for i in 0 upto written.count() 'each'
+		out.push(argOf(written[i], generics: generics, args: args))
+	end 'each'
+	return out
+end 'argsAt'
+
+function mostOf(a ast.Waiting, b ast.Waiting) returns ast.Waiting
+	if a == ast.Waiting.waitsOnParty or b == ast.Waiting.waitsOnParty 'party'
+		return ast.Waiting.waitsOnParty
+	end 'party'
+	if a == ast.Waiting.waitsParked or b == ast.Waiting.waitsParked 'parked'
+		return ast.Waiting.waitsParked
+	end 'parked'
+	return ast.Waiting.waitsNever
+end 'mostOf'
+
+function instanceKey(f ast.FuncID, args ast.TypeIDList) returns String
+	var key = "{f}"
+	for i in 0 upto args.count() 'each'
+		key = "{key},{args[i]}"
+	end 'each'
+	return key
+end 'instanceKey'
 
 // publishedWaiting is what the check of the module that declares f published of it: an unknown, which may wait on another
 // party, where it published nothing, as the standard library, whose functions with a body are the built-ins'.
@@ -201,8 +360,13 @@ function publishWaits(mutates c Checker, p ast.Project, ms ast.ModuleState, func
 	for i in 0 upto functions.count() 'functions'
 		if c.waits.has(functions[i] as Count) 'checked'
 			var visited = BoolIntMap.new()
-			let w = waitingOf(c, p: p, ms: ms, f: functions[i], visited: visited)
+			var unresolved = ast.BoundCallList.create(0)
+			let generics = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: functions[i]).generics)
+			let w = waitingOf(c, p: p, ms: ms, f: functions[i], args: generics, roots: generics, unresolved: unresolved, visited: visited)
 			c.typing.waiting.insert(functions[i] as Count, value: w)
+			if unresolved.count() > 0 'bounds'
+				c.typing.boundCalls.insert(functions[i] as Count, value: unresolved)
+			end 'bounds'
 		end 'checked'
 	end 'functions'
 end 'publishWaits'

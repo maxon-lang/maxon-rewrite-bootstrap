@@ -1,0 +1,52 @@
+// A call through a bound is judged at the instance's type argument, so a Map whose key's hash waits on another party (it
+// starts a service whose factory throws) makes the message that fills it wait on that party too, and it is refused.
+// expect-error: E3221
+enum Refusal implements Error
+	refused
+end 'Refusal'
+
+type Picky
+	static function create(ok bool) returns Self throws Refusal
+		if not ok 'refused'
+			throw Refusal.refused
+		end 'refused'
+		return Self{}
+	end 'create'
+end 'Picky'
+
+type Key implements Hashable, Equatable
+	let id as Count
+
+	static function make(id Count) returns Key
+		return Key{id: id}
+	end 'make'
+
+	function hash() returns HashValue
+		let started = try spawn Picky.create(true) otherwise return 0
+		return 1
+	end 'hash'
+
+	function equals(other Key) returns bool
+		return id == other.id
+	end 'equals'
+end 'Key'
+
+typealias Keys = Map with Key, Count
+
+type Keeper
+	var keys as Keys
+
+	static function create() returns Self
+		return Self{keys: Keys.create()}
+	end 'create'
+
+	export function put(mutates self, id Count)
+		self.keys.upsert(Key.make(id), value: id)
+	end 'put'
+end 'Keeper'
+
+function main() returns ExitCode
+	let keeper = spawn Keeper.create()
+	try keeper.put(1) otherwise panic("a send")
+	return 0
+end 'main'
