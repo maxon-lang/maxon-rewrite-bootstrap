@@ -167,7 +167,7 @@ end 'bytesFor'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -680,9 +680,9 @@ Every length from 0 to 300 bytes covers each group size and the partial last blo
 counter one past that refuses.
 ```maxon
 function bytesFor(seed Count, count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto count 'eachByte'
-		let mixed = ((index + seed * 977 + 1) * 2654435761 + 12345) mod 4294967296
+		let mixed = try ((index + seed * 977 + 1) * 2654435761 + 12345) mod 4294967296 otherwise panic("out of range")
 		bytes.push(((mixed shr 11) and 0xFF) as Byte)
 	end 'eachByte'
 	return bytes
@@ -691,7 +691,7 @@ end 'bytesFor'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -704,7 +704,7 @@ function refusal(failure AesKeyStreamError) returns String
 end 'refusal'
 
 function streamed(cipher Aes, nonce ByteArray, counter Count, data ByteArray) returns String
-	let first = counter as AesCounter
+	let first = try counter as AesCounter otherwise panic("out of range")
 	let output = try cipher.xorKeyStream(nonce, counter: first, data: data) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
@@ -712,7 +712,7 @@ function streamed(cipher Aes, nonce ByteArray, counter Count, data ByteArray) re
 end 'streamed'
 
 function streamedBySoftware(cipher AesBitsliced, nonce ByteArray, counter Count, data ByteArray) returns String
-	let first = counter as AesCounter
+	let first = try counter as AesCounter otherwise panic("out of range")
 	let output = try cipher.xorKeyStream(nonce, counter: first, data: data) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
@@ -720,8 +720,8 @@ function streamedBySoftware(cipher AesBitsliced, nonce ByteArray, counter Count,
 end 'streamedBySoftware'
 
 function pastMask(cipher Aes, nonce ByteArray, counter Count, data ByteArray) returns String
-	let first = counter as AesCounter
-	let output = ByteArray.create(0)
+	let first = try counter as AesCounter otherwise panic("out of range")
+	var output = ByteArray.create(0)
 	output.push(9)
 	output.push(8)
 	output.push(7)
@@ -732,8 +732,8 @@ function pastMask(cipher Aes, nonce ByteArray, counter Count, data ByteArray) re
 end 'pastMask'
 
 function pastMaskBySoftware(cipher AesBitsliced, nonce ByteArray, counter Count, data ByteArray) returns String
-	let first = counter as AesCounter
-	let output = ByteArray.create(0)
+	let first = try counter as AesCounter otherwise panic("out of range")
+	var output = ByteArray.create(0)
 	output.push(9)
 	output.push(8)
 	output.push(7)
@@ -748,9 +748,9 @@ function mismatches(keyBytes Count) returns Count
 	let key = bytesFor(keyBytes, count: keyBytes)
 	let software = try AesBitsliced.create(key) otherwise panic("the key is valid")
 	let cipher = try Aes.create(key) otherwise panic("the key is valid")
-	let nonce = bytesFor(keyBytes + 7, count: 12)
+	let nonce = bytesFor(try keyBytes + 7 otherwise panic("out of range"), count: 12)
 	for length in 0 to 300 'eachLength'
-		let data = bytesFor(length + keyBytes, count: length)
+		let data = bytesFor(try length + keyBytes otherwise panic("out of range"), count: length)
 		let blocks = (length + 15) shr 4
 		let last = 4294967296 - blocks if blocks > 0 else 0
 		let lastWithMask = 4294967296 - blocks - 1
@@ -797,18 +797,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -1623,9 +1623,9 @@ Messages of 1000, 4096, 16384, 16385 and 65553 bytes under 3000 bytes of associa
 8-block loop many times: the hardware backing seals what the bitsliced backing seals and opens it.
 ```maxon
 function bytesFor(seed Count, count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto count 'eachByte'
-		let mixed = ((index + seed * 977 + 1) * 2654435761 + 12345) mod 4294967296
+		let mixed = try ((index + seed * 977 + 1) * 2654435761 + 12345) mod 4294967296 otherwise panic("out of range")
 		bytes.push(((mixed shr 11) and 0xFF) as Byte)
 	end 'eachByte'
 	return bytes
@@ -1635,7 +1635,7 @@ function mismatches(keyBytes Count) returns Count
 	let key = bytesFor(keyBytes, count: keyBytes)
 	let hardware = try AesGcm.create(key) otherwise panic("the key is valid")
 	let software = try AesGcm.build(key, bitsliced: true) otherwise panic("the key is valid")
-	let nonce = bytesFor(keyBytes + 7, count: 12)
+	let nonce = bytesFor(try keyBytes + 7 otherwise panic("out of range"), count: 12)
 	let additional = bytesFor(5, count: 3000)
 	let lengths = [1000, 4096, 16384, 16385, 65553]
 	var wrong = 0 as Count
@@ -1645,7 +1645,7 @@ function mismatches(keyBytes Count) returns Count
 		let sealedBySoftware = try software.seal(nonce, plaintext: data, additionalData: additional) otherwise panic("sealed")
 		let openedByHardware = try hardware.open(nonce, sealed: sealedBySoftware, additionalData: additional) otherwise panic("opened")
 		if not sealedByHardware.equals(sealedBySoftware) or not openedByHardware.equals(data) 'differs'
-			wrong = wrong + 1
+			wrong = try wrong + 1 otherwise panic("out of range")
 		end 'differs'
 	end 'eachLength'
 	return wrong

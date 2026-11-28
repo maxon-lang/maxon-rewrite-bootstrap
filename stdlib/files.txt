@@ -22,6 +22,13 @@ Base64.maxon base64
 Sha2.maxon sha2
 Hmac.maxon sha2
 Hkdf.maxon sha2
+helpers/crypto/Aead.maxon aead
+helpers/crypto/Aes.maxon aes
+helpers/crypto/AesBitsliced.maxon aes
+AesGcm.maxon aes
+helpers/crypto/ChaCha20.maxon chacha
+helpers/crypto/Poly1305.maxon poly1305
+ChaCha20Poly1305.maxon poly1305
 Der.maxon asn1
 Rsa.maxon rsa
 Slot.maxon cell Cell.maxon

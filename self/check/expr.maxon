@@ -728,7 +728,13 @@ function checkIntegerOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		var shifted = l
 		if lConst 'constLeft'
 			shifted = p.builtins.anon64Ty
-		end 'constLeft'
+		end 'constLeft' else if not typeIsNamedInt(ms.types, reads: p.types, t: l) and not ast.isWordPattern(ms.types, reads: p.types, t: l) 'anonymousLeft'
+			let word = wordOf(c, p: p, ms: ms, off: off, l: l, r: l, errs: errs)
+			setOperand(c, node: e, operand: word)
+			let computed = arithmetic(op, l: typeSpan(ms.types, reads: p.types, t: l), r: typeSpan(ms.types, reads: p.types, t: r), word: typeSpan(ms.types, reads: p.types, t: word))
+			let exact = computed.span.clone()
+			return exactType(p, ms: ms, word: word, lo: exact.lo, hi: exact.hi)
+		end 'anonymousLeft'
 		setOperand(c, node: e, operand: shifted)
 		return shifted
 	end 'shift'

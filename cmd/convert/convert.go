@@ -137,6 +137,9 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 		lines = rewriteSocketEndings(lines, names.expectsError)
 	}
 	rewriteFileBuffers(lines)
+	if kind == sourceFile && libraryRoot(file) != "" {
+		rewriteLibraryAliasChecks(lines)
+	}
 	warnIdentityOperators(lines, addWarn)
 
 	candidate := renderFallbackLayout(lines)
@@ -1273,8 +1276,16 @@ func isLibraryHelper(file string) bool {
 // publicHelperNames are the names that a helper's file declares and that a program calls, as `Array.swap(i, j: j)`, or that a
 // public member of the library's root names in its signature (`Array.sortBy(cmp)`'s `SortComparator`): they stay public, where a
 // helper's other names become export, since a public function may not name a less visible type (E3167). A type of them keeps
-// its public members too: a program writes to a file through maxon's FileWriter (`FileWriter.open(path)`).
-var publicHelperNames = []string{"SortComparator", "swap", "FileWriter"}
+// its public members too: a program writes to a file through maxon's FileWriter (`FileWriter.open(path)`), and encrypts with
+// the ciphers of `helpers/crypto/` (`Aes.create(key)`) and their errors.
+var publicHelperNames = []string{
+	"SortComparator", "swap", "FileWriter",
+	"Aead", "AeadError", "AeadSealedParts", "Aes", "AesCounter", "AesError", "AesKeyStreamError",
+	"ChaCha20", "ChaCha20Counter", "ChaCha20Error", "Poly1305", "Poly1305Error",
+}
+
+// publicHelperKinds are the declarations that a name of publicHelperNames keeps public as.
+var publicHelperKinds = []string{"typealias", "function", "type", "enum", "interface", "union"}
 
 // exportPublicModifiers makes each public of a helper export, but for the names of publicHelperNames and the members of a type
 // of them: a helper module is a direct child of the library's root, so export reaches the whole library and no program.
@@ -1285,9 +1296,9 @@ func exportPublicModifiers(lines []sourceLine) {
 		declIdx := skipModifiers(l.code)
 		named := declIdx+1 < len(l.code) && slices.Contains(publicHelperNames, l.code[declIdx+1].text)
 		if l.indent == "" && len(l.code) > 0 {
-			inPublicType = named && l.code[declIdx].text == "type"
+			inPublicType = named && (l.code[declIdx].text == "type" || l.code[declIdx].text == "interface")
 		}
-		if named && (l.code[declIdx].text == "typealias" || l.code[declIdx].text == "function" || l.code[declIdx].text == "type") || inPublicType && l.indent != "" {
+		if named && slices.Contains(publicHelperKinds, l.code[declIdx].text) || inPublicType && l.indent != "" {
 			continue
 		}
 		makeExport(l)

@@ -1,0 +1,187 @@
+// A value that the spiller splits twice is stored into its slot once, at its definition: the second split leaves that
+// store reading the value, not a reload of the slot it has not written yet. AES's bitsliced S-box holds more values than
+// x64 has registers.
+typealias AesWord = bits(64)
+
+let aesWordBits0 = 0x01010101
+
+let aesAllOnes = u64.max as AesWord
+
+type AesState
+	var q0 as AesWord
+	var q1 as AesWord
+	var q2 as AesWord
+	var q3 as AesWord
+	var q4 as AesWord
+	var q5 as AesWord
+	var q6 as AesWord
+	var q7 as AesWord
+
+	static function create() returns AesState
+		return Self{q0: 0, q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0, q7: 0}
+	end 'create'
+
+	function subBytes(mutates self)
+		let x7 = self.q0
+		let x6 = self.q1
+		let x5 = self.q2
+		let x4 = self.q3
+		let x3 = self.q4
+		let x2 = self.q5
+		let x1 = self.q6
+		let x0 = self.q7
+		let y14 = x3 xor x5
+		let y13 = x0 xor x6
+		let y9 = x0 xor x3
+		let y8 = x0 xor x5
+		let t0 = x1 xor x2
+		let y1 = t0 xor x7
+		let y4 = y1 xor x3
+		let y12 = y13 xor y14
+		let y2 = y1 xor x0
+		let y5 = y1 xor x6
+		let y3 = y5 xor y8
+		let t1 = x4 xor y12
+		let y15 = t1 xor x5
+		let y20 = t1 xor x1
+		let y6 = y15 xor x7
+		let y10 = y15 xor t0
+		let y11 = y20 xor y9
+		let y7 = x7 xor y11
+		let y17 = y10 xor y11
+		let y19 = y10 xor y8
+		let y16 = t0 xor y11
+		let y21 = y13 xor y16
+		let y18 = x0 xor y16
+		let t2 = y12 and y15
+		let t3 = y3 and y6
+		let t4 = t3 xor t2
+		let t5 = y4 and x7
+		let t6 = t5 xor t2
+		let t7 = y13 and y16
+		let t8 = y5 and y1
+		let t9 = t8 xor t7
+		let t10 = y2 and y7
+		let t11 = t10 xor t7
+		let t12 = y9 and y11
+		let t13 = y14 and y17
+		let t14 = t13 xor t12
+		let t15 = y8 and y10
+		let t16 = t15 xor t12
+		let t17 = t4 xor t14
+		let t18 = t6 xor t16
+		let t19 = t9 xor t14
+		let t20 = t11 xor t16
+		let t21 = t17 xor y20
+		let t22 = t18 xor y19
+		let t23 = t19 xor y21
+		let t24 = t20 xor y18
+		let t25 = t21 xor t22
+		let t26 = t21 and t23
+		let t27 = t24 xor t26
+		let t28 = t25 and t27
+		let t29 = t28 xor t22
+		let t30 = t23 xor t24
+		let t31 = t22 xor t26
+		let t32 = t31 and t30
+		let t33 = t32 xor t24
+		let t34 = t23 xor t33
+		let t35 = t27 xor t33
+		let t36 = t24 and t35
+		let t37 = t36 xor t34
+		let t38 = t27 xor t36
+		let t39 = t29 and t38
+		let t40 = t25 xor t39
+		let t41 = t40 xor t37
+		let t42 = t29 xor t33
+		let t43 = t29 xor t40
+		let t44 = t33 xor t37
+		let t45 = t42 xor t41
+		let z0 = t44 and y15
+		let z1 = t37 and y6
+		let z2 = t33 and x7
+		let z3 = t43 and y16
+		let z4 = t40 and y1
+		let z5 = t29 and y7
+		let z6 = t42 and y11
+		let z7 = t45 and y17
+		let z8 = t41 and y10
+		let z9 = t44 and y12
+		let z10 = t37 and y3
+		let z11 = t33 and y4
+		let z12 = t43 and y13
+		let z13 = t40 and y5
+		let z14 = t29 and y2
+		let z15 = t42 and y9
+		let z16 = t45 and y14
+		let z17 = t41 and y8
+		let t46 = z15 xor z16
+		let t47 = z10 xor z11
+		let t48 = z5 xor z13
+		let t49 = z9 xor z10
+		let t50 = z2 xor z12
+		let t51 = z2 xor z5
+		let t52 = z7 xor z8
+		let t53 = z0 xor z3
+		let t54 = z6 xor z7
+		let t55 = z16 xor z17
+		let t56 = z12 xor t48
+		let t57 = t50 xor t53
+		let t58 = z4 xor t46
+		let t59 = z3 xor t54
+		let t60 = t46 xor t57
+		let t61 = z14 xor t57
+		let t62 = t52 xor t58
+		let t63 = t49 xor t58
+		let t64 = z4 xor t59
+		let t65 = t61 xor t62
+		let t66 = z1 xor t63
+		let s0 = t59 xor t63
+		let s6 = t56 xor (t62 xor aesAllOnes)
+		let s7 = t48 xor (t60 xor aesAllOnes)
+		let t67 = t64 xor t65
+		let s3 = t53 xor t66
+		let s4 = t51 xor t66
+		let s5 = t47 xor t65
+		let s1 = t64 xor (s3 xor aesAllOnes)
+		let s2 = t55 xor (t67 xor aesAllOnes)
+		self.q0 = s7
+		self.q1 = s6
+		self.q2 = s5
+		self.q3 = s4
+		self.q4 = s3
+		self.q5 = s2
+		self.q6 = s1
+		self.q7 = s0
+	end 'subBytes'
+
+	function subWord(mutates self, word AesWord) returns AesWord
+		self.q0 = word and aesWordBits0
+		self.q1 = (word shr 1) and aesWordBits0
+		self.q2 = (word shr 2) and aesWordBits0
+		self.q3 = (word shr 3) and aesWordBits0
+		self.q4 = (word shr 4) and aesWordBits0
+		self.q5 = (word shr 5) and aesWordBits0
+		self.q6 = (word shr 6) and aesWordBits0
+		self.q7 = (word shr 7) and aesWordBits0
+		self.subBytes()
+		return (self.q0 and aesWordBits0) or ((self.q1 and aesWordBits0) shl 1) or ((self.q2 and aesWordBits0) shl 2) or ((self.q3 and aesWordBits0) shl 3) or ((self.q4 and aesWordBits0) shl 4) or ((self.q5 and aesWordBits0) shl 5) or ((self.q6 and aesWordBits0) shl 6) or ((self.q7 and aesWordBits0) shl 7)
+	end 'subWord'
+end 'AesState'
+
+function main() returns ExitCode
+	var s = AesState.create()
+	s.q0 = 0x0123456789abcdef
+	s.q1 = 0x1111222233334444
+	s.q2 = 0xfedcba9876543210
+	s.q3 = 0x5555aaaa5555aaaa
+	s.q4 = 0x0f0f0f0f0f0f0f0f
+	s.q5 = 0x1234123412341234
+	s.q6 = 0x9876987698769876
+	s.q7 = 0x00ff00ff00ff00ff
+	s.subBytes()
+	print("{s.q0} {s.q1} {s.q2} {s.q3} {s.q4} {s.q5} {s.q6} {s.q7}\n")
+	return 0
+end 'main'
+
+//> 10502588084441898647 17422807416076172264 6161839670037783790 15560755275178765948 17773247341581952034 7583748370357216986 6980677246348590616 8440914688124660617

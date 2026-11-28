@@ -40,18 +40,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -61,7 +61,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -349,18 +349,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -370,7 +370,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -508,18 +508,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -529,7 +529,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -717,18 +717,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -738,7 +738,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -996,18 +996,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -1017,7 +1017,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -1117,15 +1117,16 @@ aes-gcm-err-124 invalidNonceLength
 ```
 
 <!-- test: aes-gcm.seal-into-writes-at-an-offset -->
+<!-- native: a seal-into test runs AES-GCM's bitsliced software cipher over long messages, which the interpreter runs in some 14 seconds where the executable takes a tenth of one -->
 `sealInto` writes what `seal` answers into an array the caller owns, from an offset, and makes the array end there: the bytes
 before the offset stay, the bytes after the sealed message are dropped, and an array that ends before the offset is
 zero-filled up to it. For plaintexts of 0 to 1024 bytes, the written bytes equal `seal`'s and `open` takes them back; a
 nonce of another length throws `invalidNonceLength` and leaves the array alone.
 ```maxon
 function bytesFor(seed Count, count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto count 'eachByte'
-		let mixed = ((index + seed * 977 + 1) * 2654435761 + 12345) mod 4294967296
+		let mixed = try ((index + seed * 977 + 1) * 2654435761 + 12345) mod 4294967296 otherwise panic("out of range")
 		bytes.push(((mixed shr 11) and 0xFF) as Byte)
 	end 'eachByte'
 	return bytes
@@ -1136,7 +1137,7 @@ function part(bytes ByteArray, start Count, endIndex Count) returns ByteArray
 end 'part'
 
 function zeros(count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	bytes.resize(count)
 	return bytes
 end 'zeros'
@@ -1145,19 +1146,19 @@ function wrongWrites(aead AesGcm, nonce ByteArray, additional ByteArray, plain B
 	var wrong = 0 as Count
 	let expected = try aead.seal(nonce, plaintext: plain, additionalData: additional) otherwise panic("sealed")
 	let prefix = bytesFor(9, count: 7)
-	let fresh = ByteArray.create(0)
+	var fresh = ByteArray.create(0)
 	try aead.sealInto(fresh, at: 0, nonce: nonce, plaintext: plain, additionalData: additional) otherwise panic("sealed")
 	if not fresh.equals(expected) 'freshDiffers'
 		wrong = wrong + 1
 	end 'freshDiffers'
-	let longer = bytesFor(9, count: 7 + plain.count() + 100)
+	var longer = bytesFor(9, count: try 7 + plain.count() + 100 otherwise panic("out of range"))
 	try aead.sealInto(longer, at: 7, nonce: nonce, plaintext: plain, additionalData: additional) otherwise panic("sealed")
-	if longer.count() != 7 + expected.count() or not part(longer, start: 0, endIndex: 7).equals(prefix) or not part(longer, start: 7, endIndex: longer.count()).equals(expected) 'longerDiffers'
+	if longer.count() != (try 7 + expected.count() otherwise panic("out of range")) or not part(longer, start: 0, endIndex: 7).equals(prefix) or not part(longer, start: 7, endIndex: longer.count()).equals(expected) 'longerDiffers'
 		wrong = wrong + 1
 	end 'longerDiffers'
-	let shorter = part(prefix, start: 0, endIndex: 3)
+	var shorter = part(prefix, start: 0, endIndex: 3)
 	try aead.sealInto(shorter, at: 7, nonce: nonce, plaintext: plain, additionalData: additional) otherwise panic("sealed")
-	if shorter.count() != 7 + expected.count() or not part(shorter, start: 0, endIndex: 3).equals(part(prefix, start: 0, endIndex: 3)) or not part(shorter, start: 3, endIndex: 7).equals(zeros(4)) or not part(shorter, start: 7, endIndex: shorter.count()).equals(expected) 'shorterDiffers'
+	if shorter.count() != (try 7 + expected.count() otherwise panic("out of range")) or not part(shorter, start: 0, endIndex: 3).equals(part(prefix, start: 0, endIndex: 3)) or not part(shorter, start: 3, endIndex: 7).equals(zeros(4)) or not part(shorter, start: 7, endIndex: shorter.count()).equals(expected) 'shorterDiffers'
 		wrong = wrong + 1
 	end 'shorterDiffers'
 	let opened = try aead.open(nonce, sealed: part(longer, start: 7, endIndex: longer.count()), additionalData: additional) otherwise panic("opened")
@@ -1174,9 +1175,9 @@ function main() returns ExitCode
 	let additional = bytesFor(3, count: 13)
 	var wrong = 0 as Count
 	for dataBytes in 0 to 1024 'eachLength'
-		wrong = wrong + wrongWrites(aead, nonce: nonce, additional: additional, plain: bytesFor(dataBytes + 5, count: dataBytes))
+		wrong = try wrong + wrongWrites(aead, nonce: nonce, additional: additional, plain: bytesFor(dataBytes + 5, count: dataBytes)) otherwise panic("out of range")
 	end 'eachLength'
-	let untouched = bytesFor(9, count: 20)
+	var untouched = bytesFor(9, count: 20)
 	var refused = false
 	try aead.sealInto(untouched, at: 4, nonce: bytesFor(2, count: 11), plaintext: bytesFor(5, count: 8), additionalData: additional) otherwise (failure) 'nonceRefused'
 		match failure 'reason'
@@ -1198,14 +1199,15 @@ end 'main'
 ```
 
 <!-- test: aes-gcm.seal-into-the-plaintext-array-itself -->
+<!-- native: a seal-into test runs AES-GCM's bitsliced software cipher over long messages, which the interpreter runs in some 14 seconds where the executable takes a tenth of one -->
 `sealInto` reads its plaintext, nonce and additional data as they were when the call began even when `output` is one of
 those arrays: the array ends up holding that input's first `at` bytes followed by what `seal` answers for the whole
 inputs, for plaintexts of 0 to 300 bytes at offsets 0, 5 and 40, and `open` takes the sealed bytes back.
 ```maxon
 function bytesFor(seed Count, count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto count 'eachByte'
-		let mixed = ((index + seed * 977 + 1) * 2654435761 + 12345) mod 4294967296
+		let mixed = try ((index + seed * 977 + 1) * 2654435761 + 12345) mod 4294967296 otherwise panic("out of range")
 		bytes.push(((mixed shr 11) and 0xFF) as Byte)
 	end 'eachByte'
 	return bytes
@@ -1222,20 +1224,20 @@ enum Aliased
 end 'Aliased'
 
 function sealOverPlaintext(aead AesGcm, nonce ByteArray, additional ByteArray, plain ByteArray, at Count) returns ByteArray
-	let shared = plain.clone()
-	try aead.sealInto(shared, at: at, nonce: nonce, plaintext: shared, additionalData: additional) otherwise panic("sealed")
+	var shared = plain.clone()
+	try aead.sealInto(shared, at: at, nonce: nonce, plaintext: shared.clone(), additionalData: additional) otherwise panic("sealed")
 	return shared
 end 'sealOverPlaintext'
 
 function sealOverNonce(aead AesGcm, nonce ByteArray, additional ByteArray, plain ByteArray, at Count) returns ByteArray
-	let shared = nonce.clone()
-	try aead.sealInto(shared, at: at, nonce: shared, plaintext: plain, additionalData: additional) otherwise panic("sealed")
+	var shared = nonce.clone()
+	try aead.sealInto(shared, at: at, nonce: shared.clone(), plaintext: plain, additionalData: additional) otherwise panic("sealed")
 	return shared
 end 'sealOverNonce'
 
 function sealOverAdditionalData(aead AesGcm, nonce ByteArray, additional ByteArray, plain ByteArray, at Count) returns ByteArray
-	let shared = additional.clone()
-	try aead.sealInto(shared, at: at, nonce: nonce, plaintext: plain, additionalData: shared) otherwise panic("sealed")
+	var shared = additional.clone()
+	try aead.sealInto(shared, at: at, nonce: nonce, plaintext: plain, additionalData: shared.clone()) otherwise panic("sealed")
 	return shared
 end 'sealOverAdditionalData'
 
@@ -1249,9 +1251,9 @@ end 'sealedAliased'
 
 function prefixOf(aliased Aliased, nonce ByteArray, additional ByteArray, plain ByteArray, at Count) returns ByteArray
 	let source = match aliased 'source'
-		plaintext gives plain
-		nonce gives nonce
-		additionalData gives additional
+		plaintext gives plain.clone()
+		nonce gives nonce.clone()
+		additionalData gives additional.clone()
 	end 'source'
 	let kept = at if at < source.count() else source.count()
 	return part(source, start: 0, endIndex: kept)
@@ -1261,7 +1263,7 @@ function aliasedWrong(aead AesGcm, nonce ByteArray, additional ByteArray, plain 
 	let expected = try aead.seal(nonce, plaintext: plain, additionalData: additional) otherwise panic("sealed")
 	let prefix = prefixOf(aliased, nonce: nonce, additional: additional, plain: plain, at: at)
 	let shared = sealedAliased(aead, nonce: nonce, additional: additional, plain: plain, at: at, aliased: aliased)
-	if shared.count() != at + expected.count() 'wrongLength'
+	if shared.count() != (try at + expected.count() otherwise panic("out of range")) 'wrongLength'
 		return true
 	end 'wrongLength'
 	if not part(shared, start: 0, endIndex: prefix.count()).equals(prefix) 'prefixChanged'
@@ -1284,7 +1286,7 @@ function main() returns ExitCode
 		for at in [0, 5, 40] 'eachOffset'
 			for aliased in Aliased.allCases 'eachAlias'
 				if aliasedWrong(aead, nonce: nonce, additional: additional, plain: bytesFor(dataBytes + 5, count: dataBytes), at: at, aliased: aliased) 'aliasedDiffers'
-					wrong = wrong + 1
+					wrong = try wrong + 1 otherwise panic("out of range")
 				end 'aliasedDiffers'
 			end 'eachAlias'
 		end 'eachOffset'

@@ -546,6 +546,30 @@ export type Spiller
 		return false
 	end 'dropsBracket'
 
+	// takesUse is whether a split of r reads the reload at its use e: a use that names r, but neither the spill of a bracket
+	// that the split replaces nor the store of r into its own slot, which a split of an earlier round put after the
+	// definition. Read from a reload of the slot, that store would write the slot's own unwritten contents, so it is
+	// deleted and the split stores r at its definition again, before its cut.
+	function takesUse(mutates self, fn MirFunction, e Count, r MReg) returns bool
+		if not self.names(fn, e: e, r: r) or self.dropsBracket(fn, e: e, r: r) 'notTaken'
+			return false
+		end 'notTaken'
+		let k = lv.recordAt[lv.useList[e]]
+		let rootReg = root[vregIndex(r)]
+		let v = vregIndex(rootReg)
+		if fn.instrs[k].kind != MKind.spill or slotOf[v] == noDef 'notStore'
+			return true
+		end 'notStore'
+		if spillSlotOf(fn.instrs[k]) != self.slotFor(rootReg) 'otherSlot'
+			return true
+		end 'otherSlot'
+		deleted[k] = true
+		stored[v] = false
+		touchValue(touched, v: v)
+		stale[graph.blockAt[k]] = true
+		return false
+	end 'takesUse'
+
 	function names(fn MirFunction, e Count, r MReg) returns bool
 		let rec = lv.useList[e]
 		return useOperand(fn, k: lv.recordAt[rec], slot: lv.recordSlot[rec]) == r
@@ -570,7 +594,7 @@ export type Spiller
 				if self.entryAt(e) >= fn.blocks[cutBlock].endAt 'past'
 					break 'uses'
 				end 'past'
-				if self.names(fn, e: e, r: r) and not self.dropsBracket(fn, e: e, r: r) 'mine'
+				if self.takesUse(fn, e: e, r: r) 'mine'
 					reach.push(e)
 				end 'mine'
 			end 'uses'
@@ -634,7 +658,7 @@ export type Spiller
 			reachAnchor.push(a)
 		end 'anchors'
 		let constant = self.isConstant(r)
-		if not constant and reach.count() > 0 'store'
+		if not constant and (reach.count() > 0 or not stored[vregIndex(rootReg)] and slotOf[vregIndex(rootReg)] != noDef) 'store'
 			self.storeAtDef(fn, rootReg: rootReg)
 		end 'store'
 		for a in 0 upto anchorBlock.count() 'pieces'
@@ -715,7 +739,7 @@ export type Spiller
 			if region == ir.noLoop and b == cutBlock 'cut'
 				reached = at >= cutPos or visit[b] == mark
 			end 'cut'
-			if reached and self.names(fn, e: e, r: r) and not self.dropsBracket(fn, e: e, r: r) 'mine'
+			if reached and self.takesUse(fn, e: e, r: r) 'mine'
 				reach.push(e)
 			end 'mine'
 		end 'uses'
@@ -1169,6 +1193,9 @@ function relieveBlock(mutates fn MirFunction, mutates s Spiller, b Count, relief
 				continue 'reads'
 			end 'twice'
 			s.readStamp[v] = s.readMark
+			if s.inS[v] == noDef and s.deleted[k] 'gone'
+				continue 'reads'
+			end 'gone'
 			if s.inS[v] == noDef 'missing'
 				panic("backend: virtual register {r} is read in block {b} at instruction {k} where it is in no register")
 			end 'missing'

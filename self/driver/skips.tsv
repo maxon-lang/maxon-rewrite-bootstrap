@@ -873,3 +873,5 @@ manual	sha2.md	sha2.a-million-letters	runs 4.3 s: a million letters hashed twice
 manual	sched-syscall-handoff.md	an-async-child-wait-leaves-the-sleeping-coroutine-running	runs 2.3 s: the sleeping coroutine outlives a child that ends after seconds, which is waiting
 manual	subprocess.md	subprocess-timeout-carries-the-partial-output	runs 2.2 s: a deadline of seconds on a child that writes and then sleeps, which is waiting
 manual	inline-allocation-under-preemption.md	eight-services-churning-constant-capacity-arrays-keep-their-sums	runs 2.2 s: eight services churn arrays under preemption for seconds, which is computing
+native	aes-gcm.md	aes-gcm.seal-into-writes-at-an-offset	a seal-into test runs AES-GCM's bitsliced software cipher over long messages, which the interpreter runs in some 14 seconds where the executable takes a tenth of one
+native	aes-gcm.md	aes-gcm.seal-into-the-plaintext-array-itself	a seal-into test runs AES-GCM's bitsliced software cipher over long messages, which the interpreter runs in some 14 seconds where the executable takes a tenth of one

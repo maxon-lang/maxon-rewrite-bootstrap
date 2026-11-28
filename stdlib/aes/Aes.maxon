@@ -1,0 +1,85 @@
+/// The AES block cipher (FIPS 197) with 128-, 192- and 256-bit keys, and its counter-mode key stream.
+/// @category Crypto
+export typealias AesWord = bits(64)
+
+export typealias AesPair = (AesWord, AesWord)
+
+/// The 32-bit big-endian block counter of AES counter mode.
+public typealias AesCounter = int(0 to u32.max)
+
+/// Why `Aes` refused a key or a block.
+public enum AesError implements Error
+	invalidKeyLength
+	invalidBlockLength
+end 'AesError'
+
+/// Why `Aes.xorKeyStream` refused a nonce or a length.
+public enum AesKeyStreamError implements Error
+	invalidNonceLength
+	counterOverflow
+end 'AesKeyStreamError'
+
+union AesBacking
+	bitsliced(cipher AesBitsliced)
+end 'AesBacking'
+
+export function aesHardwareAvailable() returns bool
+	return false
+end 'aesHardwareAvailable'
+
+/// An AES key schedule, ready to encrypt and decrypt 16-byte blocks in constant time.
+public type Aes
+	let backing as AesBacking
+
+	/// The cipher for a 16-, 24- or 32-byte `key` (AES-128, AES-192 or AES-256).
+	public static function create(key ByteArray) returns Aes throws AesError
+		return Self{backing: AesBacking.bitsliced(try AesBitsliced.create(key))}
+	end 'create'
+
+	/// The encryption of one 16-byte block.
+	public function encryptBlock(block ByteArray) returns ByteArray throws AesError
+		// Sized at creation: one allocation, and the hardware entry takes its fit path and not the
+		// refit call.
+		var result = ByteArray.create(aesBlockBytes)
+		try encryptBlockInto(block, output: result, at: 0)
+		return result
+	end 'encryptBlock'
+
+	/// The decryption of one 16-byte block.
+	public function decryptBlock(block ByteArray) returns ByteArray throws AesError
+		var result = ByteArray.create(aesBlockBytes)
+		try decryptBlockInto(block, output: result, at: 0)
+		return result
+	end 'decryptBlock'
+
+	/// Writes the encryption of one 16-byte `block` into `output` at index `at`, growing `output` to
+	/// `at + 16` bytes, zero-filled, when it is shorter. The other bytes of `output` stay.
+	/// `invalidBlockLength` leaves `output` as it was.
+	public function encryptBlockInto(block ByteArray, mutates output ByteArray, at ElementIndex) throws AesError
+		match backing 'backing'
+			bitsliced(cipher) then try cipher.cryptBlockInto(block, output: output, at: at, direction: AesDirection.encrypt)
+		end 'backing'
+	end 'encryptBlockInto'
+
+	/// Writes the decryption of one 16-byte `block` into `output` at index `at`, with the growth and
+	/// the error behaviour of `encryptBlockInto`.
+	public function decryptBlockInto(block ByteArray, mutates output ByteArray, at ElementIndex) throws AesError
+		match backing 'backing'
+			bitsliced(cipher) then try cipher.cryptBlockInto(block, output: output, at: at, direction: AesDirection.decrypt)
+		end 'backing'
+	end 'decryptBlockInto'
+
+	/// `data` XORed with the counter-mode key stream of a 12-byte `nonce`, the first block's counter being
+	/// `counter`. Encryption and decryption are the same call.
+	public function xorKeyStream(nonce ByteArray, counter AesCounter, data ByteArray) returns ByteArray throws AesKeyStreamError
+		match backing 'backing'
+			bitsliced(cipher) then return try cipher.xorKeyStream(nonce, counter: counter, data: data)
+		end 'backing'
+	end 'xorKeyStream'
+
+	export function xorKeyStreamPastFirstBlock(nonce ByteArray, counter AesCounter, data ByteArray, mutates output ByteArray) returns AesPair throws AesKeyStreamError
+		match backing 'backing'
+			bitsliced(cipher) then return try cipher.xorKeyStreamPastFirstBlock(nonce, counter: counter, data: data, output: output)
+		end 'backing'
+	end 'xorKeyStreamPastFirstBlock'
+end 'Aes'

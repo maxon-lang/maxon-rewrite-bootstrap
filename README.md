@@ -599,8 +599,12 @@ is that of its module (`app::main`), and a project with no `main` in any module 
   <maxon's stdlib directory>` fails when a regeneration differs from what is committed and puts the files back; the gate runs
   it as the step "library regenerates" when `MAXON_STDLIB` names that directory, and skips it otherwise, since it cannot
   assume where maxon is checked out. The conversion replaces a conditional region that calls a CPU-specific intrinsic
-  (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) by its `#else` branch or leaves it out, so `Sha2` is software only on
-  every target. Maxon's driftsort grows its merge scratch with `resize`, which no tier may do to an array of a type parameter
+  (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`, `__Builtins.cpuHasAes` and the AES and GCM block intrinsics), or names what
+  only such a region or maxon's hardware-only files (`AesHardware.maxon`, `AesGcmHardware.maxon`, which are not converted)
+  declare, by its `#else` branch or leaves it out, so `Sha2`, `Aes` and `AesGcm` are software only (`AesBitsliced`) on every
+  target. An identity comparison of two bare names in the library (AEAD's `aeadSharesOutput`: `nonce is output`) is `false`,
+  and `is not` is `true`, since a call cannot borrow an array it writes as another of its arguments here. The ciphers of
+  maxon's `helpers/crypto/` (`Aes`, `ChaCha20`, `Poly1305`, `Aead` and their errors) stay public, as programs name them. Maxon's driftsort grows its merge scratch with `resize`, which no tier may do to an array of a type parameter
   here, and then writes it as a prefix from slot 0 before it reads it; the conversion makes the resize a `reserve`, and a
   function that stores to the scratch by index empties it first (`truncate(0)`) and pushes each element instead. The same holds of an array that a program resizes and then fills from 0 in a loop over a counter, as some of maxon's
   spec tests of the library tier do: the resize is a `truncate(0)` and a `reserve`, and each store a push. It leaves out a conditional region that declares only names the compiler builds in (maxon's `ExitCode`,
@@ -3179,7 +3183,8 @@ are computed in a 64-bit word that their operands decide:
   needs no check, and `let t = a + b` holds the whole sum. A result past the word is cut to it and the operation can fail
   with `overflow`: `a - b` of two `Count` values is `int(0 to u64.max)` and fails below 0.
 - `and`, `or` and `xor` take the alias of an operand, which must hold the other, and a shift the type of its left
-  operand. An `and` with a non-negative operand is between 0 and that operand, whatever the other, so it keeps the
+  operand where that is an alias or a pattern; a shift of an anonymous range is, as `+` is outside a typed context, the exact
+  interval of the shifted values, cut to the word, so `((rounds + 1) shl 2) as Count` of an `int(10 to 14)` needs no check. An `and` with a non-negative operand is between 0 and that operand, whatever the other, so it keeps the
   alias of its one named operand wherever that alias holds the interval, though the alias does not hold the other
   operand: `(index + 1) and mask` of two `int(0 to 2^63)` values is of their alias, as maxon's hash table writes it. `not` keeps its operand's alias where the alias is closed under it (a pattern, or a range that flipping maps
   onto itself, as `int(i64.min to i64.max)` and `Count`), and is otherwise typed as `-` is: by its context, or else the

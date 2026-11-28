@@ -739,17 +739,17 @@ out of the trace.
 <!-- MmTrace -->
 ```maxon
 function main() returns ExitCode
-	let key = ByteArray.create(0)
+	var key = ByteArray.create(0)
 	for i in 0 upto 16 'eachByte'
 		key.push(i as Byte)
 	end 'eachByte'
 	let aes = try Aes.create(key) otherwise return 99
-	let block = ByteArray.create(0)
+	var block = ByteArray.create(0)
 	for _ in 0 upto 16 'eachBlockByte'
 		block.push(0)
 	end 'eachBlockByte'
 	let out = try aes.encryptBlock(block) otherwise return 98
-	return out.count() as ExitCode
+	return try out.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

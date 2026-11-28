@@ -37,18 +37,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -58,7 +58,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -165,18 +165,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -186,7 +186,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -269,18 +269,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -290,7 +290,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -382,18 +382,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -403,7 +403,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -517,18 +517,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -538,15 +538,15 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
 
 function patterned(count Count) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for index in 0 upto count 'eachByte'
-		bytes.push(((index * 7 + 3) and 0xFF) as Byte)
+		bytes.push(((try index * 7 + 3 otherwise panic("out of range")) and 0xFF) as Byte)
 	end 'eachByte'
 	return bytes
 end 'patterned'
@@ -631,18 +631,18 @@ function digit(symbol Byte) returns Byte
 	if symbol >= 0x61 'letter'
 		return symbol - 0x57
 	end 'letter'
-	return symbol - 0x30
+	return try symbol - 0x30 otherwise panic("out of range")
 end 'digit'
 
 function fromHex(hex String) returns ByteArray
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	var high = 0 as Byte
 	var isHigh = true
 	for symbol in hex.bytes() 'eachSymbol'
 		if isHigh 'first'
 			high = digit(symbol)
 		end 'first' else 'second'
-			bytes.push(high * 16 + digit(symbol))
+			bytes.push(try high * 16 + digit(symbol) otherwise panic("out of range"))
 		end 'second'
 		isHigh = not isHigh
 	end 'eachSymbol'
@@ -652,7 +652,7 @@ end 'fromHex'
 function toHex(bytes ByteArray) returns String
 	var text = ""
 	for byte in bytes 'eachByte'
-		text.append("{byte:02x}")
+		text = "{text}{byte:02x}"
 	end 'eachByte'
 	return text
 end 'toHex'
@@ -662,9 +662,9 @@ function blockVector(keyHex String, expectedHex String)
 	let plain = fromHex("00112233445566778899aabbccddeeff")
 	let sealed = try software.cryptBlock(plain, direction: AesDirection.encrypt) otherwise panic("the block is 16 bytes")
 	let opened = try software.cryptBlock(sealed, direction: AesDirection.decrypt) otherwise panic("the block is 16 bytes")
-	let into = ByteArray.create(0)
+	var into = ByteArray.create(0)
 	try software.cryptBlockInto(plain, output: into, at: 2, direction: AesDirection.encrypt) otherwise panic("the block is 16 bytes")
-	let intoOpened = fromHex("ff")
+	var intoOpened = fromHex("ff")
 	try software.cryptBlockInto(sealed, output: intoOpened, at: 0, direction: AesDirection.decrypt) otherwise panic("the block is 16 bytes")
 	print("{toHex(sealed) == expectedHex} {toHex(opened) == toHex(plain)} {toHex(into) == "0000{expectedHex}"} {toHex(intoOpened) == toHex(plain)}\n")
 end 'blockVector'
@@ -701,15 +701,15 @@ function main() returns ExitCode
 	let nonce = fromHex("f0f1f2f3f4f5f6f7f8f9fafb")
 	let software = try AesBitsliced.create(key) otherwise panic("the key is valid")
 	let aes = try Aes.create(key) otherwise panic("the key is valid")
-	let data = ByteArray.create(0)
+	var data = ByteArray.create(0)
 	for position in 0 upto 133 'eachByte'
 		data.push(((position * 7 + 3) and 0xFF) as Byte)
 	end 'eachByte'
 	let throughSoftware = try software.xorKeyStream(nonce, counter: 0xFFFFFFF0, data: data) otherwise panic("the nonce is 12 bytes")
 	let throughAes = try aes.xorKeyStream(nonce, counter: 0xFFFFFFF0, data: data) otherwise panic("the nonce is 12 bytes")
 	print("{toHex(throughSoftware) == toHex(throughAes)}\n")
-	let pastMaskSoftware = ByteArray.create(0)
-	let pastMaskAes = ByteArray.create(0)
+	var pastMaskSoftware = ByteArray.create(0)
+	var pastMaskAes = ByteArray.create(0)
 	pastMaskSoftware.reserve(data.count())
 	pastMaskAes.reserve(data.count())
 	let (softwareLow, softwareHigh) = try software.xorKeyStreamPastFirstBlock(nonce, counter: 1, data: data, output: pastMaskSoftware) otherwise panic("the nonce is 12 bytes")
@@ -902,17 +902,17 @@ error E3064: <fragment>:10:2: result of pure function 'Aes.xorKeyStream' must be
 impure on every target: discarding that function's result with `_ =` is not E3064, whether the host has AES instructions
 or not.
 ```maxon
-function encryptedCount(aes Aes, block ByteArray, output ByteArray) returns Count
+function encryptedCount(aes Aes, block ByteArray, mutates output ByteArray) returns Count
 	try aes.encryptBlockInto(block, output: output, at: 0) otherwise panic("the block is 16 bytes")
 	return output.count()
 end 'encryptedCount'
 
 function main() returns ExitCode
-	let key = ByteArray.create(0)
+	var key = ByteArray.create(0)
 	key.resize(16)
-	let block = ByteArray.create(0)
+	var block = ByteArray.create(0)
 	block.resize(16)
-	let output = ByteArray.create(0)
+	var output = ByteArray.create(0)
 	let aes = try Aes.create(key) otherwise panic("the key is valid")
 	_ = encryptedCount(aes, block: block, output: output)
 	print("{try output.get(0) otherwise 0}\n")

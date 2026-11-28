@@ -1,0 +1,16 @@
+// A shift of an anonymous range is the exact range of the shifted values, as '+' is: '(rounds + 1) shl 2' of an
+// int(10 to 14) is int(44 to 60), which goes into a Count with no check, where the shift of a named alias keeps the alias.
+typealias Rounds = int(10 to 14)
+
+let wordShift = 2
+
+function totalWords(rounds Rounds) returns Count
+	return ((rounds + 1) shl wordShift) as Count
+end 'totalWords'
+
+function main() returns ExitCode
+	print("{totalWords(10)} {totalWords(14)}\n")
+	return 0
+end 'main'
+
+//> 44 60

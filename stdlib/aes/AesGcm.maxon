@@ -1,0 +1,325 @@
+/// AES-GCM authenticated encryption (NIST SP 800-38D) with a 12-byte nonce and a 16-byte tag.
+/// @category Crypto
+export typealias GhashWord = bits(64)
+
+typealias GhashBlock = (GhashWord, GhashWord)
+
+typealias GhashShift = int(1 to 16)
+
+let aesGcmNonceBytes = 12
+
+let aesGcmTagBytes = 16
+
+let aesGcmBlockBytes = 16
+
+let aesGcmWordBytes = 8
+
+let aesGcmBitsPerByte = 8
+
+let aesGcmTagMaskCounter = 1
+
+// 2^32 − 2 blocks of 16 bytes: counters 1 to 2^32 − 1 cover the tag mask block plus this many data
+// blocks.
+let aesGcmMaxPlaintextBytes = (u32.max - 1) * aesGcmBlockBytes
+
+let ghashWordBits = 64
+
+let ghashCarryShift = 1
+
+let ghashTapLow = 1
+
+let ghashTapMid = 2
+
+let ghashTapHigh = 7
+
+let ghashSwapBit = 1
+
+let ghashSwapPair = 2
+
+let ghashSwapNibble = 4
+
+let ghashSwapByte = 8
+
+let ghashSwapHalfword = 16
+
+let ghashSwapWord = 32
+
+let ghashZeroWord = 0
+
+let ghashHoleMask0 = 0x1111111111111111 as GhashWord
+
+let ghashHoleMask1 = 0x2222222222222222 as GhashWord
+
+let ghashHoleMask2 = 0x4444444444444444 as GhashWord
+
+let ghashHoleMask3 = 0x8888888888888888 as GhashWord
+
+let ghashBitMask = 0x5555555555555555
+
+let ghashPairMask = 0x3333333333333333
+
+let ghashNibbleMask = 0x0F0F0F0F0F0F0F0F
+
+let ghashByteMask = 0x00FF00FF00FF00FF
+
+let ghashHalfwordMask = 0x0000FFFF0000FFFF
+
+function ghashSwapUnits(word GhashWord, mask GhashWord, shift GhashShift) returns GhashWord
+	return ((word and mask) shl shift) or ((word shr shift) and mask)
+end 'ghashSwapUnits'
+
+function ghashReverseBytes(word GhashWord) returns GhashWord
+	let bytes2 = ghashSwapUnits(word, mask: ghashByteMask, shift: ghashSwapByte)
+	let bytes4 = ghashSwapUnits(bytes2, mask: ghashHalfwordMask, shift: ghashSwapHalfword)
+	return (bytes4 shl ghashSwapWord) or (bytes4 shr ghashSwapWord)
+end 'ghashReverseBytes'
+
+function ghashReverse(word GhashWord) returns GhashWord
+	let bits1 = ghashSwapUnits(word, mask: ghashBitMask, shift: ghashSwapBit)
+	let bits2 = ghashSwapUnits(bits1, mask: ghashPairMask, shift: ghashSwapPair)
+	let bits4 = ghashSwapUnits(bits2, mask: ghashNibbleMask, shift: ghashSwapNibble)
+	return ghashReverseBytes(bits4)
+end 'ghashReverse'
+
+// Carry-less multiplication through integer multiplies: each operand keeps one bit in four, so each 4-bit
+// slot of a product collects at most 16 contributions, and the multiplies wrap mod 2^64.
+function ghashMultiplyLow(x GhashWord, y GhashWord) returns GhashWord
+	let x0 = x and ghashHoleMask0
+	let x1 = x and ghashHoleMask1
+	let x2 = x and ghashHoleMask2
+	let x3 = x and ghashHoleMask3
+	let y0 = y and ghashHoleMask0
+	let y1 = y and ghashHoleMask1
+	let y2 = y and ghashHoleMask2
+	let y3 = y and ghashHoleMask3
+	let z0 = ((x0 * y0) xor (x1 * y3) xor (x2 * y2) xor (x3 * y1)) and ghashHoleMask0
+	let z1 = ((x0 * y1) xor (x1 * y0) xor (x2 * y3) xor (x3 * y2)) and ghashHoleMask1
+	let z2 = ((x0 * y2) xor (x1 * y1) xor (x2 * y0) xor (x3 * y3)) and ghashHoleMask2
+	let z3 = ((x0 * y3) xor (x1 * y2) xor (x2 * y1) xor (x3 * y0)) and ghashHoleMask3
+	return z0 or z1 or z2 or z3
+end 'ghashMultiplyLow'
+
+function ghashFoldRight(word GhashWord) returns GhashWord
+	return word xor (word shr ghashTapLow) xor (word shr ghashTapMid) xor (word shr ghashTapHigh)
+end 'ghashFoldRight'
+
+function ghashFoldSpill(word GhashWord) returns GhashWord
+	return (word shl (ghashWordBits - ghashTapLow)) xor (word shl (ghashWordBits - ghashTapMid)) xor (word shl (ghashWordBits - ghashTapHigh))
+end 'ghashFoldSpill'
+
+function ghashReadWord(source ByteArray, at ElementIndex) returns GhashWord
+	return (try __Builtins.readBigEndian(source, at, aesGcmWordBytes) otherwise panic("aesgcm: a word inside an array the caller sized is missing")) as GhashWord
+end 'ghashReadWord'
+
+function ghashBlockWords(data ByteArray, blockStart ElementIndex) returns GhashBlock
+	let limit = data.count()
+	if (try blockStart + aesGcmBlockBytes otherwise panic("out of range")) <= limit 'whole'
+		let high = ghashReadWord(data, at: blockStart)
+		let low = ghashReadWord(data, at: try blockStart + aesGcmWordBytes otherwise panic("out of range"))
+		return (high, low)
+	end 'whole'
+	let high = _helpers.readOrderedWord(data, off: blockStart, width: aesGcmWordBytes, limit: limit, order: _helpers.ByteOrder.bigEndian) as GhashWord
+	let low = _helpers.readOrderedWord(data, off: try blockStart + aesGcmWordBytes otherwise panic("out of range"), width: aesGcmWordBytes, limit: limit, order: _helpers.ByteOrder.bigEndian) as GhashWord
+	return (high, low)
+end 'ghashBlockWords'
+
+type GhashKey
+	export var h0 as GhashWord
+	export var h1 as GhashWord
+	var h0r as GhashWord
+	var h1r as GhashWord
+	export var h2 as GhashWord
+	var h2r as GhashWord
+
+	export static function create(hashSubkey ByteArray) returns GhashKey
+		let h1 = ghashReadWord(hashSubkey, at: 0)
+		let h0 = ghashReadWord(hashSubkey, at: aesGcmWordBytes)
+		let h0r = ghashReverse(h0)
+		let h1r = ghashReverse(h1)
+		return Self{h0: h0, h1: h1, h0r: h0r, h1r: h1r, h2: h0 xor h1, h2r: h0r xor h1r}
+	end 'create'
+
+	export function multiply(y1 GhashWord, y0 GhashWord) returns GhashBlock
+		let y0r = ghashReverse(y0)
+		let y1r = ghashReverse(y1)
+		let y2 = y0 xor y1
+		let y2r = y0r xor y1r
+		let z0 = ghashMultiplyLow(y0, y: h0)
+		let z1 = ghashMultiplyLow(y1, y: h1)
+		let z2 = ghashMultiplyLow(y2, y: h2)
+		let z0h = ghashMultiplyLow(y0r, y: h0r)
+		let z1h = ghashMultiplyLow(y1r, y: h1r)
+		let z2h = ghashMultiplyLow(y2r, y: h2r)
+		let middle = z2 xor z0 xor z1
+		let middleHigh = z2h xor z0h xor z1h
+		let v0 = z0
+		let v1 = (ghashReverse(z0h) shr ghashCarryShift) xor middle
+		let v2 = z1 xor (ghashReverse(middleHigh) shr ghashCarryShift)
+		let v3 = ghashReverse(z1h) shr ghashCarryShift
+		let s3 = (v3 shl ghashCarryShift) or (v2 shr (ghashWordBits - ghashCarryShift))
+		let s2 = (v2 shl ghashCarryShift) or (v1 shr (ghashWordBits - ghashCarryShift))
+		let s1 = (v1 shl ghashCarryShift) or (v0 shr (ghashWordBits - ghashCarryShift))
+		let s0 = v0 shl ghashCarryShift
+		// s0 folds into s2, spilling into s1, before s1 folds into s3: s1 must already carry s0's spill.
+		let t1 = s1 xor ghashFoldSpill(s0)
+		let t2 = s2 xor ghashFoldRight(s0)
+		let t3 = s3 xor ghashFoldRight(t1)
+		let u2 = t2 xor ghashFoldSpill(t1)
+		return (t3, u2)
+	end 'multiply'
+
+	function absorb(startHigh GhashWord, startLow GhashWord, data ByteArray) returns GhashBlock
+		var high = startHigh
+		var low = startLow
+		var blockStart = 0 as ElementIndex
+		let limit = data.count()
+		while blockStart < limit 'eachBlock'
+			let (blockHigh, blockLow) = ghashBlockWords(data, blockStart: blockStart)
+			(high, low) = multiply(high xor blockHigh, y0: low xor blockLow)
+			blockStart = try blockStart + aesGcmBlockBytes otherwise panic("out of range")
+		end 'eachBlock'
+		return (high, low)
+	end 'absorb'
+
+	export function finish(high GhashWord, low GhashWord, additionalBytes Count, ciphertextBytes Count) returns GhashBlock
+		return multiply(high xor (try (additionalBytes * aesGcmBitsPerByte) as GhashWord otherwise panic("out of range")), y0: low xor (try (ciphertextBytes * aesGcmBitsPerByte) as GhashWord otherwise panic("out of range")))
+	end 'finish'
+end 'GhashKey'
+
+function ghashAppendTag(mutates output ByteArray, high GhashWord, low GhashWord)
+	__Builtins.appendBigEndian(output, high as OrderedWord, aesGcmWordBytes)
+	__Builtins.appendBigEndian(output, low as OrderedWord, aesGcmWordBytes)
+end 'ghashAppendTag'
+
+function aesGcmKeyFailure(failure AesError) returns aead.AeadError
+	if failure == AesError.invalidKeyLength 'length'
+		return aead.AeadError.invalidKeyLength
+	end 'length'
+	panic("AesGcm: Aes.create reported a block length")
+end 'aesGcmKeyFailure'
+
+type AesGcmSoftware
+	export let cipher as AesBitsliced
+	let hashKey as GhashKey
+
+	export static function create(key ByteArray) returns AesGcmSoftware throws AesError
+		let cipher = try AesBitsliced.create(key)
+		let zeros = ByteArray.create(aesGcmBlockBytes)
+		let hashSubkey = try cipher.cryptBlock(zeros, direction: AesDirection.encrypt) otherwise panic("AesGcm: the hash subkey block was refused")
+		return Self{cipher: cipher, hashKey: GhashKey.create(hashSubkey)}
+	end 'create'
+
+	export function seal(nonce ByteArray, plaintext ByteArray, additionalData ByteArray) returns ByteArray
+		var sealed = ByteArray.create(try plaintext.count() + aesGcmTagBytes otherwise panic("out of range"), zeroed: false)
+		let (firstLane, secondLane) = applyBehindMask(nonce, data: plaintext, output: sealed)
+		let (tagHigh, tagLow) = authenticate(additionalData, ciphertext: sealed, firstLane: firstLane, secondLane: secondLane)
+		ghashAppendTag(sealed, high: tagHigh, low: tagLow)
+		return sealed
+	end 'seal'
+
+	// The plaintext is decrypted before the tag is known, which is what lets the tag mask share the
+	// first software batch. It stays local until `aeadRequireTag` passes: a throw drops it, so no path
+	// hands back unauthenticated bytes.
+	export function open(nonce ByteArray, ciphertext ByteArray, received ByteArray, additionalData ByteArray) returns ByteArray throws aead.AeadError
+		var plaintext = ByteArray.create(ciphertext.count(), zeroed: false)
+		let (firstLane, secondLane) = applyBehindMask(nonce, data: ciphertext, output: plaintext)
+		let (tagHigh, tagLow) = authenticate(additionalData, ciphertext: ciphertext, firstLane: firstLane, secondLane: secondLane)
+		var expected = ByteArray.create(aesGcmTagBytes, zeroed: false)
+		ghashAppendTag(expected, high: tagHigh, low: tagLow)
+		try aead.aeadRequireTag(expected, received: received)
+		return plaintext
+	end 'open'
+
+	// The tag mask is the key-stream block at counter 1. The software cipher computes it in the same
+	// four-block batch as the first data blocks, so that short messages cost one batch rather than two.
+	function applyBehindMask(nonce ByteArray, data ByteArray, mutates output ByteArray) returns AesPair
+		let lanes = try cipher.xorKeyStreamPastFirstBlock(nonce, counter: aesGcmTagMaskCounter, data: data, output: output) otherwise (failure) 'refused'
+			match failure 'reason'
+				invalidNonceLength then panic("AesGcm: xorKeyStreamPastFirstBlock refused a nonce that aeadRequireNonce accepted")
+				counterOverflow then panic("AesGcm: xorKeyStreamPastFirstBlock wrapped the block counter for data no longer than 2^36 - 32 bytes")
+			end 'reason'
+		end 'refused'
+		return lanes
+	end 'applyBehindMask'
+
+	export function authenticate(additionalData ByteArray, ciphertext ByteArray, firstLane AesWord, secondLane AesWord) returns GhashBlock
+		let (afterAdditionalHigh, afterAdditionalLow) = hashKey.absorb(ghashZeroWord, startLow: ghashZeroWord, data: additionalData)
+		let (afterCiphertextHigh, afterCiphertextLow) = hashKey.absorb(afterAdditionalHigh, startLow: afterAdditionalLow, data: ciphertext)
+		let (digestHigh, digestLow) = hashKey.finish(afterCiphertextHigh, low: afterCiphertextLow, additionalBytes: additionalData.count(), ciphertextBytes: ciphertext.count())
+		return (digestHigh xor ghashReverseBytes(firstLane as GhashWord), digestLow xor ghashReverseBytes(secondLane as GhashWord))
+	end 'authenticate'
+end 'AesGcmSoftware'
+
+union AesGcmBacking
+	bitsliced(software AesGcmSoftware)
+end 'AesGcmBacking'
+
+/// AES-GCM under one 16-, 24- or 32-byte key.
+public type AesGcm implements aead.Aead
+	let backing as AesGcmBacking
+
+	/// The cipher for `key`, or `invalidKeyLength`.
+	public static function create(key ByteArray) returns AesGcm throws aead.AeadError
+		return try Self.build(key, bitsliced: false)
+	end 'create'
+
+	// `bitsliced: true` forces the software backing, so a spec can compare the two on one CPU.
+	export static function build(key ByteArray, bitsliced bool) returns AesGcm throws aead.AeadError
+		if bitsliced or not aesHardwareAvailable() 'software'
+			let software = try AesGcmSoftware.create(key) otherwise (failure) 'softwareRefused'
+				throw aesGcmKeyFailure(failure)
+			end 'softwareRefused'
+			return Self{backing: AesGcmBacking.bitsliced(software)}
+		end 'software'
+		panic("AesGcm: the hardware backing was chosen on a target without AES instructions")
+	end 'build'
+
+	export function usesHardware() returns bool
+		match backing 'backing'
+			bitsliced then return false
+		end 'backing'
+	end 'usesHardware'
+
+	public function seal(nonce ByteArray, plaintext ByteArray, additionalData ByteArray) returns ByteArray throws aead.AeadError
+		var sealed = ByteArray.create(try plaintext.count() + aesGcmTagBytes otherwise panic("out of range"), zeroed: false)
+		try sealInto(sealed, at: 0, nonce: nonce, plaintext: plaintext, additionalData: additionalData)
+		return sealed
+	end 'seal'
+
+	/// Writes the bytes `seal` returns into `output` from index `at`, keeping the bytes before `at`.
+	/// `output` ends with the tag, and a gap before `at` is zero-filled. `nonce`, `plaintext` and
+	/// `additionalData` are read as they were at the call, `output` itself included. The errors are
+	/// `seal`'s, and `output` is left as it was when one is thrown.
+	public function sealInto(mutates output ByteArray, at ElementIndex, nonce ByteArray, plaintext ByteArray, additionalData ByteArray) throws aead.AeadError
+		try aead.aeadRequireNonce(nonce, nonceBytes: aesGcmNonceBytes)
+		try aead.aeadRequirePlaintextLength(plaintext, limit: aesGcmMaxPlaintextBytes)
+		if aead.aeadSharesOutput(output, nonce: nonce, plaintext: plaintext, additionalData: additionalData) 'shared'
+			sealDetachedInto(output, at: at, nonce: nonce.clone(), plaintext: plaintext.clone(), additionalData: additionalData.clone())
+			return
+		end 'shared'
+		sealDetachedInto(output, at: at, nonce: nonce, plaintext: plaintext, additionalData: additionalData)
+	end 'sealInto'
+
+	function sealDetachedInto(mutates output ByteArray, at ElementIndex, nonce ByteArray, plaintext ByteArray, additionalData ByteArray)
+		match backing 'backing'
+			bitsliced(software) then sealIntoSoftware(output, at: at, software: software, nonce: nonce, plaintext: plaintext, additionalData: additionalData)
+		end 'backing'
+	end 'sealDetachedInto'
+
+	public function open(nonce ByteArray, sealed ByteArray, additionalData ByteArray) returns ByteArray throws aead.AeadError
+		try aead.aeadRequireNonce(nonce, nonceBytes: aesGcmNonceBytes)
+		match backing 'backing'
+			bitsliced(software) then return try openSoftware(software, nonce: nonce, sealed: sealed, additionalData: additionalData)
+		end 'backing'
+	end 'open'
+
+	function sealIntoSoftware(mutates output ByteArray, at ElementIndex, software AesGcmSoftware, nonce ByteArray, plaintext ByteArray, additionalData ByteArray)
+		output.resize(at)
+		output.append(software.seal(nonce, plaintext: plaintext, additionalData: additionalData))
+	end 'sealIntoSoftware'
+
+	function openSoftware(software AesGcmSoftware, nonce ByteArray, sealed ByteArray, additionalData ByteArray) returns ByteArray throws aead.AeadError
+		let parts = try aead.aeadSplitSealed(sealed, tagBytes: aesGcmTagBytes, plaintextLimit: aesGcmMaxPlaintextBytes)
+		return try software.open(nonce, ciphertext: parts.ciphertext, received: parts.tag, additionalData: additionalData)
+	end 'openSoftware'
+end 'AesGcm'

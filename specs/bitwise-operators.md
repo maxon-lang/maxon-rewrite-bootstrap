@@ -1830,7 +1830,7 @@ function complementHalf(b Small) returns Num
 end 'complementHalf'
 
 function complementShift(b Small) returns Num
-	return try (not b) shr 1 otherwise panic("out of range")
+	return (not b) shr 1
 end 'complementShift'
 
 function main() returns ExitCode
