@@ -20,14 +20,10 @@ end 'PendingHandle'
 export typealias PendingHandleList = Array with PendingHandle
 
 // boxHandleInto puts the handle of node, of the type src, in a value of the interface handle target, where one is expected.
-// An interface handle converts to no other.
+// An interface handle converts to no other, as an interface value does not (coerce refuses it).
 function boxHandleInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, at diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
 	let state = ast.serviceState(ms.types, reads: p.types, t: src)
 	let targetName = nameOfType(p, ms: ms, t: target)
-	if ast.isInterfaceHandle(ms.types, reads: p.types, t: src) 'interface'
-		checkFail(c.modID, off: at, code: diag.errUnsupportedFeature, msg: "Unsupported: '{nameOfType(p, ms: ms, t: src)}' is the handle of a service known by another interface, and an interface handle becomes no other yet: pass the service's own handle where a '{targetName}' is wanted", errs: errs)
-		return false
-	end 'interface'
 	if ast.typeKind(ms.types, reads: p.types, t: state) != ast.TypeKind.record 'notService'
 		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.conformWords(gotName(p, ms: ms, t: src), iface: targetName), errs: errs)
 		return false
@@ -55,6 +51,12 @@ function checkHandleCast(mutates c Checker, p ast.Project, mutates ms ast.Module
 		checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: diag.castFormsAValue("'{nameOfType(p, ms: ms, t: src)}'", target: "'{nameOfType(p, ms: ms, t: target)}'", remedy: "only the handle of a service becomes an interface handle"), errs: errs)
 		return ast.noType
 	end 'notHandle'
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: src) 'interface'
+		if coerce(c, p: p, ms: ms, node: operand, at: off, src: src, target: target, wrong: Mismatch.expectedGot, errs: errs) 'fits'
+			panic("check: an interface handle was taken for the handle of another interface")
+		end 'fits'
+		return ast.noType
+	end 'interface'
 	if not boxHandleInto(c, p: p, ms: ms, node: operand, at: off, src: src, target: target, wrong: Mismatch.expectedGot, errs: errs) 'refused'
 		return ast.noType
 	end 'refused'

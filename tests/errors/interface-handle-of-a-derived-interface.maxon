@@ -1,0 +1,46 @@
+// An interface handle becomes no other, not even the handle of an interface its own extends, as an interface value does not:
+// a service is passed by its own handle where the base interface's is wanted.
+// expect-error: E3005 at 36:11
+// expect-error: E3005 at 42:10
+export typealias Count = int(0 to 1000)
+
+interface Pinger
+	function ping() returns Count
+end 'Pinger'
+
+interface Sub extends Pinger
+	function tag() returns Count
+end 'Sub'
+
+type A implements Sub
+	let n as Count
+
+	static function create() returns Self
+		return Self{n: 7}
+	end 'create'
+
+	export function ping() returns Count
+		return self.n
+	end 'ping'
+
+	export function tag() returns Count
+		return 1
+	end 'tag'
+end 'A'
+
+function viaBase(h Pinger.handle) returns Count
+	return try await h.ping() otherwise 0
+end 'viaBase'
+
+function cast(h Sub.handle) returns Pinger.handle
+	return h as Pinger.handle
+end 'cast'
+
+function main() returns ExitCode
+	let s = (spawn A.create()) as Sub.handle
+	let t = try await s.tag() otherwise 0
+	let v = viaBase(s)
+	let w = cast(s)
+	print("{t} {v}\n")
+	return 0
+end 'main'

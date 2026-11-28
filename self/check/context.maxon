@@ -599,7 +599,7 @@ export function coerce(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	if dk == ast.TypeKind.interfaceTy and sk != ast.TypeKind.interfaceTy 'interface'
 		return boxInto(c, p: p, ms: ms, node: node, at: at, src: src, iface: target, wrong: wrong, errs: errs)
 	end 'interface'
-	if ast.isInterfaceHandle(ms.types, reads: p.types, t: target) and ast.isServiceType(ms.types, reads: p.types, t: src) 'handle'
+	if ast.isInterfaceHandle(ms.types, reads: p.types, t: target) and ast.isServiceType(ms.types, reads: p.types, t: src) and not ast.isInterfaceHandle(ms.types, reads: p.types, t: src) 'handle'
 		return boxHandleInto(c, p: p, ms: ms, node: node, at: at, src: src, target: target, wrong: wrong, errs: errs)
 	end 'handle'
 	if dk == ast.TypeKind.floatRange and (ast.isFloatType(ms.types, reads: p.types, t: src) or ast.isIntType(ms.types, reads: p.types, t: src)) 'float'

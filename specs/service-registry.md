@@ -1245,6 +1245,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.an-await-cycle-through-a-second-implementer -->
+<!-- skip: language difference: a method that meets a requirement may wait, since a call through an interface or a function value is one that may, which a message that makes it may not, where maxon counts such a call as no wait and refuses the method (E3210) -->
 <!-- positions: moved -->
 `Innocent`, the first implementer of `Echo`, awaits nothing. `Relay`, the second, awaits `Bouncer`, and
 `Bouncer` awaits through an `Echo.handle`, which may hold a `Relay`, so the two could wait on each other. A
@@ -1450,6 +1451,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.implementers-of-one-interface-that-disagree-on-a-reply -->
+<!-- skip: language difference: a service is held to an interface's requirements where its handle becomes the interface's handle, every requirement a message that takes, gives and fails with what the requirement declares, never by a search of the program for the services a send through the interface handle may reach (README, Where it differs from Maxon) -->
 <!-- positions: moved -->
 A send through `Worker.handle` builds one request and awaits one reply for whichever implementer the handle
 holds. `Left` and `Right` both satisfy the abstract `throws Error`, but each throws its own enum, so their

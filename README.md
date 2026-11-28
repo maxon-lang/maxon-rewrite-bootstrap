@@ -169,7 +169,7 @@ name (a `try`, a cast, `.clone()`, `consumes`, `match consumes`, `mutates`, `mut
 that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
 instead, and so does a test that expects a compile error which minimaxon reports first under another code for a known reason
 (the pairs of `self/driver/skips.tsv`, generated into `codeSkipTable`: ownership refused by another rule, the syntax error, operand
-types), a test that expects a code whose rule minimaxon changed, whatever it reports (the table's `expect` rows: `E3220`, since a
+types, a method that waits where it meets a requirement), a test that expects a code whose rule minimaxon changed, whatever it reports (the table's `expect` rows: `E3220`, since a
 constant may call a literal factory), and a test that runs a program which minimaxon refuses, after the fixes, by a rule it
 changed (its `run` rows: `E3925`, a closure that borrows does not escape), and a test that the table names by its file and
 name (its `test` rows), whose program minimaxon runs to another answer by a language change (a float division by 0 is
@@ -5279,7 +5279,8 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
 - **Interface handles** (`self/check/handles.maxon`, `self/ir/handles.maxon`), maxon's (`specs/service-registry.md`):
   `I.handle`, for an interface `I`, is the handle of a service known only by an interface its type implements, so code sends
   to any service that implements `Logger`. A `T.handle` becomes an `I.handle` wherever one is expected (a binding, an
-  argument, a return, a field, an element, a message's argument) or by `h as I.handle`, and a call through it of a
+  argument, a return, a field, an element, a message's argument) or by `h as I.handle`; an interface handle becomes no
+  other, not even the handle of an interface its own extends (`E3005`, as an interface value does not), and a call through it of a
   requirement of `I` is a send of the service's message of that name (`E3136` for any other name), whose arguments move, which
   fails with `SendError` and whose reply, where the requirement returns or throws, is a promise of what the requirement
   returns and throws. One send serves every service behind the handle, so each service whose handle becomes an `I.handle`
@@ -5959,7 +5960,9 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   its behaviours: a value at an interface type is refused there, where maxon walks the conformers the program converts to
   the interface (the spec tests that freeze one are skipped with that reason). A message that calls through a function value or an interface is `E3221`, where
   maxon's inference counts such a call as no wait: the check cannot see what it runs, so it cannot show that the holder
-  never waits on another party (the spec tests that run one are skipped with that reason). A
+  never waits on another party (the spec tests that run one are skipped with that reason); and so a method that waits may
+  meet a requirement, where maxon refuses it (`E3210`, a requirement never waits; the spec tests that expect that are
+  skipped with that reason). A
   factory that throws runs on the spawner's green thread, where maxon's runs on the service's while the spawner waits.
   A send's error is the built-in `SendError` (`serviceStopped`) and gives the arguments no way back,
   where maxon's `<Service>.<message>.sendError` carries them (the spec tests whose handler binds them are skipped with
@@ -5971,8 +5974,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   handle, every requirement a message whose send and await fail with no more than the requirement declares, where maxon looks,
   at each send through the interface handle, for the program's services behind it and refuses one that declares the
   requirement another way ("Interface handles"; the spec tests that pin maxon's place for it are skipped with that reason).
-  Not yet: an interface handle that becomes the handle of an interface its own inherits (`Derived.handle` as `Base.handle`),
-  `T.request`, a generic service, a message with type parameters,
+  Not yet: `T.request`, a generic service, a message with type parameters,
   one `try await h.m()` over a message that throws, and services in the interpreter. Not yet either, until the design of
   logging is decided: maxon's `Log`, which sits on `SharedValue` there (see "Where it differs from Maxon": there is no
   `SharedValue`); the spec tests that name it are skipped with that reason.
