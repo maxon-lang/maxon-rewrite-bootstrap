@@ -993,13 +993,15 @@ type SpecRun
 	var listPath as String
 	// saved is the line of results of each test taken in, which a run that saves them writes at the end.
 	var saved as ast.StringList
+	// slowest keeps the time of each test that passed, for the report of the slowest (slowestFlag).
+	var slowest as Slowest
 
-	static function make(consumes options SpecOptions, before ast.StringList, consumes listPath String, includesManual bool) returns SpecRun
+	static function make(consumes options SpecOptions, before ast.StringList, consumes listPath String, includesManual bool, slowest Count) returns SpecRun
 		var listed = TestSet.new()
 		for i in 0 upto before.count() 'keys'
 			listed.insert(before[i].clone(), value: setMember)
 		end 'keys'
-		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), listed: listed, keptKeys: ast.StringList.create(0), lost: 0, includesManual: includesManual, byHand: ast.StringList.create(0), listPath: listPath, saved: ast.StringList.create(0)}
+		return SpecRun{options: options, passed: 0, failed: 0, skipped: 0, reasons: ast.StringList.create(0), counts: CountList.create(0), indexes: ReasonIndex.new(), listed: listed, keptKeys: ast.StringList.create(0), lost: 0, includesManual: includesManual, byHand: ast.StringList.create(0), listPath: listPath, saved: ast.StringList.create(0), slowest: Slowest.make(slowest)}
 	end 'make'
 
 	// countSkip counts a skipped test under its reason.
@@ -1092,6 +1094,7 @@ type SpecRun
 			end 'kept'
 		end 'unsupported' else 'passed'
 			self.notePass(job.key)
+			slowest.note(job.key, result: result)
 		end 'passed'
 	end 'take'
 end 'SpecRun'
@@ -1103,6 +1106,7 @@ function finishSpecs(tally SpecRun) returns ExitCode
 	removeTree(specRunDirectory(project.parentDir(tally.listPath)))
 	print("\n")
 	printSummary(tally)
+	tally.slowest.report()
 	if tally.options.record 'record'
 		writePassedList(tally.listPath, tally: tally)
 	end 'record'
@@ -1307,7 +1311,7 @@ function runSpecs(path String, options SpecOptions, compiling CorpusOptions, wid
 			return diagnosticsExitCode
 		end 'missing'
 	end 'list'
-	let tally = SpecRun.make(options.clone(), before: before, listPath: listPath, includesManual: compiling.includesManual or compiling.compilesOnly)
+	let tally = SpecRun.make(options.clone(), before: before, listPath: listPath, includesManual: compiling.includesManual or compiling.compilesOnly, slowest: compiling.slowest)
 	var files = SpecFiles.create(0)
 	var jobs = Jobs.create(0)
 	let paths = specFiles(root)
