@@ -1,0 +1,10 @@
+// The interpreter has no SHA-256 instructions: it answers that it has none, so the library takes its software rounds, and a
+// call of sha256Blocks itself stops the program, which only a native run takes.
+
+function entryCpuHasSha(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: ir.wordOfBits(0 as Count))
+end 'entryCpuHasSha'
+
+function entrySha256Blocks(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	throw trap(vm, message: "the interpreter has no SHA-256 instructions: a call of __Builtins.sha256Blocks runs only natively")
+end 'entrySha256Blocks'

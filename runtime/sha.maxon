@@ -1,0 +1,258 @@
+// SHA-256 on the processor's instructions, the routine of the library's __Builtins.sha256Blocks (maxon's CryptoRuntime and
+// X64ShaRuntime/Arm64ShaRuntime): the blocks of the data compressed into a state of eight little-endian 32-bit words, a to
+// h. Each block's sixteen groups of four rounds are written out, as maxon's are, so the four vectors of the schedule stay in
+// registers and each group's round constants are an operand of the code; a vector is held across no call (E5900).
+
+let shaStateBytes = 32 as Count
+
+let shaBlockBytes = 64 as Count
+
+let shaBlockShift = 6 as Count
+
+let shaVectorBytes = 16 as Count
+
+// The byte picks that turn each 32-bit lane of a block's words from big-endian to the order the instructions read.
+let shaLaneSwapLow = 0x0405060700010203 as Count
+
+let shaLaneSwapHigh = 0x0C0D0E0F08090A0B as Count
+
+// cpuHasSha is __Builtins.cpuHasSha: whether the processor has the SHA-256 instructions.
+function cpuHasSha() returns bool
+	return (cpuFeatures() and featureSha) != 0
+end 'cpuHasSha'
+
+// sha256Blocks is __Builtins.sha256Blocks: the blocks from dataAt of the data compressed into the 32-byte state, which ends
+// the program when the state is another size or the blocks are not all in the data.
+function sha256Blocks(state Count, data Count, dataAt Count, blocks Count)
+	if collectionLength(state) != shaStateBytes 'stateSize'
+		runtimeFatal(aesWrongSize)
+		return
+	end 'stateSize'
+	let length = collectionLength(data)
+	if dataAt > length or blocks > (length - dataAt) shr shaBlockShift 'outside'
+		runtimeFatal(aesWrongSize)
+		return
+	end 'outside'
+	if blocks == 0 'none'
+		return
+	end 'none'
+	shaCompress(collectionData(state), source: collectionPlace(data, index: dataAt, elementBytes: byteBytes), blocks: blocks)
+end 'sha256Blocks'
+
+#if arch(x64)
+	// shaCompress is maxon's X64ShaRuntime: the state's A, B, E, F and C, D, G, H in two vectors, two sha256rnds2 for each
+	// four rounds, and sha256msg1 and sha256msg2 with a palignr between them for the schedule.
+	function shaCompress(state Count, source Count, blocks Count)
+		let swap = __Raw.vectorOfWords(shaLaneSwapLow, high: shaLaneSwapHigh)
+		var temp = __Raw.vectorShuffleDwords(__Raw.vectorLoad(state, offset: 0), order: 0xB1)
+		var state1 = __Raw.vectorShuffleDwords(__Raw.vectorLoad(state, offset: shaVectorBytes), order: 0x1B)
+		var state0 = __Raw.vectorAlignBytes(temp, low: state1, bytes: 8)
+		state1 = __Raw.vectorBlendWords(state1, right: temp, mask: 0xF0)
+		var at = source
+		var left = blocks
+		while left > 0 'blocks'
+			let saved0 = state0
+			let saved1 = state1
+			var message0 = __Raw.vectorShuffleBytes(__Raw.vectorLoad(at, offset: 0), picks: swap)
+			var words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x71374491428A2F98, high: 0xE9B5DBA5B5C0FBCF), right: message0)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			var message1 = __Raw.vectorShuffleBytes(__Raw.vectorLoad(at, offset: 16), picks: swap)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x59F111F13956C25B, high: 0xAB1C5ED5923F82A4), right: message1)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message0 = __Raw.vectorSha256Message1(message0, right: message1)
+			var message2 = __Raw.vectorShuffleBytes(__Raw.vectorLoad(at, offset: 32), picks: swap)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x12835B01D807AA98, high: 0x550C7DC3243185BE), right: message2)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message1 = __Raw.vectorSha256Message1(message1, right: message2)
+			var message3 = __Raw.vectorShuffleBytes(__Raw.vectorLoad(at, offset: 48), picks: swap)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x80DEB1FE72BE5D74, high: 0xC19BF1749BDC06A7), right: message3)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message0 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message0, right: __Raw.vectorAlignBytes(message3, low: message2, bytes: 4)), right: message3)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message2 = __Raw.vectorSha256Message1(message2, right: message3)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0xEFBE4786E49B69C1, high: 0x240CA1CC0FC19DC6), right: message0)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message1 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message1, right: __Raw.vectorAlignBytes(message0, low: message3, bytes: 4)), right: message0)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message3 = __Raw.vectorSha256Message1(message3, right: message0)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x4A7484AA2DE92C6F, high: 0x76F988DA5CB0A9DC), right: message1)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message2 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message2, right: __Raw.vectorAlignBytes(message1, low: message0, bytes: 4)), right: message1)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message0 = __Raw.vectorSha256Message1(message0, right: message1)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0xA831C66D983E5152, high: 0xBF597FC7B00327C8), right: message2)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message3 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message3, right: __Raw.vectorAlignBytes(message2, low: message1, bytes: 4)), right: message2)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message1 = __Raw.vectorSha256Message1(message1, right: message2)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0xD5A79147C6E00BF3, high: 0x1429296706CA6351), right: message3)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message0 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message0, right: __Raw.vectorAlignBytes(message3, low: message2, bytes: 4)), right: message3)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message2 = __Raw.vectorSha256Message1(message2, right: message3)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x2E1B213827B70A85, high: 0x53380D134D2C6DFC), right: message0)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message1 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message1, right: __Raw.vectorAlignBytes(message0, low: message3, bytes: 4)), right: message0)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message3 = __Raw.vectorSha256Message1(message3, right: message0)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x766A0ABB650A7354, high: 0x92722C8581C2C92E), right: message1)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message2 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message2, right: __Raw.vectorAlignBytes(message1, low: message0, bytes: 4)), right: message1)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message0 = __Raw.vectorSha256Message1(message0, right: message1)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0xA81A664BA2BFE8A1, high: 0xC76C51A3C24B8B70), right: message2)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message3 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message3, right: __Raw.vectorAlignBytes(message2, low: message1, bytes: 4)), right: message2)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message1 = __Raw.vectorSha256Message1(message1, right: message2)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0xD6990624D192E819, high: 0x106AA070F40E3585), right: message3)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message0 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message0, right: __Raw.vectorAlignBytes(message3, low: message2, bytes: 4)), right: message3)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message2 = __Raw.vectorSha256Message1(message2, right: message3)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x1E376C0819A4C116, high: 0x34B0BCB52748774C), right: message0)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message1 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message1, right: __Raw.vectorAlignBytes(message0, low: message3, bytes: 4)), right: message0)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			message3 = __Raw.vectorSha256Message1(message3, right: message0)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x4ED8AA4A391C0CB3, high: 0x682E6FF35B9CCA4F), right: message1)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message2 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message2, right: __Raw.vectorAlignBytes(message1, low: message0, bytes: 4)), right: message1)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0x78A5636F748F82EE, high: 0x8CC7020884C87814), right: message2)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			message3 = __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(message3, right: __Raw.vectorAlignBytes(message2, low: message1, bytes: 4)), right: message2)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			words = __Raw.vectorAddLanes32(__Raw.vectorOfWords(0xA4506CEB90BEFFFA, high: 0xC67178F2BEF9A3F7), right: message3)
+			state1 = __Raw.vectorSha256Rounds2(state1, other: state0, words: words)
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			state0 = __Raw.vectorSha256Rounds2(state0, other: state1, words: words)
+			state0 = __Raw.vectorAddLanes32(state0, right: saved0)
+			state1 = __Raw.vectorAddLanes32(state1, right: saved1)
+			at = __Raw.wrappingAdd(at, right: shaBlockBytes)
+			left = left - 1
+		end 'blocks'
+		temp = __Raw.vectorShuffleDwords(state0, order: 0x1B)
+		state1 = __Raw.vectorShuffleDwords(state1, order: 0xB1)
+		__Raw.vectorStore(state, offset: 0, value: __Raw.vectorBlendWords(temp, right: state1, mask: 0xF0))
+		__Raw.vectorStore(state, offset: shaVectorBytes, value: __Raw.vectorAlignBytes(state1, low: temp, bytes: 8))
+	end 'shaCompress'
+#else
+	// shaCompress is maxon's Arm64ShaRuntime: the state's A to D and E to H as they are laid out, sha256h and sha256h2 for
+	// each four rounds, and sha256su0 and sha256su1 for the schedule.
+	function shaCompress(state Count, source Count, blocks Count)
+		let swap = __Raw.vectorOfWords(shaLaneSwapLow, high: shaLaneSwapHigh)
+		var abcd = __Raw.vectorLoad(state, offset: 0)
+		var efgh = __Raw.vectorLoad(state, offset: shaVectorBytes)
+		var at = source
+		var left = blocks
+		while left > 0 'blocks'
+			let savedAbcd = abcd
+			let savedEfgh = efgh
+			var message0 = __Raw.vectorShuffleBytes(__Raw.vectorLoad(at, offset: 0), picks: swap)
+			var message1 = __Raw.vectorShuffleBytes(__Raw.vectorLoad(at, offset: 16), picks: swap)
+			var message2 = __Raw.vectorShuffleBytes(__Raw.vectorLoad(at, offset: 32), picks: swap)
+			var message3 = __Raw.vectorShuffleBytes(__Raw.vectorLoad(at, offset: 48), picks: swap)
+			var words = __Raw.vectorAddLanes32(message0, right: __Raw.vectorOfWords(0x71374491428A2F98, high: 0xE9B5DBA5B5C0FBCF))
+			var copy = abcd
+			message0 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message0, second: message1), third: message2, fourth: message3)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message1, right: __Raw.vectorOfWords(0x59F111F13956C25B, high: 0xAB1C5ED5923F82A4))
+			copy = abcd
+			message1 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message1, second: message2), third: message3, fourth: message0)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message2, right: __Raw.vectorOfWords(0x12835B01D807AA98, high: 0x550C7DC3243185BE))
+			copy = abcd
+			message2 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message2, second: message3), third: message0, fourth: message1)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message3, right: __Raw.vectorOfWords(0x80DEB1FE72BE5D74, high: 0xC19BF1749BDC06A7))
+			copy = abcd
+			message3 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message3, second: message0), third: message1, fourth: message2)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message0, right: __Raw.vectorOfWords(0xEFBE4786E49B69C1, high: 0x240CA1CC0FC19DC6))
+			copy = abcd
+			message0 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message0, second: message1), third: message2, fourth: message3)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message1, right: __Raw.vectorOfWords(0x4A7484AA2DE92C6F, high: 0x76F988DA5CB0A9DC))
+			copy = abcd
+			message1 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message1, second: message2), third: message3, fourth: message0)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message2, right: __Raw.vectorOfWords(0xA831C66D983E5152, high: 0xBF597FC7B00327C8))
+			copy = abcd
+			message2 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message2, second: message3), third: message0, fourth: message1)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message3, right: __Raw.vectorOfWords(0xD5A79147C6E00BF3, high: 0x1429296706CA6351))
+			copy = abcd
+			message3 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message3, second: message0), third: message1, fourth: message2)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message0, right: __Raw.vectorOfWords(0x2E1B213827B70A85, high: 0x53380D134D2C6DFC))
+			copy = abcd
+			message0 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message0, second: message1), third: message2, fourth: message3)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message1, right: __Raw.vectorOfWords(0x766A0ABB650A7354, high: 0x92722C8581C2C92E))
+			copy = abcd
+			message1 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message1, second: message2), third: message3, fourth: message0)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message2, right: __Raw.vectorOfWords(0xA81A664BA2BFE8A1, high: 0xC76C51A3C24B8B70))
+			copy = abcd
+			message2 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message2, second: message3), third: message0, fourth: message1)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message3, right: __Raw.vectorOfWords(0xD6990624D192E819, high: 0x106AA070F40E3585))
+			copy = abcd
+			message3 = __Raw.vectorSha256Su1(__Raw.vectorSha256Su0(message3, second: message0), third: message1, fourth: message2)
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message0, right: __Raw.vectorOfWords(0x1E376C0819A4C116, high: 0x34B0BCB52748774C))
+			copy = abcd
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message1, right: __Raw.vectorOfWords(0x4ED8AA4A391C0CB3, high: 0x682E6FF35B9CCA4F))
+			copy = abcd
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message2, right: __Raw.vectorOfWords(0x78A5636F748F82EE, high: 0x8CC7020884C87814))
+			copy = abcd
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			words = __Raw.vectorAddLanes32(message3, right: __Raw.vectorOfWords(0xA4506CEB90BEFFFA, high: 0xC67178F2BEF9A3F7))
+			copy = abcd
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+			abcd = __Raw.vectorAddLanes32(abcd, right: savedAbcd)
+			efgh = __Raw.vectorAddLanes32(efgh, right: savedEfgh)
+			at = __Raw.wrappingAdd(at, right: shaBlockBytes)
+			left = left - 1
+		end 'blocks'
+		__Raw.vectorStore(state, offset: 0, value: abcd)
+		__Raw.vectorStore(state, offset: shaVectorBytes, value: efgh)
+	end 'shaCompress'
+#endif

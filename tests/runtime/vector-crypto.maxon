@@ -29,9 +29,9 @@ let shaLoadedGroups = 4 as Count
 
 let shaSlotMask = 3 as Count
 
-let shaBlockBytes = 64 as Count
+let testShaBlockBytes = 64 as Count
 
-let shaStateBytes = 32 as Count
+let testShaStateBytes = 32 as Count
 
 let shaConstantBytes = 256 as Count
 
@@ -275,18 +275,18 @@ end 'testDecrypt'
 
 // testSha compresses the one block of "abc", padded, into SHA-256's initial state.
 function testSha()
-	let state = alloc(shaStateBytes)
-	let data = alloc(shaBlockBytes)
+	let state = alloc(testShaStateBytes)
+	let data = alloc(testShaBlockBytes)
 	let constants = alloc(shaConstantBytes)
 	let schedule = alloc(shaLoadedGroups * vectorBytes)
-	for i in 0 upto shaBlockBytes 'zero'
+	for i in 0 upto testShaBlockBytes 'zero'
 		__Raw.storeByte(data, offset: i, value: 0)
 	end 'zero'
 	__Raw.storeByte(data, offset: 0, value: 0x61)
 	__Raw.storeByte(data, offset: 1, value: 0x62)
 	__Raw.storeByte(data, offset: 2, value: 0x63)
 	__Raw.storeByte(data, offset: 3, value: 0x80)
-	__Raw.storeByte(data, offset: shaBlockBytes - 1, value: 24)
+	__Raw.storeByte(data, offset: testShaBlockBytes - 1, value: 24)
 	testFillConstants(constants)
 	testFillState(state)
 	testCompress(state, data: data, constants: constants, schedule: schedule)

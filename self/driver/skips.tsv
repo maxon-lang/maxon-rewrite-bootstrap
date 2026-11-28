@@ -517,7 +517,6 @@ test	slot.md	taking-from-an-empty-slot-panics-naming-the-slot	the test asserts a
 test	slot.md	reading-an-empty-slot-panics-naming-the-slot	the test asserts a line of maxon's library source, which the converted file does not share
 test	sha2.md	sha2.digest-panics-when-finalized-twice	the test asserts a line of maxon's library source, which the converted file does not share
 test	sha2.md	sha2.digest-panics-on-update-after-finalize	the test asserts a line of maxon's library source, which the converted file does not share
-test	sha2.md	sha2.the-hardware-and-software-compressions-agree	language difference: minimaxon's library is software only, so the hardware intrinsics the test calls (`__Builtins.cpuHasSha`, `__Builtins.sha256Blocks`) are not provided
 test	builtins-mm-counters.md	builtins-mm-counters.bytes-scale-with-the-request	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart
 test	builtins-mm-counters.md	builtins-mm-counters.total-is-never-below-live	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart
 test	builtins-mm-counters.md	builtins-mm-counters.the-two-layers-are-disjoint	language difference: minimaxon's heap is Go's page heap with per-thread size classes, so maxon's slab, census and raw-allocation figures have no counterpart
@@ -903,6 +902,7 @@ native	hkdf.md	hkdf.derive	its interpreted run takes 2.0 s, beyond the 2 s the g
 native	aes-hardware.md	aes-hardware.xor-key-stream-matches-the-bitsliced-cipher	its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test
 native	aes-hardware.md	aes-hardware.gcm-large-messages-match-the-software-backing	its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test
 native	aes-hardware.md	aes-hardware.gcm-seal-and-open-match-the-software-backing	its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test
+native	sha2.md	sha2.the-hardware-and-software-compressions-agree	its interpreted run takes over 10 s (it is stopped at the run deadline), over the 2 s the gate may spend on one test: a million letters hashed twice in software
 native	x25519.md	*	every test multiplies curve points in field arithmetic of 64-bit limbs, which the interpreter runs in 5 to 15 seconds a test where the executable takes under a tenth of a second
 native	ed25519.md	*	the tests sign and verify with Edwards-curve point arithmetic, which the interpreter runs in 3 to 15 seconds a test where the executable takes about a tenth of a second
 native	ecdsa.md	*	the tests sign and verify over P-256 and P-384 in Montgomery limb arithmetic, which the interpreter runs in 6 to 16 seconds a test where the executable takes at most two tenths of a second

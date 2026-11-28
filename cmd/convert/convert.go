@@ -95,7 +95,6 @@ func convertProgram(file, src string, kind inputKind, names programNames) Result
 		rewriteBuiltinRecords(lines)
 		rewriteBuiltinParamTypes(lines)
 		dropBuiltinDeclarations(lines)
-		dropHardwareRegions(lines)
 		rewriteRegistryCaches(lines)
 		dropRegistryCaches(lines)
 		rewriteBuiltinExtensions(lines)
@@ -700,6 +699,32 @@ func dropBuiltinDeclarations(lines []sourceLine) {
 		}
 		i = last
 	}
+}
+
+// conditionalRegion is the line of the `#else` of the region that the `#if` at line start opens (-1 when it has none) and the
+// line of its `#endif`, the regions inside it passed over.
+func conditionalRegion(lines []sourceLine, start int) (elseAt, end int) {
+	elseAt = -1
+	depth := 0
+	for k := start + 1; k < len(lines); k++ {
+		if len(lines[k].code) == 0 {
+			continue
+		}
+		switch lines[k].code[0].text {
+		case "#if":
+			depth++
+		case "#else":
+			if depth == 0 {
+				elseAt = k
+			}
+		case "#endif":
+			if depth == 0 {
+				return elseAt, k
+			}
+			depth--
+		}
+	}
+	panic(fmt.Sprintf("line %d: the #if has no #endif", lines[start].origLine))
 }
 
 // builtinConditionalRegion is the line of the `#endif` of the conditional region that the `#if` at line start opens, and

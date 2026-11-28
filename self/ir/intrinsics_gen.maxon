@@ -761,6 +761,12 @@ export function intrinsicCall(mutates l Lowerer, p ast.Project, mutates ms ast.M
 	if op == ast.Intrinsic.intrAesGcmOpen 'intrAesGcmOpen'
 		return lowerAesGcmOpen(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrAesGcmOpen'
+	if op == ast.Intrinsic.intrCpuHasSha 'intrCpuHasSha'
+		return lowerCpuHasSha(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrCpuHasSha'
+	if op == ast.Intrinsic.intrSha256Blocks 'intrSha256Blocks'
+		return lowerSha256Blocks(l, p: p, ms: ms, c: c, recv: recv, args: args)
+	end 'intrSha256Blocks'
 	if op == ast.Intrinsic.intrHeapProcessAllocs 'intrHeapProcessAllocs'
 		return lowerHeapProcessAllocs(l, p: p, ms: ms, c: c, recv: recv, args: args)
 	end 'intrHeapProcessAllocs'
@@ -1942,6 +1948,12 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrAesGcmOpen 'intrAesGcmOpen'
 		return false
 	end 'intrAesGcmOpen'
+	if op == ast.Intrinsic.intrCpuHasSha 'intrCpuHasSha'
+		return false
+	end 'intrCpuHasSha'
+	if op == ast.Intrinsic.intrSha256Blocks 'intrSha256Blocks'
+		return false
+	end 'intrSha256Blocks'
 	if op == ast.Intrinsic.intrHeapProcessAllocs 'intrHeapProcessAllocs'
 		return false
 	end 'intrHeapProcessAllocs'

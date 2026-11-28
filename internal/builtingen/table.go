@@ -1325,6 +1325,11 @@ var tableFunctions = []function{
 	{Owner: "Builtins", Name: "aesGcmInit", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ByteBuffer"}, Intrinsic: "AesGcmInit", Instead: "AesGcm.create(key)"},
 	{Owner: "Builtins", Name: "aesGcmSeal", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ElementIndex", "_ ByteBuffer", "_ ByteBuffer", "_ ByteBuffer", "_ ByteBuffer"}, Intrinsic: "AesGcmSeal", Instead: "an AesGcm's seal(nonce, plaintext, additionalData)"},
 	{Owner: "Builtins", Name: "aesGcmOpen", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ElementIndex", "_ ByteBuffer", "_ ByteBuffer", "_ ByteBuffer", "_ ByteBuffer"}, Result: "Bool", Intrinsic: "AesGcmOpen", Instead: "an AesGcm's open(nonce, sealed, additionalData)"},
+	// SHA-256 on the processor's instructions (SHA-NI on x64, the SHA2 extension on arm64), runtime/sha.maxon: whether the
+	// processor has them, and a count of 64-byte blocks of a buffer from an index compressed into a 32-byte state of eight
+	// little-endian words. A state of another size, or blocks past the end, ends the program.
+	{Owner: "Builtins", Name: "cpuHasSha", Static: true, Result: "Bool", Intrinsic: "CpuHasSha", Instead: "Digest.create(algorithm)"},
+	{Owner: "Builtins", Name: "sha256Blocks", Static: true, Params: []string{"mutates _ ByteBuffer", "_ ByteBuffer", "_ ElementIndex", "_ Count"}, Intrinsic: "Sha256Blocks", Instead: "a Digest's update(bytes)"},
 	// The counters of the heap (runtime/heap.maxon) that maxon's HeapStats reads: the allocations, frees and bytes of the
 	// running thread's heap and of every thread's; mm* are the process's, since every allocation here is a managed box.
 	// The counts by tag answer 0, as maxon's do outside a --debugstream build, and scavengeMemory runs a release pass of the
@@ -1596,6 +1601,8 @@ var entries = []entry{
 	{"AesGcmInit", "rt.aes.gcmInit", "Source", roleCall, "(key block ByteArray, schedule): the powers of the hash subkey and the round keys"},
 	{"AesGcmSeal", "rt.aes.gcmSeal", "Source", roleCall, "(output ByteArray, at, key block, nonce, additional data, plain text): the cipher text and its tag"},
 	{"AesGcmOpen", "rt.aes.gcmOpen", "Source", roleCall, "(output ByteArray, at, key block, nonce, additional data, sealed) -> bool: the plain text, and whether the tag is right"},
+	{"CpuHasSha", "rt.sha.cpuHas", "Source", roleCall, "() -> bool: whether the processor has the SHA-256 instructions, which the first ask probes"},
+	{"Sha256Blocks", "rt.sha.blocks256", "Source", roleCall, "(state ByteArray, data ByteArray, at, blocks): the blocks of the data from at compressed into the state"},
 	{"BytesReadWord", "rt.bytes.readWord", "Source", roleCall, "(ByteArray, at, width, bigEndian, error) -> the width bytes from at as a word, the first the most significant where bigEndian; past the end sets the error to indexOutOfBounds"},
 	{"BytesAppendWord", "rt.bytes.appendWord", "Source", roleCall, "(ByteArray, word, width, bigEndian): appends the word's low width bytes, the most significant first where bigEndian"},
 	{"ServiceNew", "rt.service.new", "Source", roleCall, "(state) -> handle: a service, a cown that holds its state and its mailbox's gate, whose state the factory's behaviour stores when it is 0"},
@@ -1918,6 +1925,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"AesGcmInit", "aesGcmInit(keyBlock Count, schedule Count)"},
 	{"AesGcmSeal", "aesGcmSeal(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, plaintext Count)"},
 	{"AesGcmOpen", "aesGcmOpen(output Count, outputAt Count, keyBlock Count, nonce Count, additionalData Count, sealed Count) Bool"},
+	{"CpuHasSha", "cpuHasSha() Bool"},
+	{"Sha256Blocks", "sha256Blocks(state Count, data Count, dataAt Count, blocks Count)"},
 	{"BytesReadWord", "bytesReadWord(array Count, at Count, width Count, bigEndian Bool, errorAddress Count) Count"},
 	{"BytesAppendWord", "bytesAppendWord(array Count, word Count, width Count, bigEndian Bool)"},
 	{"ServiceNew", "serviceCreate(state Count) Count"},

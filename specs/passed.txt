@@ -1066,6 +1066,8 @@ builtins-cpu-features.md: builtins-cpu-features.a-native-host-has-hardware-aes
 builtins-cpu-features.md: builtins-cpu-features.a-program-that-asks-twice-from-different-functions-agrees
 builtins-cpu-features.md: builtins-cpu-features.error.arity-checked
 builtins-cpu-features.md: builtins-cpu-features.error.refused-outside-the-library-tiers
+builtins-cpu-features.md: builtins-cpu-features.error.sha-arity-checked
+builtins-cpu-features.md: builtins-cpu-features.sha-answer-is-a-bool-and-stable
 builtins-cpu-features.md: builtins-cpu-features.the-answer-is-a-bool
 builtins-cpu-features.md: builtins-cpu-features.the-answer-is-stable-across-calls
 builtins-cpu-parallel.md: builtins-cpu-parallel.a-pinned-green-thread-stays-on-its-machine-across-a-park
@@ -7690,6 +7692,7 @@ settled-results-through-merges.md: an-immutable-result-choosing-a-parameter-acce
 sha2.md: sha2.a-million-letters
 sha2.md: sha2.digest-gives-the-one-shot-digest-however-the-message-is-split
 sha2.md: sha2.one-shot-digests
+sha2.md: sha2.the-hardware-and-software-compressions-agree
 sha256.md: sha256.55-zero-bytes
 sha256.md: sha256.56-zero-bytes
 sha256.md: sha256.64-zero-bytes
