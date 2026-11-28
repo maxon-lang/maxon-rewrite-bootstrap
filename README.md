@@ -365,7 +365,7 @@ the table of built-ins (a runtime-only `__Raw` one too), counts for neither it n
 for a source file of maxon's library, never for a spec test (`TestSpecConversionNeverReadsTheBuiltinTables` holds it to that), and the plan
 says so on the step's line; after a regeneration the spec step replays the regeneration's saved results with `--require-passed`
 instead of running every test again (a listed test that stopped passing is `LOST` there, which the regeneration's record mode does not fail); `specs/`,
-`stdlib/`, `cmd/convert/` (but not `builtins_gen.go`), `self/interp/` or `self/driver/` puts `--interpret` on the spec step; `stdlib/` adds the check that it regenerates from maxon's
+`stdlib/`, `cmd/convert/` (but not `builtins_gen.go`), `self/interp/` or `self/driver/` puts `--interpret` on the spec step; `stdlib/` or `cmd/convert/` (whose tables only the library's conversion reads) adds the check that the library regenerates from maxon's
 (`--maxon-stdlib` or `MAXON_STDLIB`). The run prints the steps it chose and the paths that called for each, names the steps it leaves out in one line (the
 other targets' lanes and compiles, fuzz, debug info and the cache: CI runs them), prints each step's time, ends with
 `gate time: total X min; slowest: ...` and the time of every step, prints main's last finished CI run as a NOTE when it is red (a red main with a known owner

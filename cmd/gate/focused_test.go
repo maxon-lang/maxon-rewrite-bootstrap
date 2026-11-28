@@ -113,6 +113,9 @@ func TestFocusedChoosesTheRegenerationForTheConversionsInputs(t *testing.T) {
 func TestFocusedSkipsTheRegenerationForTheBuiltinTablesAlone(t *testing.T) {
 	changed := []string{libraryOnlyTables, "internal/builtingen/table.go"}
 	run, notNeeded, _ := plan(testCandidates(false), changed, focusedOptions{})
+	if !slices.ContainsFunc(run, func(p plannedStep) bool { return p.name == "library regenerates" }) {
+		t.Errorf("a change of %s did not choose the library's regeneration, which reads its tables", libraryOnlyTables)
+	}
 	for _, p := range run {
 		if p.name == specsRegenerates {
 			t.Fatalf("a change of %s chose the regeneration: %s", libraryOnlyTables, p.why)

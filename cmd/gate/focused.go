@@ -90,7 +90,9 @@ var (
 	schedulerChange  = either(under("runtime/", "self/backend/", "self/ir/", "self/interp/"), schedulerTest)
 	conversionChange = except(under("cmd/convert/", "self/driver/skips", "stdlib/", "specs/"), libraryOnlyWhy, libraryOnlyTables)
 	interpretChange  = except(under("specs/", "stdlib/", "cmd/convert/", "self/interp/", "self/driver/"), libraryOnlyWhy, libraryOnlyTables)
-	stdlibChange     = under("stdlib/")
+	// libraryChange is what the library's conversion reads: stdlib/ and the converter, builtins_gen.go's tables among it,
+	// which the library's conversion alone reads (libraryOnlyWhy).
+	libraryChange = under("stdlib/", "cmd/convert/")
 	// generatorChange is a change to a generator (internal/) or to a file one reads outside it, or to a generated file itself:
 	// the inputs are the ones the generators of internal/ name by path.
 	generatorChange = either(under("internal/"), trigger{about: "a generator's input or a *_gen.* file", matches: func(path string) bool {
@@ -142,7 +144,7 @@ var focusedRules = map[string]focusRule{
 	"compiler reproduces itself": always,
 	"behaviours":                 when(schedulerChange),
 	specsRegenerates:             when(conversionChange),
-	"library regenerates":        when(stdlibChange),
+	"library regenerates":        when(libraryChange),
 }
 
 // vetSystems are the systems whose Go the focused gate vets: the three that CI's lanes build for.
