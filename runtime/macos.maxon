@@ -463,10 +463,16 @@
 	// openPathBytes is the fd of the file that the bytes of a path name, opened with flags, or -errno; open is variadic, so the
 	// mode is passed on the stack. A call that may block reads errno before exitBlocking, which may move the green thread to
 	// another thread, whose errno is its own.
+	// An open that a signal broke off is made again, as Go's os.OpenFile does on darwin (golang.org/issue/11180): SA_RESTART,
+	// which the preemption signal's action has, does not make macOS restart every open, and an open that waits, a FIFO's for
+	// a reader or a writer above all, may fail with EINTR when the signal comes while it waits.
 	function openPathBytes(path Count, length Count, flags Count, mode Count) returns Count
 		let cPath = cPathOfBytes(path, length: length)
 		enterBlocking()
-		let fd = checkedInt(__Raw.callImport3("open", arg1: cPath, arg2: flags, arg3: mode))
+		var fd = checkedInt(__Raw.callImport3("open", arg1: cPath, arg2: flags, arg3: mode))
+		while interrupted(fd) 'again'
+			fd = checkedInt(__Raw.callImport3("open", arg1: cPath, arg2: flags, arg3: mode))
+		end 'again'
 		exitBlocking()
 		free(cPath)
 		return fd
