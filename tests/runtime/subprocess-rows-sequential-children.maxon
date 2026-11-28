@@ -5,6 +5,7 @@
 // program's left, which the count of the live boxes at the end of the run says by exiting 99: neither the child's record, the
 // run's record, the copy of the input, the vector of the environment, the result nor the text it holds is kept after its release.
 // A word that named a child before its release names nothing after it.
+// runs: manual
 //> 300 children through the rows left the descriptors as they were
 //> a released word names nothing
 

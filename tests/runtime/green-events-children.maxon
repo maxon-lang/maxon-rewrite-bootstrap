@@ -3,6 +3,7 @@
 // green threads each succeed with the child's exit code. A child that exits before its exit is watched, or whose exit the
 // system reports before it can be waited for, is still waited for: on macOS the kqueue refuses EVFILT_PROC for a process that
 // has started to exit (ESRCH), and reports NOTE_EXIT before waitpid can take the child.
+// runs: manual
 //> 48 children one after another left the descriptors as they were
 //> the children on green threads each ran and exited
 

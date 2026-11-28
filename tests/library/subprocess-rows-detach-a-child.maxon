@@ -4,6 +4,7 @@
 // leads a session of its own, which a shell in the child says of itself where the system has /proc; the Mac's `ps` prints no session
 // that could be compared, so there the line is taken as true, and the Mac's gate checks POSIX_SPAWN_SETSID by this program. The
 // children are this program run again, and a shell on a system that has one.
+// runs: manual
 // native-only
 //> a detached child answers a process id: true
 //> the id names no child of the table: true

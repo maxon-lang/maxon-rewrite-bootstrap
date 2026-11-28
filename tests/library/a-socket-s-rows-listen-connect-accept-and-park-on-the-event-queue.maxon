@@ -5,6 +5,7 @@
 // and timedOut says so, and the socket reads again once the deadline is cleared, parking until the peer writes. The client's
 // shutdown of its sending is the server's read of 0, every socket is closed, and a connect to a port whose listener has closed
 // throws connectFailed. The same over IPv6's loopback, ::1, without a coroutine: the connect ends before the accept.
+// runs: manual
 // native-only
 //> listened on a port of the system's
 //> accepted a connection

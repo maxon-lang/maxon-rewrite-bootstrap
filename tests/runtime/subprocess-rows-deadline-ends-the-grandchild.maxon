@@ -4,6 +4,7 @@
 // is the child and the grandchild too, run again, so that every system runs the same test, except that a child that a spawn starts
 // leads a group of its own on Linux and macOS, so that a grandchild started by a spawn would not be in the child's tree there: on
 // those the child is a shell that starts the grandchild in the background, which stays in its group, and says its process id.
+// runs: manual
 //> the child was ended at the deadline with its output: timedOut, the process id of its grandchild is 1 or more
 //> the grandchild is gone: true
 

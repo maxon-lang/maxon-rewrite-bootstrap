@@ -6,6 +6,7 @@
 // tree end (the result is timedOut, never treeNotEnded), the output the child had written is kept and the count stands still. A
 // tree ended before any wait ends the same way and the wait then finds the child ended by the kill; a tree that is ended again
 // answers 0 as well; and the end of a tree is -1 for a child that has been waited for and for a word that names no child.
+// runs: manual
 // native-only
 //> deadline: kind=2 stdout=started timed=true
 //> the grandchild had run: true

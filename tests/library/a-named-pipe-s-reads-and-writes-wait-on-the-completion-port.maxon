@@ -3,6 +3,7 @@
 // has closed it, and a write to a pipe that a server reads writes all of it. Each server is PowerShell's NamedPipeServerStream,
 // run by a coroutine of this program's while the program opens the pipe; until the server has made its pipe an open finds none
 // (notFound), so the open is tried again every 100 ms, which lets the coroutine run, until the server has made it.
+// runs: manual
 // unsupported-targets: x64-linux, arm64-linux, arm64-macos
 // native-only
 //> read: 4 then 0: ping

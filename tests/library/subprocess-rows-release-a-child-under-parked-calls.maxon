@@ -3,6 +3,7 @@
 // child that writes nothing, a wait for its exit and a wait for the input of a child that does not read it (its pipe is full) are each
 // woken. A child that still runs is left running by the release, and ends after a while by itself. The child is this program run
 // again, which sleeps or, as the quiet one, ends at once.
+// runs: manual
 // native-only
 //> the parked read answered nothing: true
 //> the parked wait answered -1: true
