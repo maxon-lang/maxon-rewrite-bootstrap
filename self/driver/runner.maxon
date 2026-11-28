@@ -278,6 +278,10 @@ type CorpusTally
 	end 'finish'
 end 'CorpusTally'
 
+let overTwoSeconds = 2000000000 as Count
+
+let overFiveSeconds = 5000000000 as Count
+
 // TestTiming is how long a test that passed took: a run of its executable, the runs there were, and the interpreter's run.
 type TestTiming
 	var name as String
@@ -310,19 +314,44 @@ type Slowest
 		timings.push(TestTiming.make(name.clone(), runNanos: result.runNanos / result.runs, runs: result.runs, interpretedNanos: result.interpretedNanos))
 	end 'note'
 
-	// report prints the slowest tests, the one with the longest run first, with the time of a run in milliseconds.
+	// report prints the slowest tests, the one with the longest run first, with the time of a run in milliseconds, and, for a run
+	// that interpreted what it ran, the tests whose interpretation took longest and how many took over 2 and over 5 seconds.
 	function report()
 		if shown == 0 or timings.count() == 0 'none'
 			return
 		end 'none'
-		var listed = CountList.create(0)
 		print("\nslowest tests, by milliseconds a run of the executable took (runs; milliseconds of the interpreter):\n")
+		self.list(false)
+		var over2 = 0 as Count
+		var over5 = 0 as Count
+		for slow in timings 'each'
+			if slow.interpretedNanos > overTwoSeconds 'two'
+				over2 = offsetBy(over2, by: 1)
+			end 'two'
+			if slow.interpretedNanos > overFiveSeconds 'five'
+				over5 = offsetBy(over5, by: 1)
+			end 'five'
+		end 'each'
+		var longest = 0 as Count
+		for slow in timings 'longest'
+			longest = maxCount(longest, b: slow.interpretedNanos)
+		end 'longest'
+		if longest == 0 'uninterpreted'
+			return
+		end 'uninterpreted'
+		print("\nslowest tests, by milliseconds the interpreter took (runs; milliseconds of the interpreter): {over2} over 2 s, {over5} over 5 s\n")
+		self.list(true)
+	end 'report'
+
+	// list prints the first shown tests by the time of their runs, or by the interpreter's.
+	function list(interpreted bool)
+		var listed = CountList.create(0)
 		for _ in 0 upto shown 'ranks'
 			var at = 0 as Count
 			var longest = 0 as Count
 			var found = false
 			for i in 0 upto timings.count() 'each'
-				let nanos = timings.get(i).runNanos
+				let nanos = timings.get(i).runNanos if not interpreted else timings.get(i).interpretedNanos
 				if not listed.contains(i) and (not found or nanos > longest) 'slower'
 					at = i
 					longest = nanos
@@ -336,7 +365,7 @@ type Slowest
 			let slow = try timings.get(at) otherwise return
 			print("{millisText(slow.runNanos)} ms a run ({slow.runs}; {millisText(slow.interpretedNanos)})  {slow.name}\n")
 		end 'ranks'
-	end 'report'
+	end 'list'
 end 'Slowest'
 
 // ResultSlot is the result of a test, once it is in and until it is taken in.
@@ -650,7 +679,9 @@ function runSpecPending(bench frozen with Bench, consumes pending SpecPending)
 	end 'timed'
 	releaseExecutable(bench)
 	if result.outcome != TestOutcome.testFailed and pending.interprets 'interpreted'
+		let started = Clock.nowNanos() as Count
 		result = keepingTimes(interpretedViolations(pending.compiled), earlier: result)
+		result.interpretedNanos = elapsedSince(started)
 	end 'interpreted'
 	var finished = Finished.make(result)
 	finished.left = discarded(pending.exe)
