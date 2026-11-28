@@ -42,6 +42,10 @@ let nativeOnlyDirective = "// native-only"
 // the system, such as one that starts a hundred children one after another, waits a slice for each and outlives its deadline.
 let runsAloneDirective = "// runs: alone"
 
+// A program that runs for long, which a run of the corpus leaves out unless it is given the --manual flag, or the program's own
+// path: the runner names it in the summary, as one it left out. The gate runs none of them (README, "Tests").
+let runsManualDirective = "// runs: manual"
+
 // Each line of this directive is a line of the program's standard input, as maxon's spec tests feed one; a program without one
 // reads the end of its input at once.
 let stdinPrefix = "// stdin:"
@@ -123,6 +127,8 @@ type Expectation
 	var nativeOnly as bool
 	// runsAlone is whether the program's executable runs with no other test's running (runsAloneDirective).
 	var runsAlone as bool
+	// manual is whether the program says it is run by hand (runsManualDirective).
+	var manual as bool
 	// frees is the order in which the interpreter must free the values of the program, when the program says it.
 	var frees as ast.StringList
 	var checkOnly as bool
@@ -144,17 +150,19 @@ type Expectation
 	var scheduled as bool
 
 	static function new() returns Expectation
-		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, runsAlone: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, irClaims: ast.StringList.create(0), irTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", stdin: "", memoryLimitMB: 0, nativeOnly: false, runsAlone: false, manual: false, frees: ast.StringList.create(0), checkOnly: false, runtimeTier: false, libraryTier: false, irClaims: ast.StringList.create(0), irTier: false, schedules: scheduleSeeds, mentionsConcurrency: false, unsupportedTargets: "", saysScheduler: false, scheduled: false}
 	end 'new'
 end 'Expectation'
 
 // TestOutcome is how a test of the corpus ended. A test that the compiler cannot attempt yet is unsupported, which is
-// neither a pass nor a failure, and one that a run of the behaviours alone finds schedules none is left out of it.
+// neither a pass nor a failure, one that a run of the behaviours alone finds schedules none is left out of it, and one that is
+// run by hand (runsManualDirective) is left out of a run that does not ask for it, and is named in its summary.
 enum TestOutcome
 	testPassed
 	testFailed
 	testUnsupported
 	testLeftOut
+	testManual
 end 'TestOutcome'
 
 // TestResult is the outcome of a test with what to say of it: what failed, or why an unsupported test is.
@@ -177,6 +185,10 @@ type TestResult
 	static function leftOut() returns TestResult
 		return TestResult{outcome: TestOutcome.testLeftOut, detail: ""}
 	end 'leftOut'
+
+	static function manual() returns TestResult
+		return TestResult{outcome: TestOutcome.testManual, detail: ""}
+	end 'manual'
 end 'TestResult'
 
 function hasPrefix(text String, prefix String) returns bool
@@ -353,7 +365,9 @@ function applyDirective(mutates expect Expectation, mutates stdout ByteArray, mu
 		expect.nativeOnly = true
 	end 'native' else if line == runsAloneDirective 'alone'
 		expect.runsAlone = true
-	end 'alone' else if hasPrefix(line, prefix: unsupportedTargetsPrefix) 'targets'
+	end 'alone' else if line == runsManualDirective 'manual'
+		expect.manual = true
+	end 'manual' else if hasPrefix(line, prefix: unsupportedTargetsPrefix) 'targets'
 		expect.unsupportedTargets = trimSpace(afterPrefix(line, prefix: unsupportedTargetsPrefix)).clone()
 	end 'targets' else if hasPrefix(line, prefix: expectSchedulerPrefix) 'scheduler'
 		let answer = trimSpace(afterPrefix(line, prefix: expectSchedulerPrefix))
@@ -441,6 +455,10 @@ let updatePositionsFlag = "--update-positions"
 
 let behavioursFlag = "--behaviours"
 
+// manualFlag has a run include the programs that say `// runs: manual` (runsManualDirective), which it leaves out otherwise,
+// naming them in the summary; a run of one such program by its own path includes it as well.
+let manualFlag = "--manual"
+
 let repeatFlag = "--repeat="
 
 // compileOnlyFlag compiles every program of the corpus, or every spec test, and runs none, as the programs of tests/check
@@ -475,6 +493,8 @@ type CorpusOptions
 	var verbose as bool
 	var updatePositions as bool
 	var behavioursOnly as bool
+	// includesManual has the run include the programs that are run by hand (manualFlag).
+	var includesManual as bool
 	var repeats as Count
 	// target is the target the programs are compiled for, whose executables runner starts.
 	var target as ast.Target
@@ -494,12 +514,12 @@ type CorpusOptions
 	var workingDirectory as String
 
 	static function new() returns CorpusOptions
-		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, interprets: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
+		return CorpusOptions{verbose: false, updatePositions: false, behavioursOnly: false, includesManual: false, repeats: behaviourRuns, target: hostTarget(), runner: TargetRunner.native, verifiesIr: false, compilesOnly: false, interprets: false, workerCounts: CountList.create(0), envRunner: "", workingDirectory: inheritedDirectory}
 	end 'new'
 end 'CorpusOptions'
 
 // testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--behaviours] [--repeat=N] [--executables=N]
-// [--compile-only] [--interpret] [--skip-passed] [--require-passed] [--record-passed] [--save-results=file] [--replay-results=file]`: the corpus is the given directory of programs, or the spec files at the given path, or
+// [--compile-only] [--manual] [--interpret] [--skip-passed] [--require-passed] [--record-passed] [--save-results=file] [--replay-results=file]`: the corpus is the given directory of programs, or the spec files at the given path, or
 // else the nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its
 // code at another place has the directive rewritten to that place, as after a change that only moves code, such as renaming
 // a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
@@ -558,7 +578,9 @@ function testCommand(rest CommandNames, given Options) returns ExitCode
 		end 'positions' else if rest[i] == behavioursFlag 'behaviours'
 			corpus.behavioursOnly = true
 			corpusFlags = true
-		end 'behaviours' else if rest[i] == compileOnlyFlag 'compileOnly'
+		end 'behaviours' else if rest[i] == manualFlag 'manual'
+			corpus.includesManual = true
+		end 'manual' else if rest[i] == compileOnlyFlag 'compileOnly'
 			corpus.compilesOnly = true
 		end 'compileOnly' else if rest[i] == interpretFlag 'interpret'
 			corpus.interprets = true
@@ -664,18 +686,49 @@ function usageError() returns ExitCode
 	return usageExitCode
 end 'usageError'
 
+// corpusRootOf is the directory of tests that holds the program at file, the nearest one up from it.
+function corpusRootOf(file String) returns table.Option with String
+	var dir = project.parentDir(file)
+	while true 'up'
+		if project.lastComponent(dir) == testsDirName 'found'
+			return table.Option.some(dir)
+		end 'found'
+		let parent = project.parentDir(dir)
+		if parent == dir or parent == "." 'top'
+			return table.Option.none
+		end 'top'
+		dir = parent
+	end 'up'
+	return table.Option.none
+end 'corpusRootOf'
+
 // runTests runs every program and project of the corpus in dir, as behaviours (startTests), which print a line for each in
-// the order of the files and the failures and the counts at the end, and set the code the process exits with.
+// the order of the files and the failures and the counts at the end, and set the code the process exits with. A path of one
+// program runs it alone, in the corpus that holds it, a program that is run by hand (runsManualDirective) included; a
+// directory leaves such programs out, unless it is given manualFlag, and the summary names them.
 function runTests(dir String, options CorpusOptions, width RunWidth) returns ExitCode
-	let root = project.absolutePath(dir)
+	let given = project.absolutePath(dir)
+	var root = given.clone()
+	var files = ast.StringList.create(0)
+	let single = not project.isDirectoryPath(given) and project.endsWithMaxon(given)
+	if single 'single'
+		let holder = corpusRootOf(given)
+		if not holder.isSome() 'none'
+			printError("test: {given} is under no directory called {testsDirName}\n")
+			return usageExitCode
+		end 'none'
+		root = holder.unwrap()
+		files.push(given.clone())
+	end 'single'
 	if not project.isDirectoryPath(root) 'missing'
 		panic("test: cannot read {root}")
 	end 'missing'
 	let modulesRoot = project.joinPath(root, name: modulesDir)
-	var files = ast.StringList.create(0)
-	collectPrograms(root, modulesRoot: modulesRoot, benchRoot: project.joinPath(root, name: benchDir), files: files)
-	collectProjects(modulesRoot, files: files)
-	project.sortStrings(files)
+	if not single 'directory'
+		collectPrograms(root, modulesRoot: modulesRoot, benchRoot: project.joinPath(root, name: benchDir), files: files)
+		collectProjects(modulesRoot, files: files)
+		project.sortStrings(files)
+	end 'directory'
 	let checkOnlyPrefix = project.joinPath(project.joinPath(root, name: checkOnlyDir), name: "")
 	let runtimeTierPrefix = project.joinPath(project.joinPath(root, name: runtimeTierDir), name: "")
 	let libraryTierPrefix = project.joinPath(project.joinPath(root, name: libraryTierDir), name: "")
@@ -694,7 +747,9 @@ function runTests(dir String, options CorpusOptions, width RunWidth) returns Exi
 		expect.libraryTier = hasPrefix(file, prefix: libraryTierPrefix)
 		expect.irTier = hasPrefix(file, prefix: irTierPrefix)
 		let leftOut = options.behavioursOnly and not mayScheduleBehaviours(expect, file: file)
-		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut)))
+		// A program that is run by hand is still compiled by a run that runs none (compileOnly), since that holds no time.
+		let byHand = expect.manual and not (single or options.includesManual or options.compilesOnly)
+		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut, byHand: byHand)))
 	end 'tests'
 	let tests = jobs.count()
 	startTests(prepareSharedRuntime(options.target), host: SharedRuntime.none(), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test", suffix: executableExtension(options.target)), width: width, tally: Tally.corpus(CorpusTally.make(tests)))

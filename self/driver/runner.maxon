@@ -79,15 +79,17 @@ end 'Job'
 typealias Jobs = Array with Job
 
 // CorpusJob is a program or project of the corpus: its path, its name in the output, and what its directives say. A run of
-// the behaviours alone leaves out a test that cannot schedule any without compiling it.
+// the behaviours alone leaves out a test that cannot schedule any without compiling it, and a run leaves out a test that is run
+// by hand (byHand) the same way, which the summary names.
 type CorpusJob
 	var file as String
 	var name as String
 	var expect as Expectation
 	var leftOut as bool
+	var byHand as bool
 
-	static function make(consumes file String, consumes name String, consumes expect Expectation, leftOut bool) returns CorpusJob
-		return CorpusJob{file: file, name: name, expect: expect, leftOut: leftOut}
+	static function make(consumes file String, consumes name String, consumes expect Expectation, leftOut bool, byHand bool) returns CorpusJob
+		return CorpusJob{file: file, name: name, expect: expect, leftOut: leftOut, byHand: byHand}
 	end 'make'
 end 'CorpusJob'
 
@@ -227,16 +229,17 @@ union Tally
 	spec(value SpecRun)
 end 'Tally'
 
-// CorpusTally is the tally of a run of the corpus: the failures, to list at the end, and the tests not yet supported and
-// left out, which do not count as passed.
+// CorpusTally is the tally of a run of the corpus: the failures, to list at the end, the tests not yet supported and left
+// out, which do not count as passed, and the tests that are run by hand, which the summary names.
 type CorpusTally
 	var tests as Count
 	var failures as ast.StringList
 	var unsupported as Count
 	var leftOut as Count
+	var byHand as ast.StringList
 
 	static function make(tests Count) returns CorpusTally
-		return CorpusTally{tests: tests, failures: ast.StringList.create(0), unsupported: 0, leftOut: 0}
+		return CorpusTally{tests: tests, failures: ast.StringList.create(0), unsupported: 0, leftOut: 0, byHand: ast.StringList.create(0)}
 	end 'make'
 
 	// take counts the result of the test called name and prints its line, unless the run left it out.
@@ -245,6 +248,10 @@ type CorpusTally
 			leftOut = offsetBy(leftOut, by: 1)
 			return
 		end 'leftOut'
+		if result.outcome == TestOutcome.testManual 'byHand'
+			byHand.push(name.clone())
+			return
+		end 'byHand'
 		var status = "PASS"
 		if result.outcome == TestOutcome.testFailed 'failed'
 			status = "FAIL"
@@ -262,8 +269,12 @@ type CorpusTally
 		for i in 0 upto failures.count() 'failures'
 			print("{failures[i]}\n")
 		end 'failures'
-		let passed = try tests - failures.count() - unsupported - leftOut otherwise panic("test: more failures than tests")
-		print("{passed} passed, {failures.count()} failed, {unsupported} not yet supported\n")
+		let passed = try tests - failures.count() - unsupported - leftOut - byHand.count() otherwise panic("test: more failures than tests")
+		var manual = ""
+		if byHand.count() > 0 'byHand'
+			manual = ", {byHand.count()} manual, left out: {joinWith(byHand, separator: ", ")}"
+		end 'byHand'
+		print("{passed} passed, {failures.count()} failed, {unsupported} not yet supported{manual}\n")
 		if failures.count() == 0 'clean'
 			return 0
 		end 'clean'
@@ -309,7 +320,7 @@ type Board
 				print(startLine(bench.jobs[index]))
 			end 'say'
 			if isLeftOut(bench.jobs[index]) 'leftOut'
-				results[index] = table.Option.some(TestResult.leftOut())
+				results[index] = table.Option.some(leftOutResult(bench.jobs[index]))
 			end 'leftOut' else 'run'
 				underWay = offsetBy(underWay, by: 1)
 				startJob(bench, index: index)
@@ -449,10 +460,18 @@ end 'startLine'
 // isLeftOut is whether the run leaves the test out without compiling it.
 function isLeftOut(job Job) returns bool
 	return match job 'job'
-		corpus(value) gives value.leftOut
+		corpus(value) gives value.leftOut or value.byHand
 		spec(value) gives value.listed
 	end 'job'
 end 'isLeftOut'
+
+// leftOutResult is the result of a test that the run leaves out: one that is run by hand is counted and named, and any other is not.
+function leftOutResult(job Job) returns TestResult
+	return match job 'job'
+		corpus(value) gives TestResult.manual() if value.byHand and not value.leftOut else TestResult.leftOut()
+		spec(_) gives TestResult.leftOut()
+	end 'job'
+end 'leftOutResult'
 
 // startTests runs the jobs as behaviours, files being the spec files they are tests of, and ends the run in the last of
 // them, which sets the code the process exits with. host is the host's runtime of a compile-only spec run for another

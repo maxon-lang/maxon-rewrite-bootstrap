@@ -1540,15 +1540,22 @@ function placesAgree(wanted String, actual String) returns bool
 end 'placesAgree'
 
 function joinLines(lines ast.StringList) returns String
+	return joinWith(lines, separator: "\n")
+end 'joinLines'
+
+// joinWith is the texts of a list with the separator between each two.
+function joinWith(texts ast.StringList, separator String) returns String
 	var out = ByteArray.create(0)
-	for i in 0 upto lines.count() 'each'
-		if i > 0 'separator'
-			out.push(newlineByte)
+	var first = true
+	for text in texts 'each'
+		if not first 'separator'
+			out.append(separator.toByteArray())
 		end 'separator'
-		out.append(lines[i].toByteArray())
+		first = false
+		out.append(text.toByteArray())
 	end 'each'
 	return String.from(out)
-end 'joinLines'
+end 'joinWith'
 
 // checkSpecRun runs the compiled program in directory, the run's (specRunDirectory), with the environment its directives set
 // (environmentOf) through envRunner, and checks its exit code, when the test gives one, and its output, which must be what
