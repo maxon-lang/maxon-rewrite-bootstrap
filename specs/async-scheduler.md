@@ -904,6 +904,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: async-scheduler.await-loop-bounded -->
+<!-- native: its interpreted run takes 11.7 s, beyond the 10 s run deadline -->
 A spawn/await loop stays bounded: each completed thread's record keeps its stack when it is still the
 current seed size, so the next spawn takes record and stack together from the free list, and a stack the
 relocating morestack resized is returned to the stack pool as its runner finishes with the thread. 5000 iterations

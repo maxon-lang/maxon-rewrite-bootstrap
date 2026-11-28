@@ -117,6 +117,7 @@ run time
 ## Tests
 
 <!-- test: slab-scavenger.two-passes-before-a-byte-goes-back -->
+<!-- native: its interpreted run takes 3.3 s, beyond the 2 s the gate may spend on one test -->
 **THE GRACE CASE.** 16,000 buffers are allocated and then dropped whole, so every span of their class
 empties and parks on mcentral. The FIRST scavenge must return exactly 0 — it only opens the grace
 period — and the SECOND must return a positive count, because those spans stayed idle across both.
@@ -187,6 +188,7 @@ end 'main'
 ```
 
 <!-- test: slab-scavenger.a-live-population-survives-two-scavenges -->
+<!-- native: its interpreted run takes 7.2 s, beyond the 2 s the gate may spend on one test -->
 **THE LIVENESS CASE.** 16,000 buffers are allocated, each holding a pattern derived from its own index,
 and are STILL LIVE across two scavenge passes. Every byte is verified afterwards.
 
@@ -243,6 +245,7 @@ end 'main'
 ```
 
 <!-- test: slab-scavenger.released-chunks-come-back-zeroed -->
+<!-- native: its interpreted run takes 3.8 s, beyond the 2 s the gate may spend on one test -->
 **THE ZEROING CASE — the one the release path is most likely to break, and it breaks silently.** A population is
 allocated, dropped and scavenged twice, so its chunks go back to the arena's bitmap and its granules
 are decommitted. A SECOND population of the SAME size class is then allocated out of those very chunks
@@ -315,6 +318,7 @@ end 'main'
 ```
 
 <!-- test: slab-scavenger.a-released-chunk-serves-a-different-class -->
+<!-- native: its interpreted run takes 3.1 s, beyond the 2 s the gate may spend on one test -->
 **THE CROSS-CLASS CASE — the thing a per-span decommit can never do.** A population of one size class is
 dropped and scavenged twice; a population of a DIFFERENT, larger size class is then allocated. It can
 only be served out of the first population's chunks, because those are the low free ones the arena's

@@ -267,6 +267,7 @@ end 'main'
 ```
 
 <!-- test: random.bytes-returns-exactly-the-count-asked-for -->
+<!-- native: its interpreted run takes 55.4 s, beyond the 10 s run deadline -->
 Each count is drawn as many times as the vector repeats it: 0, 1, 16, 32, 64, either side of `getentropy`'s 256-byte limit, 1000, past one `getRandomValues` call, a mebibyte, and past one `getrandom` call at 32 MiB.
 ```maxon
 typealias DrawRepeat = int(1 to 1000)

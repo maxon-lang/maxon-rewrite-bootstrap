@@ -182,6 +182,7 @@ scaled=42
 ```
 
 <!-- test: every-handler-may-co-own-a-module-let -->
+<!-- native: its interpreted run takes 51.2 s, beyond the 10 s run deadline -->
 **A MODULE `let` ARRAY IS READ BY EVERY THREAD, AND NO HANDLER STEPS A COUNT ON IT.** A handler that puts it
 somewhere that outlives a statement keeps a reference to image data and gives it back. Eight handlers doing that at
 once on different OS threads read one array, so the program ends with every round counted and nothing leaked.

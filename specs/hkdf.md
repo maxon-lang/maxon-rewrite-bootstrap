@@ -208,6 +208,7 @@ hkdf-err-006 outputTooLong
 ```
 
 <!-- test: hkdf.derive -->
+<!-- native: its interpreted run takes 2.0 s, beyond the 2 s the gate may spend on one test -->
 RFC 5869 A.1 to A.3, Wycheproof empty, zero and long salts for each algorithm, and a length of 0 for each algorithm.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -301,6 +302,7 @@ derive-018 []
 ```
 
 <!-- test: hkdf.derive-the-maximum-length -->
+<!-- native: its interpreted run takes 37.0 s, beyond the 10 s run deadline -->
 `255 * HashLen` bytes for each algorithm, pinned by length and SHA-256 digest.
 ```maxon
 function digit(symbol Byte) returns Byte

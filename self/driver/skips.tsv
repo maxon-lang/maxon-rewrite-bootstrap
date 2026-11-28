@@ -875,3 +875,21 @@ manual	subprocess.md	subprocess-timeout-carries-the-partial-output	runs 2.2 s: a
 manual	inline-allocation-under-preemption.md	eight-services-churning-constant-capacity-arrays-keep-their-sums	runs 2.2 s: eight services churn arrays under preemption for seconds, which is computing
 native	aes-gcm.md	aes-gcm.seal-into-writes-at-an-offset	a seal-into test runs AES-GCM's bitsliced software cipher over long messages, which the interpreter runs in some 14 seconds where the executable takes a tenth of one
 native	aes-gcm.md	aes-gcm.seal-into-the-plaintext-array-itself	a seal-into test runs AES-GCM's bitsliced software cipher over long messages, which the interpreter runs in some 14 seconds where the executable takes a tenth of one
+native	map.md	churn.insert-and-remove-stays-flat	its interpreted run takes 92.3 s, beyond the 10 s run deadline
+native	array-sort.md	sort-duplicate-heavy-arrays-keep-equal-keys-in-arrival-order	its interpreted run takes 88.4 s, beyond the 10 s run deadline
+native	random.md	random.bytes-returns-exactly-the-count-asked-for	its interpreted run takes 55.4 s, beyond the 10 s run deadline
+native	array-sort.md	sort-duplicate-heavy-arrays-come-out-sorted	its interpreted run takes 51.9 s, beyond the 10 s run deadline
+native	green-thread-globals.md	every-handler-may-co-own-a-module-let	its interpreted run takes 51.2 s, beyond the 10 s run deadline
+native	hkdf.md	hkdf.derive-the-maximum-length	its interpreted run takes 37.0 s, beyond the 10 s run deadline
+native	builtins-clock.md	builtins-clock.the-public-cpu-clock-follows-the-thread-not-the-wall	its interpreted run takes 22.4 s, beyond the 10 s run deadline
+native	builtins-clock.md	builtins-clock.thread-cpu-ticks-is-not-wall-time	its interpreted run takes 21.6 s, beyond the 10 s run deadline
+native	array-sort.md	sort-small-arrays-keep-equal-keys-in-arrival-order	its interpreted run takes 12.9 s, beyond the 10 s run deadline
+native	async-scheduler.md	async-scheduler.await-loop-bounded	its interpreted run takes 11.7 s, beyond the 10 s run deadline
+native	slab-scavenger.md	slab-scavenger.a-live-population-survives-two-scavenges	its interpreted run takes 7.2 s, beyond the 2 s the gate may spend on one test
+native	slab-allocator.md	slab-allocator.the-header-decides-which-side-of-the-os-direct-boundary-a-box-lands	its interpreted run takes 7.1 s, beyond the 2 s the gate may spend on one test
+native	slab-scavenger.md	slab-scavenger.released-chunks-come-back-zeroed	its interpreted run takes 3.8 s, beyond the 2 s the gate may spend on one test
+native	slab-scavenger.md	slab-scavenger.two-passes-before-a-byte-goes-back	its interpreted run takes 3.3 s, beyond the 2 s the gate may spend on one test
+native	slab-scavenger.md	slab-scavenger.a-released-chunk-serves-a-different-class	its interpreted run takes 3.1 s, beyond the 2 s the gate may spend on one test
+native	builtins-mm-counters.md	builtins-mm-counters.process-totals-only-rise-while-another-thread-allocates	its interpreted run takes 2.4 s, beyond the 2 s the gate may spend on one test
+native	builtins-clock.md	builtins-clock.thread-cpu-ticks-advances-under-work	its interpreted run takes 2.1 s, beyond the 2 s the gate may spend on one test
+native	hkdf.md	hkdf.derive	its interpreted run takes 2.0 s, beyond the 2 s the gate may spend on one test

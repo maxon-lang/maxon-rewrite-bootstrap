@@ -1082,6 +1082,7 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.process-totals-only-rise-while-another-thread-allocates -->
+<!-- native: its interpreted run takes 2.4 s, beyond the 2 s the gate may spend on one test -->
 <!-- tier: stdlib -->
 ⭐⭐⭐ **THE PROPERTY A BRACKET RESTS ON: NO READING STANDS BELOW AN EARLIER ONE, WHATEVER ELSE IS RUNNING.**
 `main` reads all three totals over and over while a service allocates and frees a hundred thousand arrays

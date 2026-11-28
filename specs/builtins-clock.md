@@ -433,6 +433,7 @@ end 'main'
 ```
 
 <!-- test: builtins-clock.thread-cpu-ticks-advances-under-work -->
+<!-- native: its interpreted run takes 2.1 s, beyond the 2 s the gate may spend on one test -->
 <!-- tier: stdlib -->
 Two million additions move it. The direct statement of the contract, and the property a lowering
 that never called the OS — answering the `.data` scratch word's zero initializer forever — fails
@@ -460,6 +461,7 @@ end 'main'
 ```
 
 <!-- test: builtins-clock.thread-cpu-ticks-is-not-wall-time -->
+<!-- native: its interpreted run takes 21.6 s, beyond the 10 s run deadline -->
 <!-- tier: stdlib -->
 **THE DISCRIMINATOR, AND THE WHOLE REASON THIS INTRINSIC EXISTS.** The program measures its own CPU
 across two intervals of comparable WALL length — one spent RUNNING, one spent asleep — and requires
@@ -582,6 +584,7 @@ error E3104: <fragment>:3:20: this construct lowers to the runtime entry '__upti
 ```
 
 <!-- test: builtins-clock.the-public-cpu-clock-follows-the-thread-not-the-wall -->
+<!-- native: its interpreted run takes 22.4 s, beyond the 10 s run deadline -->
 `thread-cpu-ticks-is-not-wall-time`'s discriminator, asked through the surface a program outside the library
 tiers reads: `Clock.threadCpuTicks()` across a busy interval must cost multiples of what it costs across a
 `sleep` of comparable wall length, timed with `Clock.nowNanos()`. wasm32-wasi has no per-thread CPU clock.

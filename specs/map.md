@@ -1355,6 +1355,7 @@ minutes at a cost per operation of 4,096 probes. Nothing else here is new — th
 churn leaves behind.
 
 <!-- test: churn.insert-and-remove-stays-flat -->
+<!-- native: its interpreted run takes 92.3 s, beyond the 10 s run deadline -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 

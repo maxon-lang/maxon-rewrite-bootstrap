@@ -500,6 +500,7 @@ end 'main'
 ```
 
 <!-- test: slab-allocator.the-header-decides-which-side-of-the-os-direct-boundary-a-box-lands -->
+<!-- native: its interpreted run takes 7.1 s, beyond the 2 s the gate may spend on one test -->
 **THE ROUTING BOUNDARY, AND THE 16 BYTES THAT DECIDE IT.** `__slab_alloc` serves a request of at
 most `SlabMaxSmallSize` (32,768) out of a span and gives anything larger its own mapping.
 `__mm_alloc` asks for the WHOLE box, so the boundary in USER terms sits 16 bytes lower: a 32,752-byte
