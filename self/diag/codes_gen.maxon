@@ -540,6 +540,9 @@ export let errParallelCapture = "E3963"
 // A type written after a module's name, `url.URL.parse(s)`, is also a member of the type of a local or a parameter of the module's name, so the name could mean either.
 export let errAmbiguousQualifier = "E3964"
 
+// The runtime's 128-bit vector is a parameter, a result, a field, a union's payload, an element or a type argument, which no convention passes and no layout holds: a vector lives only in a local.
+export let errVectorOutsideLocal = "E3965"
+
 // A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 export let errInvalidFieldAccess = "E4006"
 

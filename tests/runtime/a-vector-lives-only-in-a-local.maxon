@@ -1,0 +1,37 @@
+// The runtime's 128-bit vector lives only in a local: no convention passes one as a parameter or a result, and no layout
+// holds one in a field, a union's payload, a tuple or a collection, so each is refused where it is written.
+// expect-error: E3965 at 10:26
+// expect-error: E3965 at 14:30
+// expect-error: E3965 at 19:14
+// expect-error: E3965 at 23:26
+// expect-error: E3965 at 27:16
+// expect-error: E3965 at 30:39
+
+function testTakes(value __Vector128) returns Count
+	return __Raw.vectorWord(value, lane: 0)
+end 'testTakes'
+
+function testGives() returns __Vector128
+	return __Raw.vectorZero()
+end 'testGives'
+
+type TestHolder
+	var held as __Vector128
+end 'TestHolder'
+
+type TestList
+	var items as Array with __Vector128
+end 'TestList'
+
+union TestCarried
+	carried(value __Vector128)
+end 'TestCarried'
+
+function testPair(low Count) returns (__Vector128, Count)
+	return (__Raw.vectorZero(), low)
+end 'testPair'
+
+function main() returns ExitCode
+	let local = __Raw.vectorOfWords(1, high: 2)
+	return (__Raw.vectorWord(local, lane: 1) - 2) as ExitCode
+end 'main'

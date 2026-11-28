@@ -186,6 +186,7 @@ ErrParallelJump	E3961	-	A break, continue or return in a parallel for's body lea
 ErrParallelWrite	E3962	-	A parallel for's body changes or moves what it did not declare, or names the array whose elements it lends to its iterations: an iteration writes only its own element and what it declares.
 ErrParallelCapture	E3963	-	A parallel for's body reads a variable whose value cannot be read from several threads at once: a promise, a value at an interface type, or one that holds either.
 ErrAmbiguousQualifier	E3964	-	A type written after a module's name, `url.URL.parse(s)`, is also a member of the type of a local or a parameter of the module's name, so the name could mean either.
+ErrVectorOutsideLocal	E3965	-	The runtime's 128-bit vector is a parameter, a result, a field, a union's payload, an element or a type argument, which no convention passes and no layout holds: a vector lives only in a local.
 ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union, or a method of a conditional extension on a value whose type arguments do not meet its 'where'.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrRegisterPressure	E5001	registerPressure	A loop holds more values at once than the target has registers of their class, so a load or store would land in the loop.

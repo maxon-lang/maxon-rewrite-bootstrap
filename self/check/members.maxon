@@ -19,6 +19,9 @@ function declareRecordMembers(mutates c Checker, p ast.Project, mutates ms ast.M
 			if failedSince(errs, mark: mark) 'badType'
 				return
 			end 'badType'
+			if refusesHeldVector(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: f.typeRef), t: ft, place: "a field", errs: errs) 'vector'
+				return
+			end 'vector'
 		end 'typed'
 		if f.typeRef != 0 and ast.holdsGrowingInstance(ms.types, reads: p.types, t: ft, origin: tid) 'grows'
 			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.typeRef), code: diag.errGenericGrowsWithoutBound, msg: diag.genericTypeGrowsWithoutBound(f.name, owner: td.name, declared: declaredTypeName(p, ms: ms, c: c, tr: f.typeRef, t: ft)), errs: errs)
@@ -207,6 +210,9 @@ function declareUnionMembers(mutates c Checker, p ast.Project, mutates ms ast.Mo
 			if failedSince(errs, mark: mark) 'badType'
 				return
 			end 'badType'
+			if refusesHeldVector(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: f.typeRef), t: t, place: "a union's payload", errs: errs) 'vector'
+				return
+			end 'vector'
 			payload.push(ast.CaseFieldInfo.make(f.name.clone(), ty: t))
 		end 'fields'
 		if not readRaw(c, p: p, ms: ms, tid: tid, raw: cs.raw, off: offsetOf(c, p: p, ms: ms, node: cs.id), st: st, errs: errs) 'refused'
