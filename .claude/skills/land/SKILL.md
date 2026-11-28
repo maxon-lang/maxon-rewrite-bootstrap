@@ -33,7 +33,8 @@ exact error.
 ## The focused gate
 
 Always, on the rebased tip: build from the seed, `fmt --check self runtime tests stdlib`,
-`check self --tests --verify-reads`, `check runtime`, `check stdlib`, `selftest`, the host corpus (`minimaxon test`),
+`check self --tests --verify-reads`, `check runtime`, `check stdlib`, `selftest`, the host corpus as the gate runs it
+(`minimaxon test --verify-ir`),
 the spec step (`test specs --require-passed`), and the chain (C2 identical to C3).
 
 By what the change touches:
@@ -42,7 +43,7 @@ By what the change touches:
 |---|---|
 | `internal/`, `cmd/`, any `.go` file | `go vet ./...` for `GOOS=windows`, `linux` and `darwin`, and `go test ./...` |
 | `runtime/`, `self/backend`, `self/ir`, `self/interp`, or test programs that run under several worker counts | behaviours (`test --behaviours --worker-counts=1,2,4`) |
-| `cmd/convert/`, `self/driver/skips*`, `stdlib/`, `specs/` | the spec regeneration (`specs.ps1` / `gate specs`) |
+| `cmd/convert/`, `self/driver/skips*`, `stdlib/`, `specs/` | the spec regeneration (`specs.ps1` on Windows, `go run ./cmd/gate specs` elsewhere) |
 | `specs/`, `stdlib/`, `cmd/convert/`, `self/interp`, `self/driver` | `--interpret` on the spec step, as the full gate has |
 | the back end, the IR or the runtime | the self-build comparison when a layout, a lock or a hot path moved |
 
@@ -57,6 +58,22 @@ It prints `LOST` and exits 1 for such a test. Only when the results file was wri
 **When the full gate is required:** code whose effect only another lane shows and CI has no job for. Otherwise push
 the branch as `cloud/<name>` or `eric-pc/<name>`, which CI runs on every job, and land when the job that matters is
 green: a Mac change to the Windows timed wait is the example.
+
+## On the Mac
+
+- **The machine lock.** Several agents share the Mac: every build, gate, test, fuzz, bench and selfab run goes through
+  `python3 ~/Dev/agents/minimaxon/out/dev/spec-triage/withlock.py <script>`, heavy steps batched into one script. A
+  benchmark runs only under the lock, so nothing else perturbs it.
+- **The environment.** `TMPDIR=/private/tmp/claude-502`, `MAXON_STDLIB=$HOME/Dev/maxon/stdlib`,
+  `MINIMAXON_CACHE=off`; tests get `< /dev/null`. Nothing ever runs with its working directory inside `~/Dev/maxon`,
+  which is read-only: name its files by absolute path from elsewhere.
+- **No Rosetta.** x64 targets are compiled (`build self --target=x64-windows`), never run.
+- **Which lanes are CI's.** macOS runs no Linux or Windows executable: the arm64-linux, x64-linux and x64-windows
+  lanes are CI's (`cloud/<name>` for a change only they can see, such as one to the Windows timed wait). The OrbStack
+  VM `ubuntu` is there for a Linux reproduction, never `maxon-linux`.
+- **The focused gate script** is `~/Dev/agents/minimaxon/out/dev/scripts/focused-gate.sh <worktree> <log name>`: it picks its steps from the
+  paths the branch changes against `origin/main`, as the table above does, and keeps a sampler that records a stalled
+  FIFO test's process table. Its logs, with the steps by time, are in `~/Dev/agents/minimaxon/out/dev/scripts/logs/<log name>/`.
 
 ## Tests
 
