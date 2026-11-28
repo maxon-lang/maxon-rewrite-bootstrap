@@ -131,16 +131,19 @@ function taskSender(t Count) returns Count
 end 'taskSender'
 
 // queueBound is the bound in messages that runtime/service.maxon states for the queue of a service, for the senders and
-// receivers it had, with turn for its turnBehaviours, where it states one: a service that sends to none and that one task
-// alone sends to holds at most a turn and 1 (several tasks, such as the parts of a parallel loop, have no bound the header
-// proves); a relay that one task sends to and that sends to one other service, a turn and 2; and the consumer that only such a relay sends to, two turns and 4, where each handler of the relay
+// receivers it had, with turn for its turnBehaviours, where it states one: a service that sends to none and that only tasks
+// send to holds at most the larger of a turn and its tasks, each of which holds at most one place unqueued as its queue
+// empties, and a message of each task (the parts of a parallel loop are tasks); a relay that one task sends to and that
+// sends to one other service, a turn and 2; and the consumer that only such a relay sends to, two turns and 4, where each handler of the relay
 // sends it one message. The header counts a service's messages from its first slowed send to its mute, which is a whole
 // handler's, so a relay whose handler sends more passes its consumer more per mute, and that shape states no number.
 function queueBound(d Deliveries, service Count, turn Count) returns table.Option with Count
 	let senders = d.sendersOf(service)
 	let receivers = d.receiversOf(serviceSender(service))
-	if receivers.count() == 0 and senders.count() == 1 and isTaskSender(senders[0]) 'leaf'
-		return table.Option.some(try turn + 1 otherwise panic("interp: a bound past a word"))
+	if receivers.count() == 0 and onlyTasks(senders) 'leaf'
+		let tasks = senders.count()
+		let parked = tasks if tasks > turn else turn
+		return table.Option.some(try parked + tasks otherwise panic("interp: a bound past a word"))
 	end 'leaf'
 	if isRelay(d, service: service) 'relay'
 		return table.Option.some(try turn + 2 otherwise panic("interp: a bound past a word"))
@@ -157,6 +160,15 @@ function isRelay(d Deliveries, service Count) returns bool
 	let receivers = d.receiversOf(serviceSender(service))
 	return senders.count() == 1 and isTaskSender(senders[0]) and receivers.count() == 1 and receivers[0] != service
 end 'isRelay'
+
+function onlyTasks(senders CountList) returns bool
+	for i in 0 upto senders.count() 'senders'
+		if not isTaskSender(senders[i]) 'service'
+			return false
+		end 'service'
+	end 'senders'
+	return true
+end 'onlyTasks'
 
 // oracleFails records that an oracle failed, with what it found.
 function oracleFails(mutates vm Vm, oracle String, found String)

@@ -42,9 +42,14 @@
 // one handler or, if it drains on, that one and those it holds, whose own senders are slowed in turn, and one handler
 // more each time such a mute lets it go. So main and a slow consumer: turnBehaviours + 1; main, a relay and the
 // consumer: turnBehaviours + 2 at the relay and 2 * turnBehaviours + 4 at the consumer, whose only sender is a service;
-// a chain adds a stage's bound at each stage. Several tasks sending to one service are not bounded by this argument:
-// their parked places and what each adds when let go have not been bounded, and 200 coroutines sending to one slow
-// service held 393 natively at four processors on Windows and 542 at four on x64 Linux, past twice their number. A service is listed on one receiver at a time, so a second receiver that is behind
+// a chain adds a stage's bound at each stage. Several tasks and a slow service that only they send to:
+// max(turnBehaviours, tasks) + tasks. A task holds at most one place unqueued, the one it parks with or was let go with
+// and has not queued yet, and the catch-up acts only on a queue it finds empty under its lock (caughtUpIfSlowing), so
+// the count when it lets the senders go is at most one place per task. From then until the queue next empties, every
+// send that finds the larger of turnBehaviours and that count is slowed, and each task makes at most one slowed send:
+// it parks on the list that the next catch-up takes, and one that parked before is let go once, from the list it was on
+// or the rest an unmute carries. A chunk of a parallel loop runs on a task of its own, so its parts count as tasks. A
+// service is listed on one receiver at a time, so a second receiver that is behind
 // gets that service's next handler after each unmute by the first, and its bound counts on how often the first catches
 // up. A cycle whose handlers send more than they take grows, which no bound in messages could stop without stopping the
 // program. A kind of a coalescing policy adds one message to each bound, its pending word's, which its sends queue without
@@ -1174,10 +1179,16 @@ function releasedIdle(service Count)
 end 'releasedIdle'
 
 // caughtUpIfSlowing is what the release that empties a service's queue does: the service is no longer behind, and its
-// senders are unmuted.
+// senders are unmuted. The queue is read again under the lock: the release found it empty before, and a thread stopped
+// between the two can take the lock after the service has filled again, when a catch-up would let go senders that sent
+// into a full queue. A message queued since holds the tail, and the release that next finds the queue empty catches up.
 function caughtUpIfSlowing(service Count)
 	if (__Raw.loadAcquire(service, offset: serviceGateOffset) and serviceBehind) != 0 or __Raw.loadAcquire(service, offset: serviceMutedOffset) != noSender 'slowing'
 		let newest = lockMuted(service)
+		if __Raw.loadAcquire(service, offset: cownTailOffset) != notQueued 'refilled'
+			unlockMuted(service, newest: newest)
+			return
+		end 'refilled'
 		clearGateFlag(service, flag: serviceBehind)
 		unlockMuted(service, newest: noSender)
 		unmuteRing(newest)

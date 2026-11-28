@@ -1,7 +1,11 @@
 // native-only
 // More tasks than a turn's worth send to one slow service, each slowed and parked again and again while it is behind:
-// every message is handled once.
-//> total 20000
+// every message is handled once, and the service holds at most max(turn, tasks) + tasks, the 200 coroutines and main.
+// A slowed task parks with its place counted and its message not yet queued, so the service can catch up with one place
+// held per task, and each task let go then sends one more. The bound holds under any schedule and any stall of a thread:
+// the catch-up acts only on a queue it finds empty under its lock, so a thread stopped between the release that emptied
+// the queue and that lock lets no sender go into a queue that has filled again.
+//> total 20000, within its bound
 typealias Num = int(0 to 1000000000)
 
 typealias Dones = Array with Promise with Num
@@ -9,6 +13,8 @@ typealias Dones = Array with Promise with Num
 let tasks = 200 as Count
 
 let sendsPerTask = 100 as Count
+
+let turn = 64 as Count
 
 type Tally
 	var sum as Num
@@ -52,6 +58,10 @@ function main() returns ExitCode
 		at = at + 1
 	end 'wait'
 	let total = try await tally.total() otherwise 0
-	print("total {total}\n")
+	let senders = tasks + 1
+	let bound = (senders if senders > turn else turn) + senders
+	let most = tally.mostQueued()
+	let verdict = "within its bound" if most <= bound else "past its bound of {bound} with {most}"
+	print("total {total}, {verdict}\n")
 	return 0
 end 'main'
