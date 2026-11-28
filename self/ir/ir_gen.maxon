@@ -74,6 +74,7 @@ export enum Opcode
 	opElemAddr
 	opElemLoad
 	opLoadByte
+	opLoadWord
 	opBuffer
 	opElemAt
 	opElemAddrAt
@@ -784,6 +785,9 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opLoadByte 'opLoadByte'
 		return 1
 	end 'opLoadByte'
+	if op == Opcode.opLoadWord 'opLoadWord'
+		return 1
+	end 'opLoadWord'
 	if op == Opcode.opBuffer 'opBuffer'
 		return 1
 	end 'opBuffer'
@@ -1383,6 +1387,17 @@ export function newLoadByte(dst Reg, src Reg, index Reg, of Collection) returns 
 	return r
 end 'newLoadByte'
 
+// LoadWord reads Width bits, little-endian, from byte Index of the byte array Src on, where a Bounds has checked
+// the last of their bytes: an ordered word of a constant width that the library reads (ir/hash.maxon).
+export function newLoadWord(dst Reg, src Reg, index Reg, width RawWidth) returns Instr
+	var r = Instr.make(Opcode.opLoadWord)
+	r.dst = dst
+	r.a = src
+	r.b = index
+	r.sub = rawWidthCode(width)
+	return r
+end 'newLoadWord'
+
 // Buffer reads the address of the elements of Src, an array or a byte array, which a push that grows it moves.
 export function newBuffer(dst Reg, src Reg) returns Instr
 	var r = Instr.make(Opcode.opBuffer)
@@ -1888,6 +1903,9 @@ export function opcodeName(op Opcode) returns String
 	if op == Opcode.opLoadByte 'opLoadByte'
 		return "LoadByte"
 	end 'opLoadByte'
+	if op == Opcode.opLoadWord 'opLoadWord'
+		return "LoadWord"
+	end 'opLoadWord'
 	if op == Opcode.opBuffer 'opBuffer'
 		return "Buffer"
 	end 'opBuffer'
@@ -2694,6 +2712,27 @@ export function loadByteOf(x Instr) returns Collection
 	return collectionOf(x.sub)
 end 'loadByteOf'
 
+export function loadWordSrc(x Instr) returns Reg
+	if x.op != Opcode.opLoadWord 'op'
+		wrongInstr("loadWordSrc", found: x.op)
+	end 'op'
+	return x.a
+end 'loadWordSrc'
+
+export function loadWordIndex(x Instr) returns Reg
+	if x.op != Opcode.opLoadWord 'op'
+		wrongInstr("loadWordIndex", found: x.op)
+	end 'op'
+	return x.b
+end 'loadWordIndex'
+
+export function loadWordWidth(x Instr) returns RawWidth
+	if x.op != Opcode.opLoadWord 'op'
+		wrongInstr("loadWordWidth", found: x.op)
+	end 'op'
+	return rawWidthOf(x.sub)
+end 'loadWordWidth'
+
 export function bufferSrc(x Instr) returns Reg
 	if x.op != Opcode.opBuffer 'op'
 		wrongInstr("bufferSrc", found: x.op)
@@ -3466,6 +3505,9 @@ export function instrDef(x Instr) returns table.Option with Reg
 	if x.op == Opcode.opLoadByte 'opLoadByte'
 		return table.Option.some(x.dst)
 	end 'opLoadByte'
+	if x.op == Opcode.opLoadWord 'opLoadWord'
+		return table.Option.some(x.dst)
+	end 'opLoadWord'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.some(x.dst)
 	end 'opBuffer'
@@ -3708,6 +3750,9 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opLoadByte 'opLoadByte'
 		return table.Option.none
 	end 'opLoadByte'
+	if x.op == Opcode.opLoadWord 'opLoadWord'
+		return table.Option.none
+	end 'opLoadWord'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return table.Option.none
 	end 'opBuffer'
@@ -3843,6 +3888,7 @@ export function instrCanFail(x Instr) returns bool
 		opElemAddr gives false
 		opElemLoad gives false
 		opLoadByte gives false
+		opLoadWord gives false
 		opBuffer gives false
 		opElemAt gives false
 		opElemAddrAt gives false
@@ -4066,6 +4112,11 @@ export function instrReads(f IrFunction, x Instr, mutates out RegList)
 		out.push(loadByteIndex(x))
 		return
 	end 'opLoadByte'
+	if x.op == Opcode.opLoadWord 'opLoadWord'
+		out.push(loadWordSrc(x))
+		out.push(loadWordIndex(x))
+		return
+	end 'opLoadWord'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		out.push(bufferSrc(x))
 		return
@@ -4391,6 +4442,10 @@ export function instrWrites(x Instr, mutates out RegList)
 		out.push(x.dst)
 		return
 	end 'opLoadByte'
+	if x.op == Opcode.opLoadWord 'opLoadWord'
+		out.push(x.dst)
+		return
+	end 'opLoadWord'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		out.push(x.dst)
 		return
@@ -4708,6 +4763,11 @@ export function renameInstrReads(mutates x Instr, mutates args RegList, names Re
 		x.b = renamedReg(names, r: x.b)
 		return
 	end 'opLoadByte'
+	if x.op == Opcode.opLoadWord 'opLoadWord'
+		x.a = renamedReg(names, r: x.a)
+		x.b = renamedReg(names, r: x.b)
+		return
+	end 'opLoadWord'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		x.a = renamedReg(names, r: x.a)
 		return
@@ -5125,6 +5185,12 @@ export function relocateInstr(mutates x Instr, at Relocation)
 		x.b = renamedReg(at.names, r: x.b)
 		return
 	end 'opLoadByte'
+	if x.op == Opcode.opLoadWord 'opLoadWord'
+		x.dst = renamedReg(at.names, r: x.dst)
+		x.a = renamedReg(at.names, r: x.a)
+		x.b = renamedReg(at.names, r: x.b)
+		return
+	end 'opLoadWord'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		x.dst = renamedReg(at.names, r: x.dst)
 		x.a = renamedReg(at.names, r: x.a)
@@ -5380,6 +5446,7 @@ export interface InstrVisitor
 	function visitElemAddr(mutates self, f IrFunction, x Instr)
 	function visitElemLoad(mutates self, f IrFunction, x Instr)
 	function visitLoadByte(mutates self, f IrFunction, x Instr)
+	function visitLoadWord(mutates self, f IrFunction, x Instr)
 	function visitBuffer(mutates self, f IrFunction, x Instr)
 	function visitElemAt(mutates self, f IrFunction, x Instr)
 	function visitElemAddrAt(mutates self, f IrFunction, x Instr)
@@ -5599,6 +5666,10 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitLoadByte(f, x: x)
 		return
 	end 'opLoadByte'
+	if x.op == Opcode.opLoadWord 'opLoadWord'
+		visitor.visitLoadWord(f, x: x)
+		return
+	end 'opLoadWord'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		visitor.visitBuffer(f, x: x)
 		return
@@ -5934,6 +6005,9 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 	if x.op == Opcode.opLoadByte 'opLoadByte'
 		return "{resultText(x.dst)}byte.{collectionText(loadByteOf(x))} %{loadByteSrc(x)}, %{loadByteIndex(x)}"
 	end 'opLoadByte'
+	if x.op == Opcode.opLoadWord 'opLoadWord'
+		return "{resultText(x.dst)}word.{rawWidthText(loadWordWidth(x))} %{loadWordSrc(x)}, %{loadWordIndex(x)}"
+	end 'opLoadWord'
 	if x.op == Opcode.opBuffer 'opBuffer'
 		return "{resultText(x.dst)}buffer %{bufferSrc(x)}"
 	end 'opBuffer'
@@ -6233,6 +6307,11 @@ export function printedOpNames() returns ast.StringList
 	names.push("throw")
 	names.push("trap")
 	names.push("when")
+	names.push("word")
+	names.push("word.16")
+	names.push("word.32")
+	names.push("word.64")
+	names.push("word.8")
 	names.push("xor")
 	names.push("xor.u")
 	return names

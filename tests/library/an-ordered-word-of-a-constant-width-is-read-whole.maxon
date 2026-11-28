@@ -1,0 +1,25 @@
+// A little-endian word of a constant width of 1, 2, 4 or 8 bytes is one load where its bytes are inside the array, and the
+// runtime's entry where they are not, which fails with the index; both give the same words.
+typealias Offsets = Array with ElementIndex
+
+function main() returns ExitCode
+	var bytes = ByteArray.create(16, zeroed: false)
+	for i in 0 upto 16 'fill'
+		bytes.push(((i * 17 + 3) mod 251) as Byte)
+	end 'fill'
+	let offsets = Offsets from [0, 7, 8, 15, 16]
+	for at in offsets 'each'
+		let one = try __Builtins.readLittleEndian(bytes, at, 1) otherwise 0
+		let two = try __Builtins.readLittleEndian(bytes, at, 2) otherwise 0
+		let four = try __Builtins.readLittleEndian(bytes, at, 4) otherwise 0
+		let eight = try __Builtins.readLittleEndian(bytes, at, 8) otherwise 0
+		print("{at}: {one} {two} {four} {eight}\n")
+	end 'each'
+	return 0
+end 'main'
+
+//> 0: 3 5123 908399619 8820678408056148995
+//> 7: 122 35706 2912717690 17429158975787273082
+//> 8: 139 40075 3199048843 572485810514664587
+//> 15: 7 0 0 0
+//> 16: 0 0 0 0

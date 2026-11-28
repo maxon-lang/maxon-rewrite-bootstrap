@@ -349,6 +349,9 @@ var ops = []op{
 	{Name: "LoadByte", Eval: noEval, Doc: "LoadByte reads the byte at Index of Src, a byte array or a string, where a Bounds has checked the index.",
 		Result: valueResult, Operands: []operand{reg("Src", fA), reg("Index", fB), collectionOp}, Effects: []effect{effReads},
 		Text: "byte.{Of} {Src}, {Index}"},
+	{Name: "LoadWord", Eval: noEval, Doc: "LoadWord reads Width bits, little-endian, from byte Index of the byte array Src on, where a Bounds has checked\n// the last of their bytes: an ordered word of a constant width that the library reads (ir/hash.maxon).",
+		Result: valueResult, Operands: []operand{reg("Src", fA), reg("Index", fB), widthOp}, Effects: []effect{effReads},
+		Text: "word.{Width} {Src}, {Index}"},
 	// A native build splits every element access (self/opt/buffers.maxon) into the read of the array's buffer, which
 	// common subexpression elimination and loop-invariant code motion then treat as they treat any read, and the access
 	// at the index; the interpreter never sees them.

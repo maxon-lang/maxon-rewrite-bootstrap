@@ -130,6 +130,11 @@
 (elemAt d i [_]) && sel.inXmm(ins.dst) => (MovsdRegBaseIndex8Disp r d i [0])
 (elemAt d i [_]) => (LoadRegBaseIndex8Disp r d i [0])
 (byteAt d i) => (MovzxRegByteBaseIndex1Disp r d i [0])
+// An ordered word of the library's, read whole: the processor reads unaligned words, little-endian.
+(loadWord.8 s i) => (LoadRegBaseDisp d s [arrayDataOffset]) (MovzxRegByteBaseIndex1Disp r d i [0])
+(loadWord.16 s i) => (LoadRegBaseDisp d s [arrayDataOffset]) (LeaRegBaseIndex1Disp a d i [0]) (MovzxRegWordBaseDisp r a [0])
+(loadWord.32 s i) => (LoadRegBaseDisp d s [arrayDataOffset]) (LeaRegBaseIndex1Disp a d i [0]) (LoadReg32BaseDisp r a [0])
+(loadWord.64 s i) => (LoadRegBaseDisp d s [arrayDataOffset]) (LoadRegBaseIndex1Disp r d i [0])
 (elemAddrAt d i [s]) && s == wordElementShift => (LeaRegBaseIndex8Disp r d i [0])
 (elemAddrAt) => (emitElemAddrAt)
 

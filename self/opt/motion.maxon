@@ -95,6 +95,7 @@ export function motionOf(x ir.Instr) returns Motion
 		opElemAddr or
 		opElemLoad or
 		opLoadByte or
+		opLoadWord or
 		opBuffer or
 		opElemAt or
 		opByteAt gives Motion.read
@@ -185,7 +186,7 @@ export function readsBeyondElements(f ir.IrFunction, defs ir.Defs, x ir.Instr) r
 	if op == ir.Opcode.opLoadField 'field'
 		return outsideElements(f, defs: defs, r: ir.loadFieldObj(x))
 	end 'field'
-	if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAt or op == ir.Opcode.opLoadByte or op == ir.Opcode.opByteAt or op == ir.Opcode.opLoadByteAt 'element'
+	if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAt or op == ir.Opcode.opLoadByte or op == ir.Opcode.opLoadWord or op == ir.Opcode.opByteAt or op == ir.Opcode.opLoadByteAt 'element'
 		return false
 	end 'element'
 	panic("opt: readsBeyondElements of {ir.opcodeName(op)}, which is no read")

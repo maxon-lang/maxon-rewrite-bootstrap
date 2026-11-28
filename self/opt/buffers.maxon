@@ -1,6 +1,6 @@
 // The split of a native build's element accesses: an element read, the address of an element and a byte of a byte array
 // each read the address of the array's elements from its box before they reach the element, and each becomes that read
-// (Buffer) and the access at the index of the address it gives (ElemAt, ElemAddrAt, ByteAt). The address is then a value
+// (Buffer) and the access at the index of the address it gives (ElemAt, ElemAddrAt, ByteAt, and a word's LoadRaw at the\n// address plus the index). The address is then a value
 // as any read gives: common subexpression elimination reads it once for the accesses of the array that no write outside
 // the elements of arrays separates (motion.maxon), as in `a[i] = a[i] + x`, and loop-invariant code motion moves it out
 // of a loop that changes no array's box. The interpreter runs the accesses whole, as the expansion makes them.
@@ -66,7 +66,12 @@ function splitInto(mutates f ir.IrFunction, x ir.Instr) returns bool
 	end 'address' else if splitsByte(x) 'byte'
 		let data = buffer(f, src: src)
 		f.instrs.push(ir.newByteAt(dst, data: data, index: index))
-	end 'byte' else if splitsStringByte(x) 'string'
+	end 'byte' else if op == ir.Opcode.opLoadWord 'word'
+		let data = buffer(f, src: src)
+		let at = f.newReg(ir.IrKind.kindScalar)
+		f.instrs.push(ir.newBin(at, op: ir.BinOp.binAdd, left: data, right: index, unsigned: true, fail: ir.noBlock))
+		f.instrs.push(ir.newLoadRaw(dst, addr: at, width: ir.loadWordWidth(x)))
+	end 'word' else if splitsStringByte(x) 'string'
 		let data = f.newReg(ir.IrKind.kindScalar)
 		let box = f.newFrameBox()
 		f.instrs.push(ir.newStrBytes(data, src: src, box: box))
@@ -88,7 +93,7 @@ end 'buffer'
 function accessesElement(f ir.IrFunction) returns bool
 	for k in 0 upto f.instrs.count() 'instrs'
 		let op = f.instrs[k].op
-		if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAddr or splitsByte(f.instrs[k]) or splitsStringByte(f.instrs[k]) 'found'
+		if op == ir.Opcode.opElemLoad or op == ir.Opcode.opElemAddr or op == ir.Opcode.opLoadWord or splitsByte(f.instrs[k]) or splitsStringByte(f.instrs[k]) 'found'
 			return true
 		end 'found'
 	end 'instrs'

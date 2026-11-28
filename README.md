@@ -1810,7 +1810,7 @@ what a later pass such as reference counting or an optimization changes.
 |---|---|
 | values | `const`, `str`, `datum` (a constant of the executable's data, see "Constants in the data section"), `load` and `store` (a slot; `store ... borrow` for a borrow), `addr` (a slot's address), `param`, `field`, `setfield` (`setfield ... borrow` for a field that borrows what it holds, a buffer cursor's, which its box neither drops nor copies), `fieldaddr`, `loadat`, `storeat`, `global` |
 | arithmetic | `bin` (add, sub, mul, div, mod, and, or, xor, shl, shr; `.u` for unsigned; checked ones have an `else` block), `cmp`, `neg`, `not`, `ctz` (the count of trailing zeros, 64 of 0; `tzcnt` on x64, `rbit` then `clz` on arm64), `guard` |
-| collections | `length.array`, `length.string`, `bounds`, `elemaddr`, `elem`, `byte.array`, `byte.string`, and in a native build's passes after inlining `buffer`, `elemat`, `elemaddrat`, `byteat` (see "The primitives in the IR") |
+| collections | `length.array`, `length.string`, `bounds`, `elemaddr`, `elem`, `byte.array`, `byte.string`, `word.8` to `word.64`, and in a native build's passes after inlining `buffer`, `elemat`, `elemaddrat`, `byteat` (see "The primitives in the IR") |
 | floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
 | calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `async` (see "Coroutines: async and await"), `callvalue` (see "Function values in the IR") |
 | function values | `closure`, `funcvalue` (see "Function values in the IR") |
@@ -1977,7 +1977,7 @@ runtime each implement the entries. The element is always visible in the call:
   as `loadat` lends it), and `byte.array %a, %i` and `byte.string %s, %i` read a byte
   (`rt.bytes.get`, `rt.str.byteAt`). A read of an element is a `length`, a `bounds` and the read; the failure block of the
   `bounds`, one per read after the function's blocks, makes the call that was there and a `trap`: called there, the entry
-  traps with its own message and exit code, natively and under the interpreter, so a miss fails exactly as before.
+  traps with its own message and exit code, natively and under the interpreter, so a miss fails exactly as before. A little-endian ordered word of a constant width of 1, 2, 4 or 8 bytes (`__Builtins.readLittleEndian(bytes, at, 8)`) is lowered as a `length`, a test that its first and last bytes are below it, and `word.64 %a, %i` (`word.8`, `.16`, `.32`), one load of the bytes, which a native build splits into `buffer`, an add and a `loadraw`; a word outside the array calls `rt.bytes.readWord`, which fails with the index, and a big-endian or variable width always does.
   Selection writes a `length` as a load, a `bounds` as a compare and a branch that ends its block (`emitBounds`: an edge
   in the middle of a block would keep what the trap block reads live to the block's end), and an element as a load of the
   buffer's address and an indexed access (`[data + index*8]`, `[data + index]`; a string's bytes are in its box, so a

@@ -141,6 +141,11 @@
 (elemAt d i [_]) && sel.inXmm(ins.dst) => (LdrDIdx r d i)
 (elemAt d i [_]) => (Ldr64Idx r d i)
 (byteAt d i) => (LdrbIdx r d i)
+// An ordered word of the library's, read whole: the processor reads unaligned words, little-endian.
+(loadWord.8 s i) => (Ldr64Off d s [arrayDataOffset]) (LdrbIdx r d i)
+(loadWord.16 s i) => (Ldr64Off d s [arrayDataOffset]) (AddRegRegLsl a d i [0]) (LdrhOff r a [0])
+(loadWord.32 s i) => (Ldr64Off d s [arrayDataOffset]) (AddRegRegLsl a d i [0]) (Ldr32Off r a [0])
+(loadWord.64 s i) => (Ldr64Off d s [arrayDataOffset]) (Ldr64Idx1 r d i)
 (elemAddrAt d i [s]) => (AddRegRegLsl r d i [s])
 
 // Integer arithmetic. A checked operation goes to its failure block when the result does not fit: the carry of an adds,

@@ -202,6 +202,10 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		try execLoadByte(vm, x: x) otherwise ignore
 	end 'visitLoadByte'
 
+	function visitLoadWord(mutates self, f ir.IrFunction, x ir.Instr)
+		try execLoadWord(vm, x: x) otherwise ignore
+	end 'visitLoadWord'
+
 	// Only a native build's optimizer makes a buffer (self/opt/licm.maxon), which the IR the interpreter runs never holds.
 	function visitBuffer(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: a buffer, which only the native optimizer makes")

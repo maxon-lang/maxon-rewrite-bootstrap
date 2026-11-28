@@ -485,6 +485,24 @@ function execLoadByte(mutates vm Vm, x ir.Instr) throws Halt
 	vm.setNum(x.dst, n: byte as ir.Word)
 end 'execLoadByte'
 
+// execLoadWord reads the bytes of an ordered word of a byte array, little-endian, as a native load of them does.
+function execLoadWord(mutates vm Vm, x ir.Instr) throws Halt
+	let o = vm.ref(ir.loadWordSrc(x))
+	let at = ir.bitsOfWord(vm.num(ir.loadWordIndex(x)))
+	let bytes = match ir.loadWordWidth(x) 'width'
+		width8 gives 1 as Count
+		width16 gives 2 as Count
+		width32 gives 4 as Count
+		width64 gives 8 as Count
+	end 'width'
+	var word = 0 as Count
+	for k in 0 upto bytes 'eachByte'
+		let byte = try bufferByte(vm, o: o, i: try at + k otherwise panic("interp: a word past the end of memory"))
+		word = word or ((byte as Count) shl (k * 8))
+	end 'eachByte'
+	vm.setNum(x.dst, n: ir.wordOfBits(word))
+end 'execLoadWord'
+
 function bufferByte(mutates vm Vm, o Count, i Count) returns Byte throws Halt
 	let b = try collection(vm, o: o, kind: kindBytes, what: "a byte read")
 	let data = vm.h.oData[b]

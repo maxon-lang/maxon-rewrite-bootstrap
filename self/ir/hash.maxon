@@ -68,13 +68,77 @@ function lowerAppendLittleEndian(mutates l Lowerer, p ast.Project, ms ast.Module
 end 'lowerAppendLittleEndian'
 
 // readOrderedWord reads the width bytes at an index of an array as a word, which fails with indexOutOfBounds when they are
-// not all inside it.
+// not all inside it. A little-endian word of a constant width of 1, 2, 4 or 8 bytes is read whole where its bytes are inside
+// the array, which every target reads little-endian and unaligned, and the entry reads every other and fails.
 function readOrderedWord(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, bigEndian bool) returns Reg
+	let bytes = constantWordBytes(p, ms: ms, module: l.module, e: c.ordered[2])
+	if bigEndian or bytes == 0 'entry'
+		return readOrderedWordByEntry(l, p: p, ms: ms, c: c, args: args, bigEndian: bigEndian)
+	end 'entry'
+	let src = args[0]
+	let index = args[1]
+	let length = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLength(length, src: src, of: Collection.collectionArray))
+	// The index is below the length, which is below 2^63, so the index of the last byte does not wrap.
+	let lastOffset = konst(l, value: try (bytes - 1) as Word otherwise panic("lower: a width of a word past a word"))
+	let last = wrappingBin(l, op: BinOp.binAdd, a: index, b: lastOffset, kind: IrKind.kindScalar)
+	let firstInside = compare(l, op: CmpOp.cmpLt, a: index, b: length, unsigned: true)
+	let lastInside = compare(l, op: CmpOp.cmpLt, a: last, b: length, unsigned: true)
+	let inside = wrappingBin(l, op: BinOp.binAnd, a: firstInside, b: lastInside, kind: IrKind.kindScalar)
+	let result = l.b.f.newSlot(IrKind.kindScalar)
+	let whole = l.b.newBlock()
+	let byEntry = l.b.newBlock()
+	let join = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(inside, ifTrue: whole, ifFalse: byEntry))
+	l.cur = whole
+	let word = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadWord(word, src: src, index: index, width: rawWidthOfBytes(bytes)))
+	emit(l, i: newStoreSlot(result, src: word, borrow: false))
+	goTo(l, target: join)
+	l.cur = byEntry
+	let read = readOrderedWordByEntry(l, p: p, ms: ms, c: c, args: args, bigEndian: bigEndian)
+	emit(l, i: newStoreSlot(result, src: read, borrow: false))
+	goTo(l, target: join)
+	return fetch(l, slot: result)
+end 'readOrderedWord'
+
+function readOrderedWordByEntry(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, args RegList, bigEndian bool) returns Reg
 	let dst = newReg(l, kind: IrKind.kindScalar)
 	let order = orderFlag(l, bigEndian: bigEndian)
 	let site = siteOf(l, p: p, node: c.node)
 	return failing(l, p: p, ms: ms, site: site, dst: dst, symbol: Rt.rtBytesReadWord, args: argsOf4(args[0], b: args[1], c: args[2], d: order))
-end 'readOrderedWord'
+end 'readOrderedWordByEntry'
+
+// constantWordBytes is the width in bytes that the expression e writes as a constant, where it is one a load reads whole
+// (1, 2, 4 or 8), and 0 otherwise.
+function constantWordBytes(p ast.Project, ms ast.ModuleState, module diag.ModuleID, e ast.NodeID) returns Count
+	let t = exprType(p, module: module, node: e)
+	if ast.typeKind(ms.types, reads: p.types, t: t) != ast.TypeKind.constInt 'notConstant'
+		return 0
+	end 'notConstant'
+	let bytes = constBits(p, ms: ms, t: t)
+	if bytes == 1 or bytes == 2 or bytes == 4 or bytes == 8 'whole'
+		return try bytes as Count otherwise panic("lower: a width of a word past a word")
+	end 'whole'
+	return 0
+end 'constantWordBytes'
+
+// rawWidthOfBytes is the width of a load of 1, 2, 4 or 8 bytes.
+function rawWidthOfBytes(bytes Count) returns RawWidth
+	if bytes == 1 'byte'
+		return RawWidth.width8
+	end 'byte'
+	if bytes == 2 'half'
+		return RawWidth.width16
+	end 'half'
+	if bytes == 4 'word32'
+		return RawWidth.width32
+	end 'word32'
+	if bytes == 8 'word64'
+		return RawWidth.width64
+	end 'word64'
+	panic("lower: a load of {bytes} bytes has no width")
+end 'rawWidthOfBytes'
 
 // appendOrderedWord appends the width low bytes of a word to an array in an order.
 function appendOrderedWord(mutates l Lowerer, p ast.Project, c CallSite, args RegList, bigEndian bool) returns Reg
