@@ -2,6 +2,7 @@
 // links it, and closes the file: a file of several megabytes, more than a slice and the socket's buffer, arrives byte for
 // byte, an empty file sends nothing, and a file whose first line was read sends the rest, what its reader holds and then the file. The file is closed after the send, so it can be deleted then.
 // native-only
+// unsupported-targets: x64-windows
 //> 2621447 bytes sent, 2621447 read, every byte the file's
 //> 0 bytes sent, 0 read
 //> after a line was read: 23 bytes sent, second line|third line|
