@@ -722,6 +722,61 @@ func sseForms() []form {
 			name: "PextrqRegXmmImm8", mnemonic: "pextrq", operands: []operand{reg("dest", fieldRM, write), xmm("src", fieldReg, read), imm8()},
 			prefix: []byte{operandSizePrefix}, rexW: true, opcode: []byte{opcodeHigh, 0x3A, 0x16}, modrm: modOperands, effects: noEffects,
 		},
+		// The shuffles of SSE2 and SSE4.1 by an immediate: pshufd's 32-bit lanes, palignr's bytes of two vectors and
+		// pblendw's 16-bit lanes.
+		{
+			name: "PshufdRegRegImm8", mnemonic: "pshufd", operands: []operand{xmm("dest", fieldReg, write), xmm("src", fieldRM, read), imm8()},
+			prefix: []byte{operandSizePrefix}, opcode: []byte{opcodeHigh, 0x70}, modrm: modOperands, effects: noEffects,
+		},
+		packedImm("PalignrRegRegImm8", "palignr", 0x0F),
+		packedImm("PblendwRegRegImm8", "pblendw", 0x0E),
+		// AES-NI's rounds and PCLMULQDQ's carry-less product.
+		packed38("AesencRegReg", "aesenc", 0xDC),
+		packed38("AesenclastRegReg", "aesenclast", 0xDD),
+		packed38("AesdecRegReg", "aesdec", 0xDE),
+		packed38("AesdeclastRegReg", "aesdeclast", 0xDF),
+		{
+			name: "AesimcRegReg", mnemonic: "aesimc", operands: []operand{xmm("dest", fieldReg, write), xmm("src", fieldRM, read)},
+			prefix: []byte{operandSizePrefix}, opcode: []byte{opcodeHigh, 0x38, 0xDB}, modrm: modOperands, effects: noEffects,
+		},
+		packedImm("PclmulqdqRegRegImm8", "pclmulqdq", 0x44),
+		// The SHA extensions' SHA-256 instructions, which have no prefix: sha256rnds2 reads its third operand, the
+		// message words with their constants, in xmm0.
+		{
+			name: "Sha256rnds2RegReg", mnemonic: "sha256rnds2", operands: []operand{xmm("dest", fieldReg, readWrite), xmm("src", fieldRM, read)},
+			opcode: []byte{opcodeHigh, 0x38, 0xCB}, modrm: modOperands, effects: noEffects, alloc: alloc{fixedUses: []string{"xmm0"}},
+		},
+		sha("Sha256msg1RegReg", "sha256msg1", 0xCC),
+		sha("Sha256msg2RegReg", "sha256msg2", 0xCD),
+		// cpuid reads the leaf in eax and the subleaf in ecx, and writes the four registers of its answer.
+		{
+			name: "Cpuid", mnemonic: "cpuid", opcode: []byte{opcodeHigh, 0xA2}, effects: noEffects,
+			alloc: alloc{fixedUses: []string{"rax", "rcx"}, fixedDefs: []string{"rax", "rbx", "rcx", "rdx"}},
+		},
+	}
+}
+
+// packed38 is a two-address form of the three-byte opcodes 66 0F 38 op /r on a whole vector.
+func packed38(name, mnemonic string, op byte) form {
+	return form{
+		name: name, mnemonic: mnemonic, operands: []operand{xmm("dest", fieldReg, readWrite), xmm("src", fieldRM, read)},
+		prefix: []byte{operandSizePrefix}, opcode: []byte{opcodeHigh, 0x38, op}, modrm: modOperands, effects: noEffects,
+	}
+}
+
+// packedImm is a two-address form of the three-byte opcodes 66 0F 3A op /r ib on a whole vector.
+func packedImm(name, mnemonic string, op byte) form {
+	return form{
+		name: name, mnemonic: mnemonic, operands: []operand{xmm("dest", fieldReg, readWrite), xmm("src", fieldRM, read), imm8()},
+		prefix: []byte{operandSizePrefix}, opcode: []byte{opcodeHigh, 0x3A, op}, modrm: modOperands, effects: noEffects,
+	}
+}
+
+// sha is a two-address form of the SHA extensions, NP 0F 38 op /r.
+func sha(name, mnemonic string, op byte) form {
+	return form{
+		name: name, mnemonic: mnemonic, operands: []operand{xmm("dest", fieldReg, readWrite), xmm("src", fieldRM, read)},
+		opcode: []byte{opcodeHigh, 0x38, op}, modrm: modOperands, effects: noEffects,
 	}
 }
 

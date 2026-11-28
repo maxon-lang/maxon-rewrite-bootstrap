@@ -229,6 +229,29 @@ r:(bin.mul.unsigned.checked x y [f]) => (MulRegReg r x y) (UmulhRegReg h x y) (C
 (vecShift.bytesdown x [n]) => (FmovDX z sp) (ExtVec16 r x z [n])
 (vecShift.lanesleft x [n]) => (ShlVec2D r x [n])
 (vecShift.lanesright x [n]) => (UshrVec2D r x [arm64UshrField(n)])
+// pshufd and pblendw have no one instruction: dup, ext or tbl by the order, and the mask's bits (emitArm64ShuffleDwords,
+// emitArm64BlendWords). x64's AES rounds are aese or aesd with a zero key, aesmc or aesimc, and then the key's eor.
+(vecShuffleDwords) => (emitArm64ShuffleDwords)
+(vecAlignBytes h l [n]) => (ExtVec16 r l h [n])
+(vecBlendWords) => (emitArm64BlendWords)
+(vecAes.enc s k) => (FmovDX z sp) (AeseVec z s) (AesmcVec t z) (EorVec16 r t k)
+(vecAes.enclast s k) => (FmovDX z sp) (AeseVec z s) (EorVec16 r z k)
+(vecAes.dec s k) => (FmovDX z sp) (AesdVec z s) (AesimcVec t z) (EorVec16 r t k)
+(vecAes.declast s k) => (FmovDX z sp) (AesdVec z s) (EorVec16 r z k)
+(vecAesInvMix x) => (AesimcVec r x)
+(vecAesArm.aese s k) => (AeseVec s k)
+(vecAesArm.aesd s k) => (AesdVec s k)
+(vecAesMix x) => (AesmcVec r x)
+// pclmulqdq's immediate picks a lane of each operand: pmull multiplies the low ones and pmull2 the high ones, so a mixed
+// pair swaps the halves of the right operand first.
+(vecClmul x y [0]) => (PmullVec1Q r x y)
+(vecClmul x y [17]) => (Pmull2Vec1Q r x y)
+(vecClmul x y [1]) => (ExtVec16 t y y [8]) (Pmull2Vec1Q r x t)
+(vecClmul x y [n]) => (ExtVec16 t y y [8]) (PmullVec1Q r x t)
+// sha256h, sha256h2 and sha256su1 read their third vector in v0 (emitVecShaArm64); cpuid is x64's, which the runtime's
+// source has only under #if arch(x64).
+(vecSha) => (emitVecShaArm64)
+(cpuid) => (emitX64Operation)
 // A comparison with a constant that 12 bits hold compares with the immediate, and with one whose negation they hold
 // adds the negation, which sets the flags as the subtraction does.
 (cmp x (const [k])) && arm64HoldsImm12(k as FullRangeInt) => (CmpRegImm x [k]) (CsetReg r [cmpCondition(ins)])

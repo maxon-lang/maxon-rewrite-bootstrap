@@ -52,8 +52,10 @@ export function schedulerChoice() returns SchedulerChoice
 	return SchedulerChoice.make(ir.rtSymbol(ir.Rt.rtStackSwitch), substitutes: substitutes)
 end 'schedulerChoice'
 
-// emitStartData reserves the words of Process.setExitCode and of the pins in a program without the scheduler.
+// emitStartData reserves the words of Process.setExitCode, of the pins in a program without the scheduler, and of the
+// processor's features that the runtime finds when it first asks.
 function emitStartData(mutates u CodeUnit)
+	u.defineData(ir.rtSymbol(ir.Rt.rtCpuFeatures), size: wordBytes)
 	u.defineData(exitCodeSymbol, size: wordBytes)
 	u.defineData(exitSetSymbol, size: wordBytes)
 	u.defineData(pinDepthSymbol, size: wordBytes)

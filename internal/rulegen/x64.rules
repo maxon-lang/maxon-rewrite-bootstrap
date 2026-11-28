@@ -217,6 +217,21 @@
 (vecShift.bytesdown x [n]) => (PsrldqRegImm8 x [n])
 (vecShift.lanesleft x [n]) => (PsllqRegImm8 x [n])
 (vecShift.lanesright x [n]) => (PsrlqRegImm8 x [n])
+(vecShuffleDwords x [n]) => (PshufdRegRegImm8 r x [imm8OfByte(n)])
+(vecAlignBytes h l [n]) => (PalignrRegRegImm8 h l [n])
+(vecBlendWords x y [n]) => (PblendwRegRegImm8 x y [imm8OfByte(n)])
+(vecAes.enc s k) => (AesencRegReg s k)
+(vecAes.enclast s k) => (AesenclastRegReg s k)
+(vecAes.dec s k) => (AesdecRegReg s k)
+(vecAes.declast s k) => (AesdeclastRegReg s k)
+(vecAesInvMix x) => (AesimcRegReg r x)
+(vecClmul x y [n]) => (PclmulqdqRegRegImm8 x y [n])
+// The SHA extensions' instructions, and cpuid, read registers that no operand names (emitVecSha, emitCpuid); arm64's own
+// AES and SHA-256 instructions have no x64 form, and the runtime's source has them only under #if arch(arm64).
+(vecSha) => (emitVecSha)
+(cpuid) => (emitCpuid)
+(vecAesArm) => (emitArm64Operation)
+(vecAesMix) => (emitArm64Operation)
 // A comparison with 0 is a test, which sets the flags as cmp does; a constant that fits is compared as an immediate.
 (cmp x (const [0])) => (TestRegReg x x) (SetccReg [cmpCondition(ins)] b) (MovzxRegReg8 r b)
 (cmp (const [0]) x) => (TestRegReg x x) (SetccReg [swapped(cmpCondition(ins))] b) (MovzxRegReg8 r b)

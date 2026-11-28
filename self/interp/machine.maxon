@@ -231,6 +231,46 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		panic("interp: a vector operation, which only the runtime's source has")
 	end 'visitVecShift'
 
+	function visitVecShuffleDwords(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecShuffleDwords'
+
+	function visitVecAlignBytes(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecAlignBytes'
+
+	function visitVecBlendWords(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecBlendWords'
+
+	function visitVecAes(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecAes'
+
+	function visitVecAesInvMix(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecAesInvMix'
+
+	function visitVecAesArm(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecAesArm'
+
+	function visitVecAesMix(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecAesMix'
+
+	function visitVecClmul(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecClmul'
+
+	function visitVecSha(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: a vector operation, which only the runtime's source has")
+	end 'visitVecSha'
+
+	function visitCpuid(mutates self, f ir.IrFunction, x ir.Instr)
+		panic("interp: cpuid, which only the runtime's source has")
+	end 'visitCpuid'
+
 	function visitLoadWord(mutates self, f ir.IrFunction, x ir.Instr)
 		try execLoadWord(vm, x: x) otherwise ignore
 	end 'visitLoadWord'

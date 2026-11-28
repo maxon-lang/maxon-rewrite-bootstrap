@@ -1,0 +1,533 @@
+// The cryptographic vector intrinsics of the runtime's source against the standards' vectors: the processor's features
+// that the probe finds, kept in the runtime's word for them; the four lane pairs of the carry-less product, and a GHASH
+// multiply of the GCM specification's test case 2 (its ciphertext by its hash subkey, with the subkey shifted and the
+// product reduced as maxon's x64 GHASH does); an AES-128 and an AES-256 key expanded with SubWord taken by the last round
+// of a broadcast word under a zero key, FIPS-197's state after the first round, and its block encrypted and decrypted
+// (appendix C.1 and C.3), and on arm64 the same blocks by its own aese, aesd and aesmc; and one SHA-256 block of "abc" by
+// each target's SHA instructions, as maxon's routines schedule them, against FIPS 180-4's digest. A processor without the
+// AES or the SHA instructions is not asked to run them: the probe says so on standard error and the check is passed over.
+// A vector is no parameter, so the rounds read the key schedule and the message schedule from memory.
+//> probe ok
+//> clmul lanes ok
+//> ghash ok
+//> aes-128 first round ok
+//> aes-128 encrypt ok
+//> aes-128 decrypt ok
+//> aes-256 encrypt ok
+//> aes-256 decrypt ok
+//> sha-256 abc ok
+
+// The words of the probe: that it has looked, that AES and the carry-less product can run, and that SHA-256 can.
+let featureProbed = 1 as Count
+
+let featureAes = 2 as Count
+
+let featureSha = 4 as Count
+
+let vectorBytes = 16 as Count
+
+let aes128Rounds = 10 as Count
+
+let aes256Rounds = 14 as Count
+
+let shaGroups = 16 as Count
+
+let shaLoadedGroups = 4 as Count
+
+let shaSlotMask = 3 as Count
+
+let shaBlockBytes = 64 as Count
+
+let shaStateBytes = 32 as Count
+
+let shaConstantBytes = 256 as Count
+
+// The byte picks of a shuffle: the bytes of a vector in the other order, the bytes of each 32-bit lane in the other
+// order, and each lane's bytes rotated down by one (AES's RotWord).
+let reverseLow = 0x08090A0B0C0D0E0F as Count
+
+let reverseHigh = 0x0001020304050607 as Count
+
+let laneSwapLow = 0x0405060700010203 as Count
+
+let laneSwapHigh = 0x0C0D0E0F08090A0B as Count
+
+let rotateLow = 0x0407060500030201 as Count
+
+let rotateHigh = 0x0C0F0E0D080B0A09 as Count
+
+// GCM's polynomial in the reflected order of the bytes pclmulqdq multiplies: 1 in the low lane and 0xC2 at the top of
+// the high one.
+let ghashPolynomialHigh = 0xC200000000000000 as Count
+
+#if arch(x64)
+	// cpuid's leaf 1 says in ecx (its register 2) whether AES-NI, PCLMULQDQ, SSSE3 and SSE4.1 are there, and leaf 7 in ebx (1) whether SHA is.
+	let cpuidFeatureLeaf = 1 as Count
+
+	let cpuidStructuredLeaf = 7 as Count
+
+	let cpuidAesBits = 0x2080202 as Count
+
+	let cpuidVectorBaseline = 0x80200 as Count
+
+	let cpuidShaBit = 0x20000000 as Count
+#else
+	// Linux gives the processor's features as the auxiliary vector's AT_HWCAP: AES and PMULL together, and SHA2.
+	let auxHwcap = 16 as Count
+
+	let hwcapAes = 0x18 as Count
+
+	let hwcapSha2 = 0x40 as Count
+#endif
+
+function main() returns ExitCode
+	let features = testProbeWord()
+	testClmulLanes()
+	testGhash()
+	if (features and featureAes) != 0 'aes'
+		testAes()
+	end 'aes' else 'noAes'
+		testPassOver("the processor has no AES instructions", names: "aes-128 first round ok\naes-128 encrypt ok\naes-128 decrypt ok\naes-256 encrypt ok\naes-256 decrypt ok\n")
+	end 'noAes'
+	if (features and featureSha) != 0 'sha'
+		testSha()
+	end 'sha' else 'noSha'
+		testPassOver("the processor has no SHA-256 instructions", names: "sha-256 abc ok\n")
+	end 'noSha'
+	return 0
+end 'main'
+
+// testProbeWord probes the processor, keeps what it found in the runtime's word, which no one has written yet, and reads
+// it back.
+function testProbeWord() returns Count
+	let at = __Raw.cpuFeaturesAddress()
+	let before = __Raw.loadWord(at, offset: 0)
+	let found = testProbe()
+	__Raw.storeWord(at, offset: 0, value: found)
+	let kept = __Raw.loadWord(at, offset: 0)
+	if before == 0 and kept == found and (found and featureProbed) != 0 'kept'
+		testWrite("probe ok\n")
+	end 'kept' else 'lost'
+		testWrite("probe gave {itoa(before, unsigned: true)} {itoa(kept, unsigned: true)}\n")
+	end 'lost'
+	return found
+end 'testProbeWord'
+
+#if arch(x64)
+	function testProbe() returns Count
+		var found = featureProbed
+		let highest = __Raw.cpuid(0, subleaf: 0, register: 0)
+		if highest < cpuidFeatureLeaf 'old'
+			return found
+		end 'old'
+		let ecx = __Raw.cpuid(cpuidFeatureLeaf, subleaf: 0, register: 2)
+		if (ecx and cpuidAesBits) == cpuidAesBits 'aes'
+			found = found or featureAes
+		end 'aes'
+		if (ecx and cpuidVectorBaseline) == cpuidVectorBaseline and highest >= cpuidStructuredLeaf 'structured'
+			if (__Raw.cpuid(cpuidStructuredLeaf, subleaf: 0, register: 1) and cpuidShaBit) != 0 'sha'
+				found = found or featureSha
+			end 'sha'
+		end 'structured'
+		return found
+	end 'testProbe'
+#else
+	#if os(Linux)
+		function testProbe() returns Count
+			var found = featureProbed
+			var at = environment()
+			while __Raw.loadWord(at, offset: 0) != 0 'environment'
+				at = __Raw.wrappingAdd(at, right: wordBytes)
+			end 'environment'
+			at = __Raw.wrappingAdd(at, right: wordBytes)
+			while __Raw.loadWord(at, offset: 0) != 0 'auxiliary'
+				if __Raw.loadWord(at, offset: 0) == auxHwcap 'hwcap'
+					let hwcap = __Raw.loadWord(at, offset: wordBytes)
+					if (hwcap and hwcapAes) == hwcapAes 'aes'
+						found = found or featureAes
+					end 'aes'
+					if (hwcap and hwcapSha2) != 0 'sha'
+						found = found or featureSha
+					end 'sha'
+				end 'hwcap'
+				at = __Raw.wrappingAdd(at, right: wordBytes * 2)
+			end 'auxiliary'
+			return found
+		end 'testProbe'
+	#else
+		// Every arm64 Mac has the cryptographic extension.
+		function testProbe() returns Count
+			return featureProbed or featureAes or featureSha
+		end 'testProbe'
+	#endif
+#endif
+
+// testClmulLanes multiplies each pair of 64-bit lanes that a selection picks: 3 and 5 by 7 and 0x100.
+function testClmulLanes()
+	let a = __Raw.vectorOfWords(3, high: 5)
+	let b = __Raw.vectorOfWords(7, high: 0x100)
+	let lows = __Raw.vectorClmul(a, right: b, select: 0x00)
+	let highs = __Raw.vectorClmul(a, right: b, select: 0x11)
+	let highLeft = __Raw.vectorClmul(a, right: b, select: 0x01)
+	let highRight = __Raw.vectorClmul(a, right: b, select: 0x10)
+	let same = __Raw.vectorWord(lows, lane: 0) == 9 and __Raw.vectorWord(lows, lane: 1) == 0
+	let sameHigh = __Raw.vectorWord(highs, lane: 0) == 0x500 and __Raw.vectorWord(highs, lane: 1) == 0
+	let sameMixed = __Raw.vectorWord(highLeft, lane: 0) == 27 and __Raw.vectorWord(highRight, lane: 0) == 0x300
+	testCheck("clmul lanes", ok: same and sameHigh and sameMixed)
+end 'testClmulLanes'
+
+// testGhash is the GCM specification's X1 of test case 2, its ciphertext C by its hash subkey H, the bytes of each
+// reversed, H shifted up a bit and reduced, the Karatsuba product, and two folds by the polynomial.
+function testGhash()
+	let reverse = __Raw.vectorOfWords(reverseLow, high: reverseHigh)
+	let h = __Raw.vectorShuffleBytes(__Raw.vectorOfWords(0x3B2C8AEFD44BE966, high: 0x2E2B34CA59FA4C88), picks: reverse)
+	let carry = __Raw.wrappingSub(0, right: __Raw.vectorWord(h, lane: 1) shr 63)
+	let polynomial = __Raw.vectorOfWords(1, high: ghashPolynomialHigh)
+	var shifted = __Raw.vectorOr(__Raw.vectorShiftLanesLeft(h, bits: 1), right: __Raw.vectorShiftBytesUp(__Raw.vectorShiftLanesRight(h, bits: 63), bytes: 8))
+	shifted = __Raw.vectorXor(shifted, right: __Raw.vectorAnd(polynomial, right: __Raw.vectorOfWords(carry, high: carry)))
+	let x = __Raw.vectorShuffleBytes(__Raw.vectorOfWords(0x92A3B660CEDA8803, high: 0x78FEB271B9C228F3), picks: reverse)
+	var low = __Raw.vectorClmul(x, right: shifted, select: 0x00)
+	var high = __Raw.vectorClmul(x, right: shifted, select: 0x11)
+	let xFolded = __Raw.vectorXor(x, right: __Raw.vectorShuffleDwords(x, order: 0x4E))
+	let hFolded = __Raw.vectorXor(shifted, right: __Raw.vectorShuffleDwords(shifted, order: 0x4E))
+	var middle = __Raw.vectorClmul(xFolded, right: hFolded, select: 0x00)
+	middle = __Raw.vectorXor(middle, right: __Raw.vectorXor(low, right: high))
+	low = __Raw.vectorXor(low, right: __Raw.vectorShiftBytesUp(middle, bytes: 8))
+	high = __Raw.vectorXor(high, right: __Raw.vectorShiftBytesDown(middle, bytes: 8))
+	low = __Raw.vectorXor(__Raw.vectorShuffleDwords(low, order: 0x4E), right: __Raw.vectorClmul(polynomial, right: low, select: 0x01))
+	low = __Raw.vectorXor(__Raw.vectorShuffleDwords(low, order: 0x4E), right: __Raw.vectorClmul(polynomial, right: low, select: 0x01))
+	let product = __Raw.vectorShuffleBytes(__Raw.vectorXor(low, right: high), picks: reverse)
+	testCheck("ghash", ok: __Raw.vectorWord(product, lane: 0) == 0x8862709146C72E5E and __Raw.vectorWord(product, lane: 1) == 0xB7DE535368B0852C)
+end 'testGhash'
+
+function testAes()
+	let key = alloc(2 * vectorBytes)
+	let schedule = alloc((aes256Rounds + 1) * vectorBytes)
+	let block = alloc(vectorBytes)
+	let out = alloc(vectorBytes)
+	testStoreVector(key, words: 0x0706050403020100, high: 0x0F0E0D0C0B0A0908)
+	testStoreVector(__Raw.wrappingAdd(key, right: vectorBytes), words: 0x1716151413121110, high: 0x1F1E1D1C1B1A1918)
+	testStoreVector(block, words: 0x7766554433221100, high: 0xFFEEDDCCBBAA9988)
+	testExpand128(key, schedule: schedule)
+	testFirstRound(schedule, block: block, out: out)
+	testCheck("aes-128 first round", ok: testVectorIs(out, low: 0x68CE5A85E810D889, high: 0xE48F12CBD843182D))
+	testEncrypt(schedule, rounds: aes128Rounds, block: block, out: out)
+	testCheck("aes-128 encrypt", ok: testVectorIs(out, low: 0x30047B6AD8E0C469, high: 0x5AC5B47080B7CDD8))
+	testNative(schedule, rounds: aes128Rounds, block: block, low: 0x30047B6AD8E0C469, high: 0x5AC5B47080B7CDD8)
+	testDecrypt(schedule, rounds: aes128Rounds, block: out, out: out)
+	testCheck("aes-128 decrypt", ok: testVectorIs(out, low: 0x7766554433221100, high: 0xFFEEDDCCBBAA9988))
+	testExpand256(key, schedule: schedule)
+	testEncrypt(schedule, rounds: aes256Rounds, block: block, out: out)
+	testCheck("aes-256 encrypt", ok: testVectorIs(out, low: 0xBF456751CAB7A28E, high: 0x8960494B9049FCEA))
+	testNative(schedule, rounds: aes256Rounds, block: block, low: 0xBF456751CAB7A28E, high: 0x8960494B9049FCEA)
+	testDecrypt(schedule, rounds: aes256Rounds, block: out, out: out)
+	testCheck("aes-256 decrypt", ok: testVectorIs(out, low: 0x7766554433221100, high: 0xFFEEDDCCBBAA9988))
+	free(key)
+	free(schedule)
+	free(block)
+	free(out)
+end 'testAes'
+
+// testNextRcon is the round constant after rcon: rcon times x in AES's field.
+function testNextRcon(rcon Count) returns Count
+	let doubled = (rcon and 0xFF) shl 1
+	if doubled > 0xFF 'reduced'
+		return doubled xor 0x11B
+	end 'reduced'
+	return doubled
+end 'testNextRcon'
+
+// testExpand128 writes the eleven round keys of an AES-128 key: SubWord(RotWord(w3)) on every lane from the last round of
+// w3 broadcast under a zero key, whose ShiftRows leaves four equal columns as they are, then the rotation and rcon.
+function testExpand128(key Count, schedule Count)
+	let zero = __Raw.vectorZero()
+	let rotate = __Raw.vectorOfWords(rotateLow, high: rotateHigh)
+	var k = __Raw.vectorLoad(key, offset: 0)
+	__Raw.vectorStore(schedule, offset: 0, value: k)
+	var rcon = 1 as Count
+	for round in 1 upto aes128Rounds + 1 'rounds'
+		var t = __Raw.vectorShuffleDwords(k, order: 0xFF)
+		t = __Raw.vectorAesEncryptLast(t, key: zero)
+		t = __Raw.vectorShuffleBytes(t, picks: rotate)
+		let word = rcon or ((rcon and 0xFF) shl 32)
+		t = __Raw.vectorXor(t, right: __Raw.vectorOfWords(word, high: word))
+		var spread = __Raw.vectorShiftBytesUp(k, bytes: 4)
+		k = __Raw.vectorXor(k, right: spread)
+		spread = __Raw.vectorShiftBytesUp(spread, bytes: 4)
+		k = __Raw.vectorXor(k, right: spread)
+		spread = __Raw.vectorShiftBytesUp(spread, bytes: 4)
+		k = __Raw.vectorXor(__Raw.vectorXor(k, right: spread), right: t)
+		__Raw.vectorStore(schedule, offset: round * vectorBytes, value: k)
+		rcon = testNextRcon(rcon)
+	end 'rounds'
+end 'testExpand128'
+
+// testExpand256 writes the fifteen round keys of an AES-256 key: an even one from SubWord(RotWord) and rcon, an odd one
+// from SubWord alone.
+function testExpand256(key Count, schedule Count)
+	let zero = __Raw.vectorZero()
+	let rotate = __Raw.vectorOfWords(rotateLow, high: rotateHigh)
+	var previous = __Raw.vectorLoad(key, offset: 0)
+	var current = __Raw.vectorLoad(key, offset: vectorBytes)
+	__Raw.vectorStore(schedule, offset: 0, value: previous)
+	__Raw.vectorStore(schedule, offset: vectorBytes, value: current)
+	var rcon = 1 as Count
+	for round in 2 upto aes256Rounds + 1 'rounds'
+		var t = __Raw.vectorShuffleDwords(current, order: 0xFF)
+		t = __Raw.vectorAesEncryptLast(t, key: zero)
+		if (round and 1) == 0 'even'
+			t = __Raw.vectorShuffleBytes(t, picks: rotate)
+			let word = rcon or ((rcon and 0xFF) shl 32)
+			t = __Raw.vectorXor(t, right: __Raw.vectorOfWords(word, high: word))
+			rcon = testNextRcon(rcon)
+		end 'even'
+		var k = previous
+		var spread = __Raw.vectorShiftBytesUp(k, bytes: 4)
+		k = __Raw.vectorXor(k, right: spread)
+		spread = __Raw.vectorShiftBytesUp(spread, bytes: 4)
+		k = __Raw.vectorXor(k, right: spread)
+		spread = __Raw.vectorShiftBytesUp(spread, bytes: 4)
+		k = __Raw.vectorXor(__Raw.vectorXor(k, right: spread), right: t)
+		__Raw.vectorStore(schedule, offset: round * vectorBytes, value: k)
+		previous = current
+		current = k
+	end 'rounds'
+end 'testExpand256'
+
+function testRoundKey(schedule Count, round Count) returns Count
+	return __Raw.wrappingAdd(schedule, right: try round * vectorBytes otherwise panic("a round past memory"))
+end 'testRoundKey'
+
+// testFirstRound is FIPS-197's state after its first round: the block with the first key, and one round.
+function testFirstRound(schedule Count, block Count, out Count)
+	var s = __Raw.vectorXor(__Raw.vectorLoad(block, offset: 0), right: __Raw.vectorLoad(schedule, offset: 0))
+	s = __Raw.vectorAesEncrypt(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: 1), offset: 0))
+	__Raw.vectorStore(out, offset: 0, value: s)
+end 'testFirstRound'
+
+function testEncrypt(schedule Count, rounds Count, block Count, out Count)
+	var s = __Raw.vectorXor(__Raw.vectorLoad(block, offset: 0), right: __Raw.vectorLoad(schedule, offset: 0))
+	for round in 1 upto rounds 'rounds'
+		s = __Raw.vectorAesEncrypt(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: round), offset: 0))
+	end 'rounds'
+	s = __Raw.vectorAesEncryptLast(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: rounds), offset: 0))
+	__Raw.vectorStore(out, offset: 0, value: s)
+end 'testEncrypt'
+
+// testDecrypt is the equivalent inverse cipher: the round keys in the other order, the middle ones through InvMixColumns.
+function testDecrypt(schedule Count, rounds Count, block Count, out Count)
+	var s = __Raw.vectorXor(__Raw.vectorLoad(block, offset: 0), right: __Raw.vectorLoad(testRoundKey(schedule, round: rounds), offset: 0))
+	var round = rounds
+	while round > 1 'rounds'
+		round = round - 1
+		s = __Raw.vectorAesDecrypt(s, key: __Raw.vectorAesInverseMix(__Raw.vectorLoad(testRoundKey(schedule, round: round), offset: 0)))
+	end 'rounds'
+	s = __Raw.vectorAesDecryptLast(s, key: __Raw.vectorLoad(schedule, offset: 0))
+	__Raw.vectorStore(out, offset: 0, value: s)
+end 'testDecrypt'
+
+#if arch(arm64)
+	// testNative encrypts the block by arm64's aese and aesmc, which take the key first, and decrypts what that gave by aesd
+	// and aesimc; a mismatch panics, since x64 has no such instructions to give the line on.
+	function testNative(schedule Count, rounds Count, block Count, low Count, high Count)
+		var s = __Raw.vectorLoad(block, offset: 0)
+		for round in 0 upto rounds 'rounds'
+			s = __Raw.vectorAese(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: round), offset: 0))
+			if round + 1 < rounds 'mix'
+				s = __Raw.vectorAesmc(s)
+			end 'mix'
+		end 'rounds'
+		s = __Raw.vectorXor(s, right: __Raw.vectorLoad(testRoundKey(schedule, round: rounds), offset: 0))
+		if __Raw.vectorWord(s, lane: 0) != low or __Raw.vectorWord(s, lane: 1) != high 'encrypted'
+			panic("aese and aesmc gave another block")
+		end 'encrypted'
+		s = __Raw.vectorAesd(s, key: __Raw.vectorLoad(testRoundKey(schedule, round: rounds), offset: 0))
+		var round = (try rounds - 1 otherwise panic("no rounds")) as Count
+		while round > 0 'back'
+			s = __Raw.vectorAesInverseMix(s)
+			s = __Raw.vectorAesd(s, key: __Raw.vectorAesInverseMix(__Raw.vectorLoad(testRoundKey(schedule, round: round), offset: 0)))
+			round = round - 1
+		end 'back'
+		s = __Raw.vectorXor(s, right: __Raw.vectorLoad(schedule, offset: 0))
+		if __Raw.vectorWord(s, lane: 0) != 0x7766554433221100 or __Raw.vectorWord(s, lane: 1) != 0xFFEEDDCCBBAA9988 'decrypted'
+			panic("aesd and aesimc gave another block")
+		end 'decrypted'
+	end 'testNative'
+#else
+	function testNative(schedule Count, rounds Count, block Count, low Count, high Count)
+	end 'testNative'
+#endif
+
+// testSha compresses the one block of "abc", padded, into SHA-256's initial state.
+function testSha()
+	let state = alloc(shaStateBytes)
+	let data = alloc(shaBlockBytes)
+	let constants = alloc(shaConstantBytes)
+	let schedule = alloc(shaLoadedGroups * vectorBytes)
+	for i in 0 upto shaBlockBytes 'zero'
+		__Raw.storeByte(data, offset: i, value: 0)
+	end 'zero'
+	__Raw.storeByte(data, offset: 0, value: 0x61)
+	__Raw.storeByte(data, offset: 1, value: 0x62)
+	__Raw.storeByte(data, offset: 2, value: 0x63)
+	__Raw.storeByte(data, offset: 3, value: 0x80)
+	__Raw.storeByte(data, offset: shaBlockBytes - 1, value: 24)
+	testFillConstants(constants)
+	testFillState(state)
+	testCompress(state, data: data, constants: constants, schedule: schedule)
+	testCheck("sha-256 abc", ok: testDigestMatches(state))
+	free(state)
+	free(data)
+	free(constants)
+	free(schedule)
+end 'testSha'
+
+function testSlot(schedule Count, group Count) returns Count
+	return __Raw.wrappingAdd(schedule, right: (group and shaSlotMask) * vectorBytes)
+end 'testSlot'
+
+#if arch(x64)
+	// testCompress is maxon's X64ShaRuntime: the state's A, B, E, F and C, D, G, H in two vectors, two sha256rnds2 for each
+	// four rounds, sha256msg1 and sha256msg2 with a palignr between them for the schedule.
+	function testCompress(state Count, data Count, constants Count, schedule Count)
+		let swap = __Raw.vectorOfWords(laneSwapLow, high: laneSwapHigh)
+		var temp = __Raw.vectorShuffleDwords(__Raw.vectorLoad(state, offset: 0), order: 0xB1)
+		var low = __Raw.vectorShuffleDwords(__Raw.vectorLoad(state, offset: vectorBytes), order: 0x1B)
+		var high = __Raw.vectorAlignBytes(temp, low: low, bytes: 8)
+		low = __Raw.vectorBlendWords(low, right: temp, mask: 0xF0)
+		let savedHigh = high
+		let savedLow = low
+		for group in 0 upto shaGroups 'groups'
+			let slot = testSlot(schedule, group: group)
+			if group < shaLoadedGroups 'load'
+				__Raw.vectorStore(slot, offset: 0, value: __Raw.vectorShuffleBytes(__Raw.vectorLoad(data, offset: group * vectorBytes), picks: swap))
+			end 'load'
+			let current = __Raw.vectorLoad(slot, offset: 0)
+			var words = __Raw.vectorAddLanes32(__Raw.vectorLoad(constants, offset: group * vectorBytes), right: current)
+			low = __Raw.vectorSha256Rounds2(low, other: high, words: words)
+			if group >= 3 and group <= 14 'extend'
+				let next = testSlot(schedule, group: group + 1)
+				let aligned = __Raw.vectorAlignBytes(current, low: __Raw.vectorLoad(testSlot(schedule, group: group + 3), offset: 0), bytes: 4)
+				__Raw.vectorStore(next, offset: 0, value: __Raw.vectorSha256Message2(__Raw.vectorAddLanes32(__Raw.vectorLoad(next, offset: 0), right: aligned), right: current))
+			end 'extend'
+			words = __Raw.vectorShuffleDwords(words, order: 0x0E)
+			high = __Raw.vectorSha256Rounds2(high, other: low, words: words)
+			if group >= 1 and group <= 12 'prepare'
+				let back = testSlot(schedule, group: group + 3)
+				__Raw.vectorStore(back, offset: 0, value: __Raw.vectorSha256Message1(__Raw.vectorLoad(back, offset: 0), right: current))
+			end 'prepare'
+		end 'groups'
+		high = __Raw.vectorAddLanes32(high, right: savedHigh)
+		low = __Raw.vectorAddLanes32(low, right: savedLow)
+		temp = __Raw.vectorShuffleDwords(high, order: 0x1B)
+		low = __Raw.vectorShuffleDwords(low, order: 0xB1)
+		__Raw.vectorStore(state, offset: 0, value: __Raw.vectorBlendWords(temp, right: low, mask: 0xF0))
+		__Raw.vectorStore(state, offset: vectorBytes, value: __Raw.vectorAlignBytes(low, low: temp, bytes: 8))
+	end 'testCompress'
+#else
+	// testCompress is maxon's Arm64ShaRuntime: the state's A to D and E to H as they are laid out, sha256h and sha256h2 for
+	// each four rounds, and sha256su0 and sha256su1 for the schedule.
+	function testCompress(state Count, data Count, constants Count, schedule Count)
+		let swap = __Raw.vectorOfWords(laneSwapLow, high: laneSwapHigh)
+		var abcd = __Raw.vectorLoad(state, offset: 0)
+		var efgh = __Raw.vectorLoad(state, offset: vectorBytes)
+		let savedAbcd = abcd
+		let savedEfgh = efgh
+		for group in 0 upto shaLoadedGroups 'load'
+			__Raw.vectorStore(testSlot(schedule, group: group), offset: 0, value: __Raw.vectorShuffleBytes(__Raw.vectorLoad(data, offset: group * vectorBytes), picks: swap))
+		end 'load'
+		for group in 0 upto shaGroups 'groups'
+			let slot = testSlot(schedule, group: group)
+			let current = __Raw.vectorLoad(slot, offset: 0)
+			let words = __Raw.vectorAddLanes32(current, right: __Raw.vectorLoad(constants, offset: group * vectorBytes))
+			let copy = abcd
+			if group < shaGroups - shaLoadedGroups 'extend'
+				let first = __Raw.vectorSha256Su0(current, second: __Raw.vectorLoad(testSlot(schedule, group: group + 1), offset: 0))
+				let third = __Raw.vectorLoad(testSlot(schedule, group: group + 2), offset: 0)
+				let fourth = __Raw.vectorLoad(testSlot(schedule, group: group + 3), offset: 0)
+				__Raw.vectorStore(slot, offset: 0, value: __Raw.vectorSha256Su1(first, third: third, fourth: fourth))
+			end 'extend'
+			abcd = __Raw.vectorSha256H(abcd, efgh: efgh, words: words)
+			efgh = __Raw.vectorSha256H2(efgh, abcd: copy, words: words)
+		end 'groups'
+		__Raw.vectorStore(state, offset: 0, value: __Raw.vectorAddLanes32(abcd, right: savedAbcd))
+		__Raw.vectorStore(state, offset: vectorBytes, value: __Raw.vectorAddLanes32(efgh, right: savedEfgh))
+	end 'testCompress'
+#endif
+
+function testStoreVector(at Count, words Count, high Count)
+	__Raw.storeWord(at, offset: 0, value: words)
+	__Raw.storeWord(at, offset: 8, value: high)
+end 'testStoreVector'
+
+function testVectorIs(at Count, low Count, high Count) returns bool
+	return __Raw.loadWord(at, offset: 0) == low and __Raw.loadWord(at, offset: 8) == high
+end 'testVectorIs'
+
+function testCheck(name String, ok bool)
+	if ok 'ok'
+		testWrite("{name} ok\n")
+	end 'ok' else 'wrong'
+		testWrite("{name} gave another value\n")
+	end 'wrong'
+end 'testCheck'
+
+// testPassOver writes the lines of the checks a processor without their instructions does not run, and says why on
+// standard error.
+function testPassOver(why String, names String)
+	write(__Raw.loadWord(__Raw.stderrAddress(), offset: 0), text: "{why}: its checks are passed over\n")
+	testWrite(names)
+end 'testPassOver'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'
+
+// testFillConstants writes SHA-256's 64 round constants at an address, each a little-endian 32-bit word.
+function testFillConstants(at Count)
+	__Raw.storeWord(at, offset: 0, value: 0x71374491428A2F98)
+	__Raw.storeWord(at, offset: 8, value: 0xE9B5DBA5B5C0FBCF)
+	__Raw.storeWord(at, offset: 16, value: 0x59F111F13956C25B)
+	__Raw.storeWord(at, offset: 24, value: 0xAB1C5ED5923F82A4)
+	__Raw.storeWord(at, offset: 32, value: 0x12835B01D807AA98)
+	__Raw.storeWord(at, offset: 40, value: 0x550C7DC3243185BE)
+	__Raw.storeWord(at, offset: 48, value: 0x80DEB1FE72BE5D74)
+	__Raw.storeWord(at, offset: 56, value: 0xC19BF1749BDC06A7)
+	__Raw.storeWord(at, offset: 64, value: 0xEFBE4786E49B69C1)
+	__Raw.storeWord(at, offset: 72, value: 0x240CA1CC0FC19DC6)
+	__Raw.storeWord(at, offset: 80, value: 0x4A7484AA2DE92C6F)
+	__Raw.storeWord(at, offset: 88, value: 0x76F988DA5CB0A9DC)
+	__Raw.storeWord(at, offset: 96, value: 0xA831C66D983E5152)
+	__Raw.storeWord(at, offset: 104, value: 0xBF597FC7B00327C8)
+	__Raw.storeWord(at, offset: 112, value: 0xD5A79147C6E00BF3)
+	__Raw.storeWord(at, offset: 120, value: 0x1429296706CA6351)
+	__Raw.storeWord(at, offset: 128, value: 0x2E1B213827B70A85)
+	__Raw.storeWord(at, offset: 136, value: 0x53380D134D2C6DFC)
+	__Raw.storeWord(at, offset: 144, value: 0x766A0ABB650A7354)
+	__Raw.storeWord(at, offset: 152, value: 0x92722C8581C2C92E)
+	__Raw.storeWord(at, offset: 160, value: 0xA81A664BA2BFE8A1)
+	__Raw.storeWord(at, offset: 168, value: 0xC76C51A3C24B8B70)
+	__Raw.storeWord(at, offset: 176, value: 0xD6990624D192E819)
+	__Raw.storeWord(at, offset: 184, value: 0x106AA070F40E3585)
+	__Raw.storeWord(at, offset: 192, value: 0x1E376C0819A4C116)
+	__Raw.storeWord(at, offset: 200, value: 0x34B0BCB52748774C)
+	__Raw.storeWord(at, offset: 208, value: 0x4ED8AA4A391C0CB3)
+	__Raw.storeWord(at, offset: 216, value: 0x682E6FF35B9CCA4F)
+	__Raw.storeWord(at, offset: 224, value: 0x78A5636F748F82EE)
+	__Raw.storeWord(at, offset: 232, value: 0x8CC7020884C87814)
+	__Raw.storeWord(at, offset: 240, value: 0xA4506CEB90BEFFFA)
+	__Raw.storeWord(at, offset: 248, value: 0xC67178F2BEF9A3F7)
+end 'testFillConstants'
+
+// testFillState writes SHA-256's initial state, a to h, each a little-endian 32-bit word.
+function testFillState(at Count)
+	__Raw.storeWord(at, offset: 0, value: 0xBB67AE856A09E667)
+	__Raw.storeWord(at, offset: 8, value: 0xA54FF53A3C6EF372)
+	__Raw.storeWord(at, offset: 16, value: 0x9B05688C510E527F)
+	__Raw.storeWord(at, offset: 24, value: 0x5BE0CD191F83D9AB)
+end 'testFillState'
+
+// testDigestMatches is whether the state at an address is FIPS 180-4's SHA-256 of "abc".
+function testDigestMatches(at Count) returns bool
+	return __Raw.loadWord(at, offset: 0) == 0x8F01CFEABA7816BF and __Raw.loadWord(at, offset: 8) == 0x5DAE2223414140DE and __Raw.loadWord(at, offset: 16) == 0x96177A9CB00361A3 and __Raw.loadWord(at, offset: 24) == 0xF20015ADB410FF61
+end 'testDigestMatches'

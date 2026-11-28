@@ -1,0 +1,65 @@
+// The shuffles of the runtime's vectors by a constant against their definitions: shuffleDwords picks lane i of the result
+// by bits 2i and 2i + 1 of its order (x64's pshufd; arm64's dup for a broadcast, ext for the swap of the halves and tbl
+// for any other), alignBytes takes 16 bytes from a byte on of low and then high (palignr, ext), and blendWords takes the
+// 16-bit lanes of right where its mask's bit is set (pblendw; on arm64 the bits of the mask's lanes, and, and eor), each
+// of the vector of bytes 0 to 15 and the one of bytes 16 to 31.
+//> shuffleDwords 0x1B ok
+//> shuffleDwords 0xFF ok
+//> shuffleDwords 0x55 ok
+//> shuffleDwords 0x4E ok
+//> shuffleDwords 0xB1 ok
+//> shuffleDwords 0x0E ok
+//> alignBytes 1 ok
+//> alignBytes 4 ok
+//> alignBytes 8 ok
+//> alignBytes 15 ok
+//> blendWords 0xF0 ok
+//> blendWords 0x0F ok
+//> blendWords 0x5A ok
+//> blendWords 0x01 ok
+
+function main() returns ExitCode
+	let v = __Raw.vectorOfWords(0x0706050403020100, high: 0x0F0E0D0C0B0A0908)
+	let w = __Raw.vectorOfWords(0x1716151413121110, high: 0x1F1E1D1C1B1A1918)
+	let s0 = __Raw.vectorShuffleDwords(v, order: 0x1B)
+	testExpect("shuffleDwords 0x1B", low: __Raw.vectorWord(s0, lane: 0), high: __Raw.vectorWord(s0, lane: 1), wantLow: 0x0B0A09080F0E0D0C, wantHigh: 0x0302010007060504)
+	let s1 = __Raw.vectorShuffleDwords(v, order: 0xFF)
+	testExpect("shuffleDwords 0xFF", low: __Raw.vectorWord(s1, lane: 0), high: __Raw.vectorWord(s1, lane: 1), wantLow: 0x0F0E0D0C0F0E0D0C, wantHigh: 0x0F0E0D0C0F0E0D0C)
+	let s2 = __Raw.vectorShuffleDwords(v, order: 0x55)
+	testExpect("shuffleDwords 0x55", low: __Raw.vectorWord(s2, lane: 0), high: __Raw.vectorWord(s2, lane: 1), wantLow: 0x0706050407060504, wantHigh: 0x0706050407060504)
+	let s3 = __Raw.vectorShuffleDwords(v, order: 0x4E)
+	testExpect("shuffleDwords 0x4E", low: __Raw.vectorWord(s3, lane: 0), high: __Raw.vectorWord(s3, lane: 1), wantLow: 0x0F0E0D0C0B0A0908, wantHigh: 0x0706050403020100)
+	let s4 = __Raw.vectorShuffleDwords(v, order: 0xB1)
+	testExpect("shuffleDwords 0xB1", low: __Raw.vectorWord(s4, lane: 0), high: __Raw.vectorWord(s4, lane: 1), wantLow: 0x0302010007060504, wantHigh: 0x0B0A09080F0E0D0C)
+	let s5 = __Raw.vectorShuffleDwords(v, order: 0x0E)
+	testExpect("shuffleDwords 0x0E", low: __Raw.vectorWord(s5, lane: 0), high: __Raw.vectorWord(s5, lane: 1), wantLow: 0x0F0E0D0C0B0A0908, wantHigh: 0x0302010003020100)
+	let a0 = __Raw.vectorAlignBytes(w, low: v, bytes: 1)
+	testExpect("alignBytes 1", low: __Raw.vectorWord(a0, lane: 0), high: __Raw.vectorWord(a0, lane: 1), wantLow: 0x0807060504030201, wantHigh: 0x100F0E0D0C0B0A09)
+	let a1 = __Raw.vectorAlignBytes(w, low: v, bytes: 4)
+	testExpect("alignBytes 4", low: __Raw.vectorWord(a1, lane: 0), high: __Raw.vectorWord(a1, lane: 1), wantLow: 0x0B0A090807060504, wantHigh: 0x131211100F0E0D0C)
+	let a2 = __Raw.vectorAlignBytes(w, low: v, bytes: 8)
+	testExpect("alignBytes 8", low: __Raw.vectorWord(a2, lane: 0), high: __Raw.vectorWord(a2, lane: 1), wantLow: 0x0F0E0D0C0B0A0908, wantHigh: 0x1716151413121110)
+	let a3 = __Raw.vectorAlignBytes(w, low: v, bytes: 15)
+	testExpect("alignBytes 15", low: __Raw.vectorWord(a3, lane: 0), high: __Raw.vectorWord(a3, lane: 1), wantLow: 0x161514131211100F, wantHigh: 0x1E1D1C1B1A191817)
+	let b0 = __Raw.vectorBlendWords(v, right: w, mask: 0xF0)
+	testExpect("blendWords 0xF0", low: __Raw.vectorWord(b0, lane: 0), high: __Raw.vectorWord(b0, lane: 1), wantLow: 0x0706050403020100, wantHigh: 0x1F1E1D1C1B1A1918)
+	let b1 = __Raw.vectorBlendWords(v, right: w, mask: 0x0F)
+	testExpect("blendWords 0x0F", low: __Raw.vectorWord(b1, lane: 0), high: __Raw.vectorWord(b1, lane: 1), wantLow: 0x1716151413121110, wantHigh: 0x0F0E0D0C0B0A0908)
+	let b2 = __Raw.vectorBlendWords(v, right: w, mask: 0x5A)
+	testExpect("blendWords 0x5A", low: __Raw.vectorWord(b2, lane: 0), high: __Raw.vectorWord(b2, lane: 1), wantLow: 0x1716050413120100, wantHigh: 0x0F0E1D1C0B0A1918)
+	let b3 = __Raw.vectorBlendWords(v, right: w, mask: 0x01)
+	testExpect("blendWords 0x01", low: __Raw.vectorWord(b3, lane: 0), high: __Raw.vectorWord(b3, lane: 1), wantLow: 0x0706050403021110, wantHigh: 0x0F0E0D0C0B0A0908)
+	return 0
+end 'main'
+
+function testExpect(name String, low Count, high Count, wantLow Count, wantHigh Count)
+	if low == wantLow and high == wantHigh 'same'
+		testWrite("{name} ok\n")
+		return
+	end 'same'
+	testWrite("{name} gave {itoa(low, unsigned: true)} {itoa(high, unsigned: true)}\n")
+end 'testExpect'
+
+function testWrite(text String)
+	write(__Raw.loadWord(__Raw.stdoutAddress(), offset: 0), text: text)
+end 'testWrite'

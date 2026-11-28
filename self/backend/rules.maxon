@@ -31,6 +31,16 @@ function arm64UshrField(n Count) returns Count
 	return try laneShiftLimit - n otherwise panic("backend: a lane shifted past its bits")
 end 'arm64UshrField'
 
+// imm8OfByte is the signed imm8 whose byte is a byte's (byteValues): the order of pshufd and the mask of pblendw are a
+// byte, which the encoder takes as the imm8 of the same bits.
+function imm8OfByte(n Count) returns ir.Word
+	let b = try n as Byte otherwise panic("backend: an immediate past a byte")
+	if b as Count > imm8Max as Count 'negative'
+		return (b as ir.Word) - (byteValues as ir.Word)
+	end 'negative'
+	return b as ir.Word
+end 'imm8OfByte'
+
 // fitsImm8 is whether a word is the sign extension of an 8-bit immediate.
 function fitsImm8(c ir.Word) returns bool
 	return c >= imm8Min and c <= imm8Max

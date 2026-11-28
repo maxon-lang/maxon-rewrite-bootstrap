@@ -552,3 +552,55 @@ function frameBoxDisp(f ir.IrFunction, box Count) returns Imm32
 	let last = try slotsWords(f) + box * ifaceBoxWords + ifaceBoxWords - 1 otherwise panic("backend: a frame box past memory")
 	return spillSlotOffset(try last as SpillSlot otherwise panic("backend: a frame box past 2 GiB"))
 end 'frameBoxDisp'
+
+// emitVecSha selects the SHA extensions' instructions, which read and write their first vector: sha256rnds2 reads its third
+// in xmm0, the first vector register. arm64's instructions have no x64 form.
+function emitVecSha(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	let start = ir.vecShaArgsStart(ins)
+	let first = argAt(fn, start: start, index: 0)
+	let second = argAt(fn, start: start, index: 1)
+	match ir.vecShaOp(ins) 'op'
+		vecShaRnds2 then emitSha256Rounds2(sel, ins: ins, first: first, second: second, words: argAt(fn, start: start, index: 2))
+		vecShaMsg1 then emitX64Sha(sel, ins: ins, form: X64Form.sha256msg1RegReg, first: first, second: second)
+		vecShaMsg2 then emitX64Sha(sel, ins: ins, form: X64Form.sha256msg2RegReg, first: first, second: second)
+		vecShaH or
+		vecShaH2 or
+		vecShaSu0 or
+		vecShaSu1 then emitArm64Operation(sel, fn: fn, ins: ins)
+	end 'op'
+end 'emitVecSha'
+
+function emitSha256Rounds2(mutates sel Selector, ins ir.Instr, first MReg, second MReg, words MReg)
+	sel.copy(physOfCount(x64FirstVector), src: words)
+	emitX64Sha(sel, ins: ins, form: X64Form.sha256rnds2RegReg, first: first, second: second)
+end 'emitSha256Rounds2'
+
+// emitX64Sha is a SHA extension's form that reads and writes first, which the instruction's result is defined in.
+function emitX64Sha(mutates sel Selector, ins ir.Instr, form X64Form, first MReg, second MReg)
+	let d = sel.resultOf(ins.dst)
+	sel.target(form, a: d, b: first, c: second, aux: 0, imm: 0)
+end 'emitX64Sha'
+
+// emitCpuid is cpuid of the leaf in eax and the subleaf in ecx, and the register of its answer that the instruction names.
+function emitCpuid(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	sel.copy(x64PhysReg(rax), src: vregOf(ir.cpuidLeaf(ins)))
+	sel.copy(x64PhysReg(rcx), src: vregOf(ir.cpuidSubleaf(ins)))
+	sel.target(X64Form.cpuid, a: noMReg, b: noMReg, c: noMReg, aux: 0, imm: 0)
+	sel.takeFrom(ins.dst, r: cpuidAnswer(ir.cpuidRegister(ins)))
+end 'emitCpuid'
+
+// cpuidAnswer is the register of cpuid's answer that a number names: eax, ebx, ecx and edx in that order.
+function cpuidAnswer(number Count) returns X64Register
+	return match number 'number'
+		0 gives rax
+		1 gives rbx
+		2 gives rcx
+		3 gives rdx
+		default panic("backend: cpuid has no register {number}")
+	end 'number'
+end 'cpuidAnswer'
+
+// emitArm64Operation refuses an operation of arm64's instructions, which the runtime's source has only under #if arch(arm64).
+function emitArm64Operation(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
+	panic("backend: {ir.opcodeName(ins.op)} is an arm64 instruction, which x64 has no form of: the runtime's source has it only under #if arch(arm64)")
+end 'emitArm64Operation'
