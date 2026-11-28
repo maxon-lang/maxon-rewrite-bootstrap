@@ -1,0 +1,22 @@
+// A constant array written `Type from [...]` is laid out in the executable's data, as one written `[...]` with its type
+// declared is: a loop that reads it builds no array.
+// expect-ir: total does not call rt.array.new
+// expect-ir: total does not call rt.array.insert
+// expect-ir: total has some datum
+
+typealias Words = Array with Count
+
+let table = Words from [3, 1, 4, 1, 5, 9, 2, 6]
+
+function total() returns Count
+	var sum = 0 as Count
+	for i in 0 upto 8 'each'
+		sum = try sum + (try table.get(i) otherwise 0) otherwise 0
+	end 'each'
+	return sum
+end 'total'
+
+function main() returns ExitCode
+	print("{total()}\n")
+	return 0
+end 'main'
