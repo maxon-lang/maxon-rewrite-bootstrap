@@ -1,13 +1,17 @@
 // A server's stop closes a kept connection that waits idle between requests at once (RFC 9112 §9.6), with nothing sent, so
-// the stop ends long before its deadline; a request that has begun to arrive is answered first, whole. The stop reaches
-// each connection in a message of its own, so the busy connection may take it before the rest of its request, and answer
-// with `Connection: close`, or after it has answered and gone idle, and close then: either way the answer is whole and the
-// connection then closes, and the test leaves the one header out of what it prints (the deadline test holds the header).
+// the stop ends long before its deadline; a request that the server holds part of is answered first, whole. The server
+// holds part of the busy connection's request when it has said `100 Continue` to its head, and only then does the test
+// stop it: before that, bytes sent may still be on their way through the loopback, and a connection whose request has not
+// reached the server is idle to it, closed at once with the bytes unread (a reset). The stop reaches each connection in a
+// message of its own, so the busy connection may take it before the request's body, and answer with `Connection: close`,
+// or after it has answered and gone idle, and close then: either way the answer is whole and the connection then closes,
+// and the test leaves the one header out of what it prints (the deadline test holds the header).
 // native-only
 //> idle: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\nGET /one HTTP/1.1
 //> busy: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 17\r\n\r\nGET /two HTTP/1.1
+//> told: HTTP/1.1 100 Continue\r\n\r\n
 //> the idle connection: [closed]
-//> the busy connection: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 19\r\n\r\nGET /three HTTP/1.1
+//> the busy connection: HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 33\r\n\r\nPOST /three HTTP/1.1 with 2 bytes
 //> then: [closed]
 //> stopped before its deadline: true
 function shown(text String) returns String
@@ -123,11 +127,12 @@ function main() returns ExitCode
 	print("idle: {idle.next()}\n")
 	busy.send("GET /two HTTP/1.1\r\nHost: a\r\n\r\n")
 	print("busy: {busy.next()}\n")
-	busy.send("GET /three HTTP/1.1\r\nHost: a\r\n")
+	busy.send("POST /three HTTP/1.1\r\nHost: a\r\nContent-Length: 2\r\nExpect: 100-continue\r\n\r\n")
+	print("told: {busy.next()}\n")
 	let started = Clock.nowMs()
 	let stopping = async stopWithin(serving, deadlineMs: 10000)
 	print("the idle connection: {idle.next()}\n")
-	busy.send("\r\n")
+	busy.send("hi")
 	print("the busy connection: {busy.next().replace("Connection: close\\r\\n", with: "")}\n")
 	print("then: {busy.next()}\n")
 	_ = await stopping
