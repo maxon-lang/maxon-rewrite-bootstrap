@@ -795,6 +795,14 @@ function drainsOn(vm Vm, at Count) returns bool
 	return vm.h.shareds[at].queue.count() > 1 and (vm.h.shareds[at].behind or vm.h.shareds[at].gate mod serviceClosed >= vm.turnLimit or vm.h.shareds[at].senders.count() > 0)
 end 'drainsOn'
 
+// drainsBehind makes a listed service that drains on because it holds a turn's worth behind, as the runtime's does: its
+// senders stay slowed until it empties.
+function drainsBehind(mutates d SharedData, turn Count)
+	if d.listedOn != 0 and d.queue.count() > 1 and not d.behind and d.gate mod serviceClosed >= turn 'length'
+		d.behind = true
+	end 'length'
+end 'drainsBehind'
+
 // keepMuted mutes a service as its message's handler ends, and says whether it did: it lets go the senders listed on it so
 // far (the progress argument), which may make the receiver it waits on catch up first. Muted, its behaviour keeps its
 // cowns and its service runs no message.

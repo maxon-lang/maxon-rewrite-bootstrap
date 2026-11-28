@@ -36,9 +36,11 @@
 //   is held, only the behaviour's record (behaviourRelease). A task, a green thread that runs no message (main, a
 //   coroutine, a `when` that is no message of a service), parks at the send instead, even where nothing is counted ahead
 //   of it, so that a listed receiver's task waits for its mute and cannot refill a drain one message at a time.
-// - A listed service that is behind itself, or has senders waiting on it, drains on until it holds no message, and is
-//   muted then (drainsOn): it is not stopped while it is overloaded (ponyc mutes a sender only if it is not overloaded
-//   itself), but its own senders are slowed, so what it passes on is what it holds, and it cannot pass on a refill.
+// - A listed service that is behind itself, by its turns or the length of its queue, or has senders waiting on it, drains
+//   on until it holds no message, and is muted then (drainsOn): it is not stopped while it is overloaded (ponyc mutes a
+//   sender only if it is not overloaded itself), but its own senders are slowed, so what it passes on is what it holds,
+//   and it cannot pass on a refill. One that drains on by its length is made behind there (drainsBehind), so its
+//   senders stay slowed through the drain, as they would not once its start took it under a turn's worth.
 // - A service that lets its senders go unmutes them in the order they were muted, a turn's worth at a time onto the global
 //   run queue, the last of each batch carrying the rest, so a fan-in is not woken all at once to overload it again
 //   (ponyc #2980). There is no operation that applies pressure by hand, whose cycles deadlocked ponyc (#3382).
@@ -76,24 +78,20 @@
 // not started. Where none is, at least b - 2 of the messages counted at s or sent after it started after e(1), so at
 // most T + 2 have not. The one task's place on its way is one of rq ... rb, or of those counted at s.
 //
-// The consumer that such a relay alone sends to, one message a handler: max(3 * T, 2 * T + 2), where the relay's turns
-// run whole. The consumer sends to none, so is never muted, and lets the relay go only by its mark, which markAgain keeps
-// at the relay's last send while listed, or by an empty queue: L for each send but that last. So with s the last time the
-// relay sent unlisted (at most T counted then), a release of the relay after s leaves at most that last message of the
-// consumer unstarted, on its way (overtaken by posted messages, or an empty queue found before it was queued), and from s
-// the count grows, and from such a release it grows from 1, by the relay's sends from its first listed send to its mute,
-// E, one a handler: that handler and, if it drains on, what it holds. 1 is at most T, so the message on its way needs no
-// term. Its task is not let go by the relay's progress while the relay is listed. If the task is
-// parked as the first listed handler ends, it stays parked until the mute, and E is at most 1 + T + 1, the relay's T + 2
-// less the place parked. If it is not, the drain goes on past a handler only while the relay holds T or is behind; held
-// at T it lets the task send unslowed after each start, once a handler, until the turn rule makes the relay behind,
-// within T handlers counting the first, and then parks it: E is at most 1 + (T - 1) + T. So the consumer holds at most
-// T + 2 * T, or 2 * T + 2 where T < 2: 192 natively, which the native test of the shape holds it to. The 2 * T + 4
-// stated before (132) took the task to be slowed throughout a drain, which a drain kept on by the relay's length alone
-// does not give, under the rule of an empty queue as under marks; for the interpreter's turns of 1 to 4 what is proved is
-// within 2 * T + 4, which its oracle holds the consumer to. The turn rule makes the relay behind within T handlers only
-// where its turns run whole, as the interpreter's always do: natively a turn that ends early (preempted, or a strand)
-// marks nothing behind, so a relay whose handlers outlast the slice is not bounded by this argument.
+// The consumer that such a relay alone sends to, one message a handler, the relay with no posted messages of its own:
+// 2 * T + 4 (2 * T + 3 derives). The consumer sends to none, so is never muted, and lets the relay go only by its mark,
+// which markAgain keeps at the relay's last send while listed, or by an empty queue: L for each send but that last. Let s
+// be the last time the relay sent unlisted, finding fewer than T and no flag, so at most T counted then. Where the relay
+// is let go after s, the last such release leaves at most its last message unstarted, on its way (overtaken by posted
+// messages, or an empty queue found before it was queued), and every send after it is listed: the count is at most 1 + E.
+// Where it is not, every send after s is of one listing: at most T + E. E is the relay's sends in one listing, one a
+// handler: the handler h0 that listed it, and, as long as it drains on, those it runs after; muted, it sends no more until
+// let go. At the end of h0 it drains on only if it is behind, holds T (drainsBehind then makes it behind), or has its
+// task parked on it. Behind, every send of the task from then on is slowed, sets it parked, and it is not let go while the
+// relay is listed: the relay's progress lets nobody go while it is listed (startCounted), it does not empty while listed
+// (it mutes then), and its mute ends E. Parked, the task stays so for the same reasons. So the relay runs in the listing
+// only what was counted on it as h0 ended, less the task's place parked: at most its T + 2. E is at most 1 + (T + 2), and
+// the count at most 2 * T + 3, with the message on its way inside it as 1 is at most T.
 //
 // A chain adds a stage's bound at each stage. A chunk of a parallel loop runs on a task of its own, so its parts count as
 // tasks. A service is listed on one receiver at a time, so a second receiver that is behind gets that service's next
@@ -1365,14 +1363,26 @@ function behaviourRelease(record Count, finish Count) returns Count
 		return releaseHandedOn
 	end 'off'
 	let service = __Raw.loadWord(g, offset: greenServiceOffset)
-	if service != noService and __Raw.loadAcquire(service, offset: serviceWaitOffset) == waitListed and isMessageOf(record, service: service) and not drainsOn(service, record: record) 'listed'
-		if keepsRelease(context, record: record, service: service, finish: finish) 'kept'
+	if service != noService and __Raw.loadAcquire(service, offset: serviceWaitOffset) == waitListed and isMessageOf(record, service: service) 'listed'
+		if drainsOn(service, record: record) 'drains'
+			drainsBehind(service)
+		end 'drains' else if keepsRelease(context, record: record, service: service, finish: finish) 'kept'
 			return releaseHeld
 		end 'kept'
 	end 'listed'
 	releaseCowns(record, service: service)
 	return releaseHandedOn
 end 'behaviourRelease'
+
+// drainsBehind makes a listed service that drains on because it holds a turn's worth behind, until its queue empties, so
+// that every send to it from then on is slowed and its senders wait for its mute: what it passes on while listed is what
+// it held as it began to drain (the consumer's bound in the header). It is set before the release that hands on the next
+// message, so no send in between finds fewer than a turn's worth.
+function drainsBehind(service Count)
+	if (__Raw.loadAcquire(service, offset: serviceGateOffset) and serviceQueued) >= turnBehaviours 'length'
+		setGateFlag(service, flag: serviceBehind)
+	end 'length'
+end 'drainsBehind'
 
 // keepsRelease mutes a listed service as its message's handler ends, and says whether it did: not when the service it
 // waits on caught up first. The muted behaviour stays counted among the live ones until its finish has run. The muted flag

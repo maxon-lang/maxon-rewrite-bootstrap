@@ -5090,7 +5090,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   the end of a handler: it keeps its cown and runs no next message until the receiver lets it go, and nothing waits
   inside a handler or holds a green thread meanwhile. A listed service that is behind itself, or has senders waiting on
   it, drains on until it holds no message and is muted then, so it is not stopped while overloaded but cannot pass on
-  a refill. A task (main, a coroutine, a `when` that is no message) parks at the send instead, and a service's sends to
+  a refill; one that drains on by holding 64 is made behind, so its senders stay slowed through the drain. A task (main, a coroutine, a `when` that is no message) parks at the send instead, and a service's sends to
   itself never slow it. A slowed sender waits
   until the receiver has started what was counted ahead of it when it was slowed (its mark: the messages started, the
   places of the gate that are queued or on their way, and the posted messages queued, read under the lock of the
@@ -5107,9 +5107,9 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   and a mark counting its place would wait for a message that waits for it. The queue is bounded in messages: the bound
   of its sent messages, below, plus the posted messages outstanding on it, one for each armed timer or ticker, socket arm
   and watch of a stop, which are never slowed. The sent bound, whatever the speeds where one task sends: main and a slow
-  consumer, 65; main, a relay and the consumer, 66 at the relay and at most 192 at the consumer (3 x 64, where the
-  relay's turns run whole: its drain, kept on by its length alone, lets main send unslowed once a handler until the turn
-  rule makes the relay behind; the 132 stated before took main to be slowed throughout); N tasks and a slow consumer only
+  consumer, 65; main, a relay and the consumer, 66 at the relay and 132 at the consumer (2 x 64 + 4: a relay that drains
+  on is behind or has main parked on it, so main stays parked until its mute, and it passes on only what it held, at
+  most 66; derived as 2 x 64 + 3, for a relay that has no posted messages of its own); N tasks and a slow consumer only
   they send to, max(64, N) + N, a task let go having every message it sent before started, so that it holds at most its
   last one queued and its next one parked. A message still on its way to the queue as its sender is let go (overtaken by
   posted messages) adds nothing: each bound counts a sender's one place on its way already. The header of
@@ -5125,7 +5125,7 @@ maxon's surface, on cowns, behaviours and green threads (`self/check/services.ma
   the shapes it is stated for, with no posted messages, which the interpreter does not run (the posted term is 0): a
   service that sends to none and that only tasks send to (the parts of a parallel loop among them), the larger of the
   turn and its tasks, plus one per task; a relay of one task to one service, the turn and 2; that relay's lone consumer,
-  two turns and 4, which for its turns of 1 to 4 lies above what the header proves. The interpreter lets a slowed sender
+  two turns and 4, the bound the header proves. The interpreter lets a slowed sender
   go by its mark as the runtime does. An oracle that fails is an internal
   error that names it, the seed of the schedule and the standard input, never a report of the program. `fuzz --services`
   runs the brute force of them (see "Tests").

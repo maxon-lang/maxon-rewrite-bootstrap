@@ -259,6 +259,9 @@ function finishBehaviour(mutates vm Vm, b Count) throws Halt
 			return
 		end 'kept'
 	end 'muted'
+	if service != 0 and isMessageOf(vm, b: b, service: service) 'message'
+		drainsBehind(vm.h.shareds[vm.h.oData[service]], turn: vm.turnLimit)
+	end 'message'
 	try releaseBehaviour(vm, b: b, service: service)
 end 'finishBehaviour'
 
